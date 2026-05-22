@@ -8,6 +8,7 @@ Production-ready Claude Code plugin for disciplined software engineering workflo
 - `coder` skill for general implementation workflow.
 - `refraktor` skill for Modular MVC + Service + Repository transformations.
 - `auditor` skill for read-only layer, coupling, and verification audits.
+- `deploy-docker` skill and guide for GitHub Actions → GHCR → VPS → Traefik deployments.
 - Focused agents for planning, implementation, and architecture review.
 - Bash and PowerShell installers for user-level or project-level installation.
 
@@ -20,6 +21,7 @@ Production-ready Claude Code plugin for disciplined software engineering workflo
 | `coder` | General coding workflow with planning, implementation, and verification discipline. |
 | `refraktor` | Modular MVC + Service + Repository refactor workflow migrated from the previous `codegraph-mapper` command. |
 | `auditor` | Read-only architecture and layer violation audit workflow. |
+| `deploy-docker` | Docker deploy workflow for GitHub Actions, GHCR, VPS, Docker Compose, and Traefik. |
 
 ### Agents
 
@@ -87,11 +89,16 @@ implement this feature with proper planning
 audit architecture and find fat controllers
 refractor src/modules/user to controller service repository
 cek struktur controller service repository
+setup deploy Docker GHCR VPS Traefik
 ```
+
+## Deploy guide
+
+See `docs/docker-ghcr-vps-traefik-deploy.md` for the general Docker deploy template covering GitHub Actions, GHCR, VPS, Docker Compose, Traefik labels, secrets, verification, and 404/502 debugging.
 
 ## Production checklist
 
-- Keep `skills/` and `agents/` committed and reviewed like source code.
+- Keep `skills/`, `agents/`, and `docs/` committed and reviewed like source code.
 - Run `./install.sh --dry-run` before installing into shared environments.
 - Use `./install.sh --project` for repository-specific workflows.
 - Use `./install.sh --link` only during local plugin development.
@@ -104,6 +111,7 @@ cek struktur controller service repository
 coder-workflow/
 ├── .claude-plugin/plugin.json
 ├── agents/
+├── docs/
 ├── skills/
 ├── install.sh
 ├── install.ps1
