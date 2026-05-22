@@ -1,23 +1,29 @@
 ---
-name: Architecture Auditor
+name: auditor
 description: This skill should be used when the user asks to "audit architecture", "review layer violations", "find fat controllers", "cek struktur controller service repository", "assess refactor risk", or wants a read-only review of coding workflow, Modular MVC layering, coupling, and verification gaps.
 version: 0.1.0
 allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*)
 ---
 
-Perform a read-only audit of code structure, layering, refactor risk, and verification readiness. Produce actionable findings with file paths and line numbers. Do not edit files from this skill unless the user switches explicitly from audit to implementation.
+Perform a read-only audit of code structure, layering, refactor risk, and verification readiness. Produce actionable findings with file paths and line numbers. If the user requests code modifications, instruct them to switch to a developer implementation skill.
 
 ## Audit workflow
 
 1. **Define scope**
    - Use the user-provided path, module, PR, or feature as the audit boundary.
    - If no scope is provided, inspect project entry points, route registration, module folders, and recent git changes.
-   - Prefer graph/code intelligence tools when available for dependency, caller/callee, route, or impact analysis.
+   - If the discovered scope exceeds 10 files or output context limits, halt the audit and ask the user to narrow the target path or focus on a specific module.
+   - Prefer using grep, glob, and find commands in your allowed tools to trace dependencies, caller/callee chains, and route structures.
 
 2. **Map architecture**
-   - Identify routes, controllers, services, repositories, schemas, shared infrastructure, and tests.
+   - Identify the most likely audit boundary first from the user prompt, then inspect only the smallest relevant slice of the codebase.
+   - Identify routes, controllers, services, repositories, schemas, shared infrastructure, and tests that are directly connected to that slice.
    - Note whether the project is feature-first (`modules/user/...`) or layer-first (`controllers/`, `services/`, `repositories/`).
    - Detect framework conventions before judging structure.
+   - Map the architecture and list paths first.
+   - If the discovered scope exceeds 10 files or output context limits, halt the audit and ask the user to narrow the target path or focus on a specific module.
+   - Stop after the map and ask the user to confirm the scope before any detailed violation scanning.
+   - Do not proceed to violation scanning until the scope is confirmed.
 
 3. **Find violations**
    - Controller performs ORM/SQL/database calls.
@@ -62,3 +68,9 @@ Return:
 ## Additional resources
 
 - `references/audit-checklist.md` contains a compact checklist for layer and workflow audits.
+
+## Execution guardrail
+
+- Keep the first pass limited to architecture mapping and scope confirmation.
+- Do not attempt detailed violation scanning until the scope is confirmed.
+- If scope remains broad or ambiguous, pause and request a narrower path instead of expanding analysis.

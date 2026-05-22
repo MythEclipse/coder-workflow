@@ -1,8 +1,8 @@
 ---
-name: Refraktor
+name: refraktor
 description: This skill should be used when the user asks to "refractor to Modular MVC", "refactor controller service repository", "pisahkan controller service repository", "rapikan arsitektur modular", "pindahkan logic dari controller", or mentions fat controllers, repositories, schemas, validation layers, or Modular MVC + Service + Repository architecture.
 version: 0.1.0
-argument-hint: [scope-optional]
+argument-hint: "[scope-optional]"
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*)
 ---
 
