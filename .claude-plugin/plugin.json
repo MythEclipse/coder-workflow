@@ -1,0 +1,18 @@
+{
+  "name": "coder-workflow",
+  "version": "0.1.0",
+  "description": "Workflow plugin for coding, planning, auditing, and Modular MVC + Service + Repository refactoring in Claude Code.",
+  "author": {
+    "name": "Asep Haryana",
+    "email": "asepharyana71@gmail.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "coding-workflow",
+    "planning",
+    "refactoring",
+    "modular-mvc",
+    "architecture-audit",
+    "service-repository"
+  ]
+}
