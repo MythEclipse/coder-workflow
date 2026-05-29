@@ -1,22 +1,37 @@
 ---
 name: refraktor
 description: Refactor codebases toward Modular MVC + Service + Repository architecture. Language-agnostic — works with TypeScript, JavaScript, Python, Go, Rust, Java, C#, PHP, Ruby, Kotlin, Swift, or any other stack. Trigger when the user asks to refactor to Modular MVC, separate Controller-Service-Repository layers, reorganize by feature/module, fix fat controllers, add schema validation, or migrate from flat layout.
-version: 0.2.0
+version: 0.3.0
 argument-hint: "[scope-optional]"
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git:*), Bash(*)
 ---
 
 Transform any codebase toward **Modular MVC + Service + Repository** architecture without changing existing functional behavior. Organize by feature/module, not by global technical layer. This skill adapts to any language, framework, ORM, or validation library.
 
-## Required planning
+## HARD GATE: Planning is mandatory
 
-For non-trivial refactors, enter Claude Code plan mode before editing. Use the plan to identify scope, affected files, migration order, validation commands, and rollback-safe checkpoints. Do not start moving files or rewriting imports until the user approves the approach.
+**Every refactor — no matter how small — must start with a written plan approved by the user.** There are no exceptions. Structural refactors are high-risk; moving files and rewriting imports without a plan causes breakage.
 
-Use focused implementation batches. Finish one module or one layer movement, verify it, then continue.
+The mandatory planning flow:
+
+1. **Enter plan mode** (`EnterPlanMode`) before any file edit, file move, or import rewrite.
+2. Inside plan mode, execute Phase 0 (stack detection) and Phase 1 (recon & violation detection).
+3. Write the plan to the plan file. The plan must include:
+   - Detected stack summary (language, framework, ORM, validation lib, test runner, linter, type checker, package manager).
+   - Architecture map before: current file topology with layer assignments and violation locations (`file:line`).
+   - Migration manifest: every `old path → new path` mapping proposed.
+   - Module migration order: which modules get refactored first, second, third, with rationale.
+   - Risk register: circular dependency risks, cross-module coupling hot spots, files with high fan-in.
+   - Verification commands: exact commands to run for typecheck, lint, and tests per batch.
+   - Batch plan: which files move in each batch, and verification gates between batches.
+4. **Present the plan to the user and wait for explicit approval** (`ExitPlanMode`).
+5. Only after approval, start editing files batch-by-batch with verification after each batch.
+
+**Never skip planning.** Even if the user says "just do it quickly" or "this is simple" — plan first. A five-minute plan prevents hour-long rollbacks.
 
 ## Phase 0: Stack detection
 
-Before any refactor, auto-detect the project stack and adapt all conventions accordingly:
+Detect the project stack automatically before any analysis. Adapt all conventions, file extensions, and commands to the detected stack:
 
 1. **Language**: identify from source files — TypeScript, JavaScript, Python, Go, Rust, Java, C#, PHP, Ruby, Kotlin, Swift, etc.
 2. **Framework**: Express, NestJS, FastAPI, Django, Flask, Gin, Echo, Actix, Spring Boot, Laravel, Rails, etc.
@@ -26,9 +41,9 @@ Before any refactor, auto-detect the project stack and adapt all conventions acc
 6. **Test runner**: jest, vitest, pytest, go test, cargo test, JUnit, phpunit, rspec, etc.
 7. **Linter/formatter**: biome, eslint, ruff, black, gofmt, clippy, checkstyle, php-cs-fixer, rubocop, etc.
 8. **Type checker** (if applicable): tsc, mypy, pyright, go build, cargo check, javac, etc.
-9. **File extensions**: detect from the project convention and use the same extensions for new files.
+9. **File extensions**: detect from project convention; use the same extensions for all new files.
 
-Map these to concrete commands per phase. When a tool category doesn't exist in the stack, skip it and note the gap.
+Map each category to a concrete command. When a category doesn't exist in the stack, skip it and note the gap in the plan.
 
 ## Target architecture contract
 
@@ -70,17 +85,18 @@ For languages that don't use files per class (e.g. Go package convention), group
 
 ## Workflow
 
-### Fase 1: Recon & detection
+### Fase 1: Recon & detection (inside plan mode)
 
-Before touching any code:
+Before touching any code, and before exiting plan mode:
 
 1. **Check git status** — the working tree should be clean or the user must confirm uncommitted changes.
-2. **Run the test suite** — must be all-green before starting. Detect the correct test command for the stack.
+2. **Run the full test suite** — must be all-green before starting. Use the detected test command.
 3. **Run type checker** (if applicable) — must be clean. Use the detected typecheck command.
-4. **Ensure graph data is fresh** — if `.codegraph/graph.db` exists, use `analyze-codegraph` for architecture overview and hotspots. If stale or missing, run `scan-codegraph` or note the gap.
-5. **If any gate fails**, stop and report the blocker. Do not proceed until resolved.
+4. **Run linter** — must be clean. Use the detected lint command.
+5. **Ensure graph data is fresh** — if `.codegraph/graph.db` exists, use `analyze-codegraph` for architecture overview, dependency mapping, and hotspots. If stale or missing, run `scan-codegraph`.
+6. **If any gate fails**, stop and report the blocker in the plan. Do not proceed until user resolves.
 
-Identify smells with `file:line` evidence:
+Identify every violation with `file:line` evidence:
 
 | Smell | Signature | Violating layer |
 |-------|-----------|-----------------|
@@ -93,7 +109,7 @@ Identify smells with `file:line` evidence:
 
 Record git-active files (`git status --short`) and prioritize them as the initial scope.
 
-Output: **Recon Report** — a table of violations per file with severity and proposed scope. User must approve scope before Phase 2.
+**Plan must include all seven items** (stack summary, architecture map before, migration manifest, module order, risk register, verification commands, batch plan). User must approve the plan before any file is edited.
 
 ### Fase 2: Stabilize shared infrastructure
 
@@ -105,17 +121,17 @@ Before touching any module, reorganize the shared layer:
 - Move generic middleware (auth guard, rate limiter, logger) → `shared/middleware/`
 - Move pure utility functions used by multiple modules → `shared/utils/`
 
-**Verification gate:**
+**Verification gate after each file move:**
 - `shared/` must never import from `modules/`.
-- Typecheck clean after each file move (if applicable).
-- Lint clean after each file move.
-- Tests passing after each file move.
+- Typecheck clean (if applicable).
+- Lint clean.
+- Tests passing.
 
 If any import violation or error appears, stop and fix before continuing.
 
 ### Fase 3: Migrate module-by-module
 
-For each feature module (user, auth, product, order, payment, etc.), follow this extraction order:
+For each feature module (user, auth, product, order, payment, etc.), follow the safe extraction order:
 
 #### Route file
 - Only endpoint declarations (HTTP method + path → controller method).
@@ -160,14 +176,14 @@ After completing each module, run full verification:
 4. **Full test suite**: detected test command — must be all-green.
 5. **Impact check**: `analyze-codegraph` to verify no unexpected broken callers.
 
-If any new failure appears → stop, fix it, then continue to the next module.
+**If any new failure appears → stop, fix it, then continue to the next module. Never proceed with failing gates.**
 
 ### Fase 5: Output & summary
 
 After the full scope is complete, produce:
 
-1. **Architecture map before** — files with layer violations detected.
-2. **Migration manifest** — `old path → new path` table for every moved file.
+1. **Architecture map before** — files with layer violations detected (from the plan).
+2. **Migration manifest** — `old path → new path` table for every file moved (actual, compared to plan).
 3. **Violation summary** — what was fixed per violation type.
 4. **Verification results** — typecheck, lint, test outcomes post-refactor.
 5. **Residual items** — areas intentionally deferred with reasons.
@@ -175,6 +191,7 @@ After the full scope is complete, produce:
 
 ## Safety rules (non-negotiable)
 
+- **Plan first. Never edit without an approved plan.**
 - **Preserve behavior; refactor structure, not logic.**
 - **Do not use `git reset --hard`, `git checkout --`, or mass delete without explicit user approval.**
 - **Do not add new features during refactor** unless the user requests them.
