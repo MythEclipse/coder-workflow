@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Unified installer for coder-workflow Claude Code plugin.
-# Installs: skills, agents, commands, hooks + builds TypeScript CLI + MCP server + global install.
+# Installs: skills, agents, commands, hooks (+ hooks/scripts guard scripts) + builds TypeScript CLI + MCP server + global install.
 # Usage: ./install.sh [--project] [--link] [--dry-run] [--mcp-only] [--skills-only] [--agents-only] [--hooks-only] [--commands-only] [<component>...]
 
 PLUGIN_SRC=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -80,6 +80,16 @@ done
 if [ "$(( SKILLS_ONLY + AGENTS_ONLY + HOOKS_ONLY + COMMANDS_ONLY ))" -gt 1 ]; then
   echo "error: only one of --skills-only, --agents-only, --hooks-only, --commands-only allowed" >&2
   exit 1
+fi
+
+# Dependency check: jq is required by hook guard scripts.
+# Emit a warning rather than a hard error — the plugin still works without it,
+# but rm-guard.sh / force-push-guard.sh / env-write-guard.sh will be no-ops.
+if ! command -v jq &>/dev/null; then
+  echo -e "${YELLOW}warning: jq not found on PATH.${NC}"
+  echo -e "${YELLOW}  The hook guard scripts (rm-guard, force-push-guard, env-write-guard)${NC}"
+  echo -e "${YELLOW}  require jq to parse Claude Code's hook JSON input.${NC}"
+  echo -e "${YELLOW}  Install jq (https://jqlang.org) for full hook functionality.${NC}"
 fi
 
 if $PROJECT; then
@@ -249,6 +259,33 @@ if $MCP_ONLY; then
   exit 0
 fi
 
+# --- Link entire plugin root for development ---
+if $LINK && ! $PROJECT && [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 && ${#COMPONENTS[@]} -eq 0 ]]; then
+  echo -e "${BLUE}Linking entire plugin directory to Claude Code skills...${NC}"
+  run rm -rf "$DEST"
+  run mkdir -p "$(dirname "$DEST")"
+  run ln -s "$PLUGIN_SRC" "$DEST"
+  if $DRY_RUN; then
+    echo "would link $PLUGIN_SRC -> $DEST"
+  else
+    echo -e "${GREEN}✓${NC} linked $PLUGIN_SRC -> $DEST"
+  fi
+  # Guarantee execute bit on source guard scripts
+  if [[ -d "$PLUGIN_SRC/hooks/scripts" ]] && ! $DRY_RUN; then
+    chmod +x "$PLUGIN_SRC"/hooks/scripts/*.sh 2>/dev/null && \
+      echo -e "${GREEN}✓${NC} source hook scripts are executable" || true
+  elif $DRY_RUN; then
+    echo "dry-run: chmod +x $PLUGIN_SRC/hooks/scripts/*.sh"
+  fi
+
+  # Build & install MCP config
+  install_mcp
+
+  echo ""
+  echo -e "${GREEN}Installation complete! (Whole repository linked for development)${NC}"
+  exit 0
+fi
+
 # --- Plugin files installation ---
 if [[ $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
   install_dir_items "$PLUGIN_SRC/skills" "skills"
@@ -260,6 +297,14 @@ fi
 
 if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
   install_dir_items "$PLUGIN_SRC/hooks" "hooks"
+  # Guarantee execute bit on guard scripts — cp -a preserves permissions, but
+  # some environments (NFS, restrictive umask, certain CI runners) strip them.
+  if [[ -d "$DEST/hooks/scripts" ]] && ! $DRY_RUN; then
+    chmod +x "$DEST"/hooks/scripts/*.sh 2>/dev/null && \
+      echo -e "${GREEN}✓${NC} hook scripts are executable" || true
+  elif $DRY_RUN; then
+    echo "dry-run: chmod +x $DEST/hooks/scripts/*.sh"
+  fi
 fi
 
 if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 ]]; then
@@ -281,23 +326,41 @@ install_mcp
 echo ""
 echo -e "${GREEN}Installation complete!${NC}"
 echo ""
-echo -e "${BLUE}Next steps:${NC}"
-echo "1. Restart Claude Code"
-echo "2. CodeGraph MCP tools should now be available in all projects"
-echo "3. Coding workflow is auto-triggered via SessionStart hook"
-echo "4. Try asking: 'implement a user auth endpoint' or 'where is scanCodebase implemented?'"
-echo ""
-echo -e "${BLUE}Configuration details:${NC}"
+echo -e "${BLUE}Configuration:${NC}"
 if $PROJECT; then
-  echo "  Scope: project-local (.mcp.json + ./.claude/)"
+  echo "  Scope:   project-local (.mcp.json + ./.claude/)"
 else
-  echo "  Scope: user (~/.claude/skills/coder-workflow + ~/.claude.json) - available in all projects"
+  echo "  Scope:   user (~/.claude/skills/coder-workflow + ~/.claude.json)"
 fi
-echo "  MCP Server: codegraph"
-echo "  Transport: stdio"
-echo "  Command: coder-workflow mcp"
+echo "  MCP:     codegraph (stdio) → coder-workflow mcp"
+echo "  CLI:     $(command -v coder-workflow 2>/dev/null || echo 'not on PATH — re-run install or add npm global bin to PATH')"
 echo ""
-echo -e "${BLUE}To verify MCP is working:${NC}"
-echo "  coder-workflow mcp"
-echo "  (Press Ctrl+C to stop)"
+echo -e "${BLUE}Active hooks (36 entries across 15 events):${NC}"
+echo "  SessionStart   startup  → banner + graph status + async auto-scan"
+echo "  SessionStart   resume   → graph age check + task-state reminder"
+echo "  SessionStart   compact  → re-orientation notice"
+echo "  SessionStart   clear    → session log cleanup"
+echo "  PreToolUse     Bash     → rm-guard (blocks rm -rf /) + force-push-guard (blocks --force to main)"
+echo "  PreToolUse     Bash     → git reset --hard warn + destructive SQL warn"
+echo "  PreToolUse     Write    → env-write-guard (warns if .env* not gitignored)"
+echo "  PostToolUse    Write/*  → bug tracking reminder + async graph update"
+echo "  PostToolUse    Bash     → package install notice + commit log + test log"
+echo "  PostToolUse    codegraph MCP → graph op log"
+echo "  PostToolUseFailure *    → async failure log"
+echo "  PostToolBatch           → async batch size log"
+echo "  Stop                   → verification checklist + async graph update"
+echo "  StopFailure    *       → rate-limit / token / server error guidance"
+echo "  FileChanged    *       → package, .env, CLAUDE.md, hooks.json, tsconfig, .mcp.json watchers"
+echo "  CwdChanged             → directory change + CodeGraph availability"
+echo "  PostCompact    *       → re-orientation after compaction"
+echo "  SubagentStart/Stop *   → async agent lifecycle log"
+echo "  TaskCreated/Completed  → echo + async log"
+echo "  InstructionsLoaded *   → async CLAUDE.md load log"
+echo "  ConfigChange   *       → config source log"
+echo "  SessionEnd     *       → session summary + log cleanup"
+echo ""
+echo -e "${BLUE}Next steps:${NC}"
+echo "1. Restart Claude Code (or run /reload-plugins)"
+echo "2. Start any coding task — /coder-workflow:coder-orchestrator is your entry point"
+echo "3. To verify MCP: coder-workflow mcp  (Ctrl+C to stop)"
 echo ""
