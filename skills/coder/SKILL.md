@@ -13,6 +13,10 @@ Use Claude Code built-in plan mode before non-trivial work: new features, archit
 
 In plan mode, inspect the relevant code, identify the target files, define the implementation sequence, list verification commands, and request approval before editing.
 
+## Task tracking
+
+Use `TaskCreate`/`TaskUpdate` to track workflow progress so Claude Code does not flag the session as idle. Create a task for each major workflow phase at the start of work, mark it `in_progress` before beginning, and `completed` when done. For multi-step tasks, create sub-tasks or update the description as scope becomes clearer. Delete stale tasks when they are no longer relevant.
+
 ## Default workflow
 
 1. **Clarify the task**
