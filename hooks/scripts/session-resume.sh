@@ -2,6 +2,10 @@
 # session-resume.sh — printed when resuming an existing session
 set -euo pipefail
 
+# Save stdout to descriptor 3, and redirect stdout to stderr
+exec 3>&1
+exec 1>&2
+
 Y='\033[33m'
 G='\033[32m'
 C='\033[36m'
@@ -22,13 +26,17 @@ if [ -f "$DB" ]; then
 
   if [ "$AGE_MINS" -gt 60 ]; then
     printf "${Y}  ⚠  CodeGraph DB is ${AGE_MINS}m old — stale. Refresh before deep analysis:${R}\n"
-    printf "${Y}     scan_codebase MCP${R}\n"
+    printf "${Y}     /coder-workflow:scan-codegraph${R}\n"
   else
     printf "${G}  ✔  CodeGraph DB is ${AGE_MINS}m old — recent${R}\n"
   fi
 else
   printf "${Y}  ✘  No .codegraph/graph.db. Graph tools unavailable until you run:${R}\n"
-  printf "${Y}     scan_codebase MCP${R}\n"
+  printf "${Y}     /coder-workflow:setup-codegraph${R}\n"
 fi
 
 printf "${Y}  →  Re-read active task state before next action. All bugs must be tracked.${R}\n"
+
+# Restore stdout and return hookSpecificOutput JSON
+exec 1>&3
+printf "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"[MANDATORY LOAD RULE]\\\\nYou are coder-workflow, an orchestrator-driven coding engine.\\\\n\\\\nUpon session resume, you MUST immediately load and invoke the 'coder-orchestrator' skill (Namespace: /coder-workflow:coder-orchestrator) before taking any other action or responding. This skill dictates how to plan, audit, refactor, and implement coding tasks. Do not attempt to run tools or answer without /coder-workflow:coder-orchestrator loaded.\\\\n\\\\nViolating this rule is strictly prohibited.\"}}\n"
