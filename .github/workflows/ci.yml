@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'coder-workflow/**'
+      - '.github/workflows/coder-workflow-ci.yml'
+  pull_request:
+    paths:
+      - 'coder-workflow/**'
+      - '.github/workflows/coder-workflow-ci.yml'
+
+defaults:
+  run:
+    working-directory: coder-workflow
+
+jobs:
+  validate:
+    name: Validate Plugin Structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check plugin.json
+        run: node -e "const p=require('./.claude-plugin/plugin.json'); console.log('Plugin:', p.name, 'v'+p.version); assert(p.name && p.description && p.version)"
+      - name: Check required directories
+        run: |
+          for d in skills agents commands hooks; do
+            [ -d "$d" ] && echo "✓ $d/ exists" || (echo "✗ $d/ missing" && exit 1)
+          done
+      - name: Check hooks.json
+        run: node -e "const h=require('./hooks/hooks.json'); ['SessionStart','PostToolUse','Stop'].forEach(k => { if (!h.hooks[k]) throw new Error(k + ' hook missing') }); console.log('✓ All hooks present')"
+
+  test:
+    name: Skill Trigger Tests
+    runs-on: ubuntu-latest
+    needs: [validate]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run skill trigger tests
+        run: node --test test/skill-triggers.test.mjs
+
+  check-references:
+    name: Check Skill References
+    runs-on: ubuntu-latest
+    needs: [validate]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify SKILL.md references exist
+        run: |
+          for skill_dir in skills/*/; do
+            skill_name=$(basename "$skill_dir")
+            if [ -f "$skill_dir/SKILL.md" ]; then
+              # Extract referenced files from SKILL.md
+              refs=$(grep -oP 'references/\S+\.md' "$skill_dir/SKILL.md" 2>/dev/null || true)
+              for ref in $refs; do
+                if [ ! -f "$skill_dir/$ref" ]; then
+                  echo "✗ Missing reference: $skill_dir/$ref"
+                  exit 1
+                fi
+                echo "✓ Found: $skill_dir/$ref"
+              done
+            fi
+          done
+          echo "✓ All referenced files exist"
