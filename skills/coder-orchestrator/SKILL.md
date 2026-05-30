@@ -147,6 +147,23 @@ controller (YOU)
 - **NEVER** skip reviews — spec compliance THEN code quality, in that order
 - **NEVER** dispatch multiple implementers in parallel (conflicts)
 - **NEVER** make sub-agent read plan file — provide FULL task text directly
+- **NEVER** use the built-in Explore agent — use codegraph-orchestrator + MCP tools instead
+
+### Explore Agent — BANNED
+
+**The built-in `Explore` agent is FORBIDDEN for all coding sessions.** Every exploration must go through codegraph MCP tools via `codegraph-orchestrator`:
+
+| Instead of Explore agent | Use codegraph MCP |
+|---|---|
+| Explore: "find database schema" | `mcp__codegraph__query_graph` + `mcp__codegraph__read_file` |
+| Explore: "search for routes" | `mcp__codegraph__query_graph` (query: "routes" or "handler") |
+| Explore: "trace call chain" | `mcp__codegraph__analyze_impact` |
+| Explore: "find all imports of X" | `mcp__codegraph__query_graph` (def/references) |
+| Explore: "map architecture" | `mcp__codegraph__summarize_architecture` |
+| Explore: "find cycles" | `mcp__codegraph__find_cycles` |
+| Explore: "search for TODO/FIXME text" | `mcp__codegraph__search_code` |
+
+**Why:** Explore agent burns tokens reading files without graph context. CodeGraph MCP gives precise answers — file paths, symbols, edges — before any file read. Graph before grep. Graph before find. Graph before Explore. **Always query graph first.**
 - **NEVER** pause between tasks to ask "should I continue?" — execute continuously
 - **NEVER** accept "close enough" on spec compliance
 - **NEVER** skip review loops — reviewer found issues = fix = review again
@@ -170,12 +187,15 @@ These thoughts mean STOP — you're rationalizing:
 | "I know what to do" | Knowing ≠ following workflow. Invoke the skill. |
 | "Not related to my changes" | If you see a bug, you own it. Track and fix it. |
 | "Pre-existing, skipping" | Create task, fix in Bug Fix Phase. |
+| "Let me use Explore to find..." | FORBIDDEN. Use codegraph MCP: query_graph, search_code, analyze_impact. |
+| Using Explore agent for code search | Use `mcp__codegraph__query_graph` or `mcp__codegraph__search_code` instead. |
+| Dispatching Explore subagent | Dispatch general-purpose agent with codegraph MCP tools instead. |
 
 ## Core Mandates
 
 1. **Tasks before tools.** Every coding request MUST be decomposed into tracked tasks via `TaskCreate`.
 2. **Skills before guesses.** Always route to the appropriate skill — never implement ad-hoc.
-3. **MCP before grep.** Use codegraph MCP tools for code search (via codegraph-orchestrator). Use context7 MCP for docs.
+3. **MCP before Explore.** Use codegraph MCP tools for all codebase exploration. NEVER use the built-in Explore agent. Graph before grep. Graph before find. Graph before Explore.
 4. **Context7 before assumptions.** Never guess framework/API behavior — query docs first.
 5. **Never give up.** If stuck, decompose further, research more, ask clarifying questions.
 6. **Fix every discovered bug.** Never skip as "not related to my changes." Create task, fix in Bug Fix Phase.

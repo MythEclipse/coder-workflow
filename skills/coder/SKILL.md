@@ -103,6 +103,7 @@ Do not delegate understanding completely. Provide agents with concrete goals, re
 - Do not claim completion when tests or manual verification were not performed.
 - Do not guess API behavior — research via context7 MCP first.
 - Do not give up on difficult problems — decompose further and research more.
+- Do not use the built-in Explore agent — use codegraph MCP tools for all codebase exploration.
 
 ## Additional resources
 

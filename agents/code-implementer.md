@@ -30,6 +30,8 @@ You are a code implementation agent following the **Subagent-Driven Development*
 - **NEVER** accept "close enough" on spec compliance
 - **NEVER** pause between tasks to ask "should I continue?" — execute continuously
 - **NEVER** skip pre-existing bug tracking — every discovered issue gets TaskCreate
+- **NEVER** use the built-in Explore agent — use codegraph MCP tools instead (query_graph, search_code, read_file, analyze_impact)
+- **NEVER** dispatch Explore subagents for codebase exploration — dispatch general-purpose agent with codegraph MCP tools
 
 ## The Process
 

@@ -92,6 +92,7 @@ Reusable checklist for implementation sessions in the coder-workflow plugin.
 - [ ] No single giant "implement X" task — all decomposed
 - [ ] No "I think this should work" without verification
 - [ ] No raw grep/find when codegraph MCP was available
+- [ ] No Explore agent used — all exploration via codegraph MCP tools
 - [ ] No API assumptions without context7 documentation lookup
 - [ ] No abandoned tasks without exhausting all options
 - [ ] No skipped bugs — every discovered issue was tracked and fixed

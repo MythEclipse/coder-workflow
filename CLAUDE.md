@@ -17,6 +17,8 @@ Two orchestrators work together — they are complementary, not conflicting:
 
 **Always load both.** `coder-orchestrator` is the main entry point for any coding request. It ALWAYS invokes `codegraph-orchestrator` immediately after for efficient codebase exploration (graph before grep, query before read, analyze before edit).
 
+**BANNED: The built-in `Explore` agent.** ALL codebase exploration MUST use codegraph MCP tools via `codegraph-orchestrator`. `mcp__codegraph__query_graph` for definitions/references/callers. `mcp__codegraph__search_code` for text search. `mcp__codegraph__analyze_impact` for impact analysis. `mcp__codegraph__read_file` for file content. Never dispatch an Explore agent when codegraph MCP tools can answer.
+
 ## Orchestrator Usage (Required)
 
 - **Always trigger `coder-orchestrator`** at session start for any coding task — features, bugs, refactors, reviews, deployments.
