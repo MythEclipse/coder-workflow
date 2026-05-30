@@ -4,9 +4,25 @@ description: Route all coding work through aggressive task decomposition, skill-
 version: 0.1.0
 ---
 
-# Coder Orchestrator
+# Coder Orchestrator — MAIN ENTRY POINT
 
-Route every coding request through disciplined task decomposition, skill-first routing, and persistent execution. The orchestrator is the central brain for every coding session.
+**This is the primary orchestrator for ALL coding sessions.** It is NOT an optional skill — it is the central brain that always activates at session start and routes every coding request through disciplined task decomposition, skill-first routing, and persistent execution.
+
+## What this orchestrator IS
+
+- **The MAIN entry point** — always triggers at the beginning of any coding session
+- **The ROUTER** — decides which skill handles each task (coder, auditor, refraktor, deploy-docker)
+- **The COORDINATOR** — invokes sub-agents in fixed sequence (workflow-planner → architecture-auditor → code-implementer → architecture-auditor)
+- **The ENFORCER** — ensures task tracking, bug discovery, research-first, and verification
+
+## What this orchestrator is NOT
+
+- ❌ NOT an optional skill you need to call manually
+- ❌ NOT a separate agent that runs in parallel
+- ❌ NOT a skill for specific tasks (like "fix bug" or "add feature")
+- ❌ NOT something you skip to "save time"
+
+**The orchestrator IS the session.** Every coding request flows through it automatically.
 
 ## Core Rules
 
