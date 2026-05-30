@@ -101,21 +101,57 @@ After this orchestrator AND codegraph-orchestrator are invoked, check which sub-
 
 **If multiple skills apply — invoke ALL of them in dependency order.**
 
-## Agent Coordination
+## Agent Coordination (Superpowers Subagent Pattern)
 
-After skills are invoked, use sub-agents for larger work:
+After skills are invoked, use sub-agents following the **Subagent-Driven Development** pattern:
 
-| Agent | When to invoke |
-|-------|---------------|
-| `workflow-planner` | ANY unclear scope, multi-file work, or decomposition needed |
-| `architecture-auditor` | ANY architecture review, layer violation check, refactor risk |
-| `code-implementer` | After a plan exists, for scoped implementation |
+**Core principle: Fresh sub-agent per task + two-stage review = high quality, fast iteration.**
 
-**Minimum agent sequence for every coding session:**
+### The Dispatch Sequence
 
 ```
-workflow-planner (decompose) → architecture-auditor (pre-audit) → code-implementer (implement) → architecture-auditor (post-verify)
+controller (YOU)
+├── Extract ALL tasks from workflow-planner output
+├── FOR EACH task (in dependency order):
+│   ├── Dispatch FRESH implementer sub-agent (full task text + context)
+│   ├── Handle status: DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT
+│   ├── Dispatch FRESH spec review sub-agent (verify vs requirements)
+│   ├── Handle: ✅ approved → proceed | ❌ issues → implementer fixes → re-review
+│   ├── Dispatch FRESH code quality sub-agent (verify quality)
+│   ├── Handle: ✅ approved → mark complete | ❌ issues → implementer fixes → re-review
+│   └── Track ALL discovered bugs as TaskCreate
+├── Bug Fix Phase: fix all High/Medium bugs
+└── Final code review + mark session complete
 ```
+
+### Model Selection
+
+| Task Complexity | Model |
+|----------------|-------|
+| Mechanical (1-2 files, clear spec) | inherit (default) |
+| Integration (multi-file, coordination) | inherit (default) |
+| Review (architecture, quality, spec) | inherit (default) |
+
+### Status Handling
+
+| Agent reports | Controller action |
+|---------------|------------------|
+| DONE | Proceed to spec compliance review |
+| DONE_WITH_CONCERNS | Read concerns → address if correctness/scope → proceed to review |
+| NEEDS_CONTEXT | Provide missing context → re-dispatch same task same agent |
+| BLOCKED | Assess: context problem → re-dispatch; too large → split; plan wrong → re-plan |
+
+### Rules (From Superpowers)
+
+- **NEVER** reuse sub-agents — FRESH agent per task, FRESH context
+- **NEVER** skip reviews — spec compliance THEN code quality, in that order
+- **NEVER** dispatch multiple implementers in parallel (conflicts)
+- **NEVER** make sub-agent read plan file — provide FULL task text directly
+- **NEVER** pause between tasks to ask "should I continue?" — execute continuously
+- **NEVER** accept "close enough" on spec compliance
+- **NEVER** skip review loops — reviewer found issues = fix = review again
+- **CONTROLLER** provides curated context, full task text, file targets, verification commands
+- **SUB-AGENTS** ask questions BEFORE starting, not during
 
 ## Red Flags
 
