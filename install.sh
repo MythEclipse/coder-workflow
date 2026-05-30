@@ -4,10 +4,14 @@ set -euo pipefail
 # Installer for the coder-workflow Claude Code plugin components.
 # Usage: ./install.sh [--project] [--link] [--dry-run] [--skills-only] [--agents-only] [--hooks-only] [--commands-only] [<component>...]
 
-PLUGIN_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-DEST="${HOME}/.claude"
+PLUGIN_SRC=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+# Default: install as user-wide plugin (~/.claude/plugins/coder-workflow/)
+# --project: install into ./.claude/ for current project
+DEST=""
 LINK=false
 DRY_RUN=false
+PROJECT=false
 SKILLS_ONLY=0
 AGENTS_ONLY=0
 HOOKS_ONLY=0
@@ -19,25 +23,30 @@ usage() {
 Usage: ./install.sh [options] [component...]
 
 Options:
-  --project        Install into ./.claude for the current project instead of ~/.claude
+  --project        Install into ./.claude for the current project instead of ~/.claude/plugins
   --link           Symlink components instead of copying them
   --dry-run        Print planned actions without changing files
   --skills-only    Install only skills
   --agents-only    Install only agents
-  --hooks-only     Install only hooks (merges with existing hooks.json)
+  --hooks-only     Install only hooks
   --commands-only  Install only commands
   -h, --help       Show this help
 
 Components:
   Optional component names to install. Examples: coder, refraktor, auditor,
   workflow-planner, code-implementer, architecture-auditor, coder-orchestrator.
+
+Default (no --project):
+  Installs to ~/.claude/plugins/coder-workflow/ so Claude Code auto-discovers
+  this as a plugin. Each plugin has its own hooks/hooks.json — no conflicts
+  with other plugins. Claude Code merges all plugin hooks at runtime.
 USAGE
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project)
-      DEST="$(pwd)/.claude"; shift ;;
+      PROJECT=true; shift ;;
     --link)
       LINK=true; shift ;;
     --dry-run)
@@ -60,6 +69,12 @@ done
 if [ "$(( SKILLS_ONLY + AGENTS_ONLY + HOOKS_ONLY + COMMANDS_ONLY ))" -gt 1 ]; then
   echo "error: only one of --skills-only, --agents-only, --hooks-only, --commands-only allowed" >&2
   exit 1
+fi
+
+if $PROJECT; then
+  DEST="$(pwd)/.claude"
+else
+  DEST="${HOME}/.claude/plugins/coder-workflow"
 fi
 
 contains_component() {
@@ -129,94 +144,25 @@ install_dir_items() {
   done
 }
 
-# Merge hooks.json: appends new hooks from this plugin into existing hooks.json
-# instead of overwriting. Each hook event (SessionStart, PostToolUse, Stop) has
-# its array extended with new entries. Deduplicates by description.
-merge_hooks() {
-  local src_hooks="$PLUGIN_ROOT/hooks/hooks.json"
-  local dest_hooks="$DEST/hooks/hooks.json"
-  [[ -f "$src_hooks" ]] || return 0
-
-  # If no existing hooks, just copy
-  if [[ ! -f "$dest_hooks" ]]; then
-    run mkdir -p "$DEST/hooks"
-    if $LINK; then
-      run ln -s "$src_hooks" "$dest_hooks"
-      echo "linked hooks: $src_hooks -> $dest_hooks"
-    else
-      run cp -a "$src_hooks" "$dest_hooks"
-      echo "installed hooks: $src_hooks -> $dest_hooks"
-    fi
-    return 0
-  fi
-
-  # If jq is available, merge properly
-  if command -v jq &> /dev/null; then
-    if $DRY_RUN; then
-      printf 'dry-run: jq merge hooks %s -> %s\n' "$src_hooks" "$dest_hooks"
-      return 0
-    fi
-
-    local merged
-    merged=$(jq -s '
-      # Reduce all inputs into first (existing) object
-      reduce .[1:][] as $new (.[0];
-        . as $existing |
-        $new | to_entries | reduce .[] as $entry (
-          $existing;
-          if $entry.key == "hooks" then
-            # Merge hooks by event type
-            .hooks as $ehooks |
-            $entry.value | to_entries | reduce .[] as $hevent (
-              $existing;
-              .hooks[$hevent.key] = (
-                (($ehooks[$hevent.key] // []) + $hevent.value) | unique_by(.description // .)
-              )
-            )
-          elif $entry.key == "description" then
-            # Combine descriptions
-            .description = ((.description // "") + "; " + $entry.value)
-          else
-            .[$entry.key] = $entry.value
-          end
-        )
-      )
-    ' "$dest_hooks" "$src_hooks")
-
-    echo "$merged" > "$dest_hooks"
-    echo "merged hooks: $src_hooks -> $dest_hooks"
-  else
-    # Fallback without jq: append a warning
-    echo "WARNING: jq not found — hooks will be appended, not merged" >&2
-    echo "Install jq for proper hook merging: sudo apt install jq / brew install jq" >&2
-    if $DRY_RUN; then
-      printf 'dry-run: append hooks (jq unavailable)\n'
-    else
-      # Backup existing, then use source hooks (user should merge manually)
-      cp "$dest_hooks" "${dest_hooks}.backup"
-      echo "Backed up existing hooks to ${dest_hooks}.backup" >&2
-      # Copy source hooks — user can manually merge from backup
-      cp -a "$src_hooks" "$dest_hooks"
-      echo "installed hooks: $src_hooks -> $dest_hooks (existing backed up)" >&2
-    fi
-  fi
-}
-
 if [[ $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
-  install_dir_items "$PLUGIN_ROOT/skills" "skills"
+  install_dir_items "$PLUGIN_SRC/skills" "skills"
 fi
 
 if [[ $SKILLS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
-  install_dir_items "$PLUGIN_ROOT/agents" "agents"
+  install_dir_items "$PLUGIN_SRC/agents" "agents"
 fi
 
 if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
-  merge_hooks
+  install_dir_items "$PLUGIN_SRC/hooks" "hooks"
 fi
 
 if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 ]]; then
-  install_dir_items "$PLUGIN_ROOT/commands" "commands"
+  install_dir_items "$PLUGIN_SRC/commands" "commands"
 fi
 
 echo "Install complete: $DEST"
+if ! $PROJECT; then
+  echo "Installed as plugin — Claude Code will auto-discover hooks from: $DEST/hooks/hooks.json"
+  echo "Hooks from all plugins are merged at runtime. No conflicts."
+fi
 echo "Restart Claude Code or run /reload."
