@@ -160,6 +160,11 @@ if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 ]]; then
   install_dir_items "$PLUGIN_SRC/commands" "commands"
 fi
 
+# Install plugin.json so Claude Code recognizes this as a plugin
+if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]] && ! $PROJECT; then
+  install_item "$PLUGIN_SRC/.claude-plugin/plugin.json" "$DEST/.claude-plugin/plugin.json"
+fi
+
 echo "Install complete: $DEST"
 if ! $PROJECT; then
   echo "Installed as plugin — Claude Code will auto-discover hooks from: $DEST/hooks/hooks.json"
