@@ -14,7 +14,7 @@ Trigger the coder-orchestrator skill. Every coding request flows through:
 5. **Bug Fix Phase** → ALL discovered bugs are fixed before session ends
 
 **Core rules:**
-- Tasks before tools — TaskCreate for everything
+- Tasks before tools — Run `TaskCreate` + `TaskUpdate` to create an initial task (e.g. 'Explore codebase') before running any other tools.
 - Skills before guesses — always route to appropriate skill
 - MCP before grep — use codegraph/context7 MCP first
 - Context7 before assumptions — never guess API behavior

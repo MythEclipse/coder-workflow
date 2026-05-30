@@ -114,6 +114,7 @@ Hooks are defined in `hooks/hooks.json` and companion scripts in `hooks/scripts/
 ## Orchestrator Usage (Required)
 
 - **Always trigger `coder-orchestrator`** at session start for any coding task — features, bugs, refactors, reviews, deployments.
+- **Always run `TaskCreate` + `TaskUpdate` first**: Before using any search or file-reading tools for initial exploration or planning, you MUST first run `TaskCreate` to create an initial task (e.g., 'Explore codebase and plan implementation') and mark it `in_progress` via `TaskUpdate`. This prevents task tool usage warnings.
 - **Always invoke `codegraph-orchestrator`** immediately after — provides efficient search/exploration patterns via MCP tools.
 - The coding orchestrator routes work through a fixed agent sequence: `workflow-planner` → `architecture-auditor` → `code-implementer` → `architecture-auditor` (post-verify).
 - Every coding session uses right-sized agents: simple tasks execute directly, complex tasks use full agent chain. Scale to complexity, not ceremony.
@@ -175,7 +176,7 @@ claude --plugin-dir /mnt/code/djnaidwhbwda/coder-workflow
 
 ## Workflow Philosophy
 
-1. **Tasks before tools** — every request decomposed into tracked tasks
+1. **Tasks before tools** — Before running ANY other tools (such as Grep, ViewFile, run_command, or CodeGraph MCP tools) at the start of a session or when receiving a new task, you MUST first run `TaskCreate` to initialize workflow tracking. Create an initial task (e.g., 'Explore and research codebase' or 'Plan implementation and explore files') and set it to `in_progress` immediately using `TaskUpdate`. This prevents warnings about task tools not being used.
 2. **Skills before guesses** — always route to appropriate skill
 3. **MCP before grep** — use codegraph/context7 MCP tools first
 4. **Context7 before assumptions** — never guess API behavior

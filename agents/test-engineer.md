@@ -1,7 +1,7 @@
 ---
 name: test-engineer
 description: Use this agent when tests need to be written, coverage gaps detected, or test strategy is unclear. Generates test scaffolding, detects untested code paths, and ensures verification gates have meaningful test coverage.
-model: inherit
+model: haiku
 color: purple
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash"]
 ---

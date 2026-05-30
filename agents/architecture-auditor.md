@@ -1,7 +1,7 @@
 ---
 name: architecture-auditor
 description: Use this agent for read-only architecture and layer violation audits. Triggers on "audit architecture", "review layer violations", "find fat controllers", "cek struktur controller service repository", "assess refactor risk". Uses codegraph MCP tools first, produces comprehensive findings with file:line evidence.
-model: inherit
+model: haiku
 color: orange
 tools: ["Read", "Grep", "Glob"]
 ---

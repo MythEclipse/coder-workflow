@@ -1,7 +1,7 @@
 ---
 name: codegraph-analyst
 description: Use this agent before broad grep/search, Explore agents, Bash find/grep, or repeated file reads when analyzing CodeGraph Mapper graph data for architecture, impact, dependency risk, cycles, orphan files, coupling hotspots, references, dependencies, callers/callees, routes, components, or execution flow. Typical triggers include PR impact review, refactor planning, debugging a flow, architecture summarization, and any multi-file relationship question that can be answered from `.codegraph/graph.db`.
-model: inherit
+model: haiku
 color: cyan
 tools: ["Read", "Grep", "Glob"]
 ---

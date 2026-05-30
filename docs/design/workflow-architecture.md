@@ -4,7 +4,7 @@
 
 Coder Workflow is built on six core principles:
 
-1. **Tasks before tools** — Every piece of work is tracked via TaskCreate/TaskUpdate
+1. **Tasks before tools** — Run `TaskCreate` + `TaskUpdate` to create an initial task (e.g. 'Explore codebase') before running any other tools.
 2. **Skills before guesses** — Always route to the appropriate skill, never implement ad-hoc
 3. **MCP before grep** — Use codegraph/context7 MCP tools before raw search
 4. **Context7 before assumptions** — Never guess framework/API behavior, query docs first

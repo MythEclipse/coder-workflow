@@ -1,7 +1,7 @@
 ---
 name: codegraph-builder
 description: Use this agent before broad codebase search, Explore agents, Bash find/grep, or architecture exploration when building, refreshing, repairing, or validating CodeGraph Mapper graph data. Typical triggers include scanning a repository, indexing files and symbols, preparing graph data before query/impact analysis, incrementally updating `.codegraph/graph.db` after changes, and debugging parser coverage for JS/TS, Python, Go, Rust, or Java.
-model: inherit
+model: haiku
 color: blue
 tools: ["Read", "Write", "Bash", "Grep", "Glob"]
 ---

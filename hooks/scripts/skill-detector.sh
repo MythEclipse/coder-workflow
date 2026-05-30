@@ -1,0 +1,395 @@
+#!/usr/bin/env bash
+# skill-detector.sh — detect prompt intent and emit systemMessage for Claude Code skill invocation
+# Called from UserPromptSubmit hook. Reads JSON from stdin.
+
+set -euo pipefail
+
+INPUT=$(cat)
+
+PROMPT=$(printf '%s' "$INPUT" | jq -r '
+  .prompt
+  // .message
+  // .userPrompt
+  // .transcript[-1].content
+  // empty
+' 2>/dev/null || true)
+
+[ -z "${PROMPT:-}" ] && exit 0
+
+# Normalize text
+LOWER=$(
+  printf '%s' "$PROMPT" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E '
+      s/[[:space:]]+/ /g;
+      s/[“”]/"/g;
+      s/[‘’]/'\''/g;
+      s/[–—]/-/g;
+    '
+)
+
+declare -a SKILLS_FOUND=()
+declare -a INTENTS_FOUND=()
+
+has() {
+  local pattern="$1"
+  # Patterns are multiline with ( prefix on first line and ) suffix on last line.
+  # 1. Remove empty lines
+  # 2. Strip leading ( from the very first non-empty line
+  # 3. Strip trailing ) from the very last non-empty line (basic sed — ) is special in -E)
+  # 4. Join remaining lines with |
+  # 5. Collapse multiple || into single |
+  # 6. Wrap in () and apply word boundaries
+  local flat
+  flat=$(printf '%s' "$pattern" \
+    | grep -vE '^\s*$' \
+    | sed '1s/^(\s*//' \
+    | sed '$s/)[[:space:]]*$//' \
+    | tr '\n' '|' \
+    | sed -E 's/\|+/|/g; s/^\|//; s/\|$//')
+
+  [ -z "$flat" ] && return 1
+  printf '%s' "$LOWER" | grep -qiE "\b(${flat})\b"
+}
+
+add_skill() {
+  SKILLS_FOUND+=("$1")
+}
+
+add_intent() {
+  INTENTS_FOUND+=("$1")
+}
+
+# ============================================================
+# Regex groups
+# ============================================================
+
+RE_DEPLOY='
+(deploy|deployment|redeploy|ship|release|publish|go live|production|prod|staging|preview|hosting|host(ing)?|
+docker|dockerfile|docker compose|compose\.ya?ml|container|containerize|image|registry|ghcr|ecr|gcr|
+kubernetes|k8s|helm|pod|service mesh|ingress|
+traefik|nginx|caddy|reverse proxy|load balancer|haproxy|
+vps|server|cloudflare|dns|ssl|tls|letsencrypt|certbot|domain|subdomain|
+ci/cd|cicd|github action|github actions|workflow|runner|pipeline|
+systemd|pm2|supervisor|daemon|restart policy|
+portainer|coolify|dokploy|caprover|vercel|netlify|railway|fly\.io|render|leapcell|
+env var|environment variable|secret|production server|
+push.*image|build.*image|pull.*image|run.*container|expose.*port|map.*port|
+publikasikan|rilis|hosting|server production|server produksi|naikkan ke server|pasang di vps|jalankan di vps|
+domain|subdomain|ssl|sertifikat|reverse proxy|cloudflare|traefik|nginx|compose|kontainer|dockerisasi
+)'
+
+RE_REFACTOR='
+(refactor|refactoring|refractor|refraktor|cleanup|clean up|rewrite|rework|improve structure|improve architecture|
+reorganize|re-organize|restructure|re-structure|move files|split files|extract|
+extract (module|layer|service|class|function|component|repository|controller)|
+modular|modularize|modularisasi|mvc|clean architecture|hexagonal|onion architecture|ddd|
+layer separation|separate.*layer|pisah.*layer|pisahkan.*layer|
+fat controller|thin controller|service layer|repository layer|usecase|interactor|
+migration to|migrate.*architecture|architectur(e|al) change|ubah.*struktur|rapikan.*struktur|
+rapikan.*kode|bersihkan.*kode|pecah.*file|pecah.*module|susun ulang|struktur ulang|
+anti pattern|spaghetti|technical debt|coupling|decoupling|dependency inversion
+)'
+
+RE_AUDIT='
+(audit|review|code review|architecture review|security review|risk review|assess|assessment|evaluate|evaluation|
+inspect|inspection|analyze.*risk|check.*risk|find.*risk|
+layer violation|boundary violation|dependency violation|circular dependency|cycle|find.*cycle|
+orphan|dead code|unused|duplicate code|duplication|smell|code smell|
+dependency analysis|structural review|quality check|best practice|bad practice|
+cek.*struktur|cek.*arsitektur|review.*kode|audit.*kode|analisa.*kode|analisis.*kode|
+cari.*masalah|cari.*bug|cari.*resiko|cari.*pelanggaran|cek.*dependency|
+apakah.*sudah.*benar|apakah.*aman|apakah.*rapi
+)'
+
+RE_CODEGRAPH='
+(scan.*code|scan.*codebase|index.*code|parse.*code|build.*graph|create.*graph|refresh.*graph|update.*graph|
+code graph|codegraph|dependency graph|call graph|symbol graph|architecture map|
+find.*definition|go to definition|where.*defined|where.*is.*defined|definition.*of|
+find.*caller|what.*calls|who.*calls|callers|callee|
+find.*reference|references|usage|usages|where.*used|dipakai.*dimana|digunakan.*dimana|
+trace.*call|trace.*flow|follow.*flow|alur.*kode|alur.*function|alur.*fungsi|
+map.*architect|map.*codebase|explore.*codebase|codebase.*explor|
+what.*import|who.*imports|show.*depend|dependency.*tree|
+impact.*analysis|blast.*radius|affected.*files|apa.*terdampak|file.*terdampak|
+cari.*definisi|cari.*pemanggil|cari.*referensi|peta.*kode|graf.*kode|grafik.*kode
+)'
+
+RE_BATCH='
+(batch|bulk|mass|many|multiple|parallel|concurrent|
+batch.*read|parallel.*search|many.*file|many files|bulk.*lookup|
+search.*across|grep.*all|scan.*all|read.*all|check.*all|
+semua.*file|banyak.*file|cari.*di.*semua|cek.*semua|ubah.*banyak|
+apply.*to.*all|replace.*all|rename.*all|mass.*edit|bulk.*edit
+)'
+
+RE_EXPORT='
+(export|generate.*diagram|draw.*diagram|visualize|visualization|graph.*visualization|
+export.*graph|export.*mermaid|export.*dot|export.*json|export.*html|export.*svg|export.*png|
+mermaid|graphviz|dot file|plantuml|
+diagram.*depend|dependency.*diagram|visual.*depend|architecture.*diagram|
+buat.*diagram|ekspor.*graf|export.*graf|visualisasi.*dependency|diagram.*arsitektur
+)'
+
+RE_MVC='
+(modular.*mvc|mvc.*refactor|mvc.*modular|feature.*module|module.*feature|
+reorganize.*by.*feature|by feature|feature based|feature-first|graph.*first.*refactor|
+controller.*service.*repository|route.*controller.*service|service.*repository|
+pisah.*controller|pisah.*service|pisah.*repository|modul.*fitur|berdasarkan.*fitur
+)'
+
+RE_TEST='
+(test|testing|unit test|integration test|e2e|end to end|tdd|bdd|
+write.*test|generate.*test|create.*test|add.*test|buat.*test|tambah.*test|
+coverage|coverage.*gap|test.*scaffold|test case|test cases|
+mock|stub|fixture|assert|expect|vitest|jest|playwright|cypress|pytest|go test|
+uji.*unit|uji.*integrasi|pengujian|tes.*otomatis|buat.*pengujian
+)'
+
+RE_IMPLEMENT='
+(implement|implementation|coding|code this|build|create|make|add|develop|finish|
+fix|bugfix|hotfix|patch|repair|solve|resolve|debug|troubleshoot|
+fix.*bug|fix.*issue|fix.*error|fix.*problem|
+implement.*feature|add.*feature|create.*endpoint|add.*route|add.*handler|
+new.*component|build.*api|create.*api|add.*api|
+work.*on.*code|change.*code|modify.*code|edit.*file|
+kerjakan|implementasi|buat|bikin|tambahkan|tambah|perbaiki|benahi|benerin|debug|
+buat.*fitur|tambah.*fitur|perbaiki.*bug|perbaiki.*error|
+bug.*fix|error.*fix|crash|broken|not working|does.*not.*work|gagal|fail|failed|
+type.*error|lint.*error|compile.*error|runtime.*error|build.*error|
+exception|stacktrace|traceback|panic|segfault|hang|freeze|
+endpoint|route|handler|controller|service|repository|component|page|screen|middleware
+)'
+
+RE_PLAN='
+(^plan |planning|roadmap|decompose|break.*into.*task|split.*task|
+implementation.*plan|migration.*plan|refactor.*plan|
+how.*should.*i|how.*should.*we|approach.*this|strategy|steps|
+rencana|buat.*rencana|pecah.*task|pecah.*tugas|tahapan|langkah.*langkah|
+alur.*pengerjaan|strategi|baiknya.*bagaimana|mulai.*dari.*mana
+)'
+
+RE_ASK='
+(^what is |^how does |^why |^when |^where |^who |
+^explain |^tell me about |^describe |^can you explain|
+apa itu|jelaskan|bagaimana cara|kenapa|mengapa|kapan|dimana|siapa|
+bedanya apa|perbedaan|maksudnya|cara kerja|konsep|teori|arti dari
+)'
+
+RE_DOCS='
+(readme|documentation|docs|docstring|comment|changelog|guide|tutorial|
+write.*docs|update.*docs|generate.*docs|buat.*dokumentasi|perbarui.*dokumentasi|
+buat.*readme|update.*readme|jelaskan.*di.*readme|api docs|openapi|swagger
+)'
+
+RE_DB='
+(database|db|postgres|postgresql|mysql|mariadb|sqlite|mongodb|redis|cockroach|neon|supabase|
+schema|migration|migrate|drizzle|prisma|typeorm|sequelize|sql|query|index|relation|
+table|column|foreign key|primary key|constraint|transaction|replication|backup|restore|
+database.*url|connection string|pool|pooling|
+basis data|tabel|kolom|relasi|migrasi|skema|query|koneksi database
+)'
+
+RE_SECURITY='
+(security|secure|vulnerability|cve|exploit|xss|csrf|sqli|sql injection|
+auth|authentication|authorization|oauth|jwt|session|cookie|cors|
+rate limit|ratelimit|bruteforce|secret leak|token leak|api key|permission|
+keamanan|aman.*tidak|celah|kerentanan|bocor|token|secret|izin|hak akses
+)'
+
+RE_PERFORMANCE='
+(performance|optimize|optimization|speed|fast|faster|slow|latency|throughput|
+memory|ram|cpu|profile|profiling|benchmark|bottleneck|cache|caching|
+n\+1|query.*slow|slow.*query|load time|startup time|
+performa|optimasi|lambat|cepat|lebih ringan|hemat ram|hemat memory|benchmark
+)'
+
+RE_FRONTEND='
+(frontend|front end|react|vue|svelte|solid|nextjs|next\.js|nuxt|vite|
+component|ui|ux|css|tailwind|html|form|page|layout|responsive|
+client side|spa|web app|dashboard|
+tampilan|halaman|komponen|desain|responsif|antarmuka
+)'
+
+RE_BACKEND='
+(backend|back end|api|rest|graphql|rpc|grpc|websocket|server|endpoint|
+express|elysia|hono|fastify|nestjs|fastapi|axum|actix|gin|spring|
+middleware|controller|service|route|handler|
+server side|be|backend|endpoint|rute|websocket
+)'
+
+RE_ML='
+(machine learning|ml|ai|model|inference|onnx|tensorflow|keras|pytorch|torch|
+embedding|vector|rag|llm|classifier|classification|nlp|bert|indobert|
+serve.*model|model.*serving|load.*model|predict|prediction|
+machine learning|model ai|inferensi|klasifikasi|embedding|vektor
+)'
+
+# ============================================================
+# Skill detection
+# Priority: specific first
+# ============================================================
+
+if has "$RE_DEPLOY"; then
+  add_skill "deploy-docker"
+  add_intent "deploy"
+fi
+
+if has "$RE_SECURITY"; then
+  add_skill "auditor"
+  add_intent "security"
+fi
+
+if has "$RE_AUDIT"; then
+  add_skill "auditor"
+  add_intent "audit"
+fi
+
+if has "$RE_MVC"; then
+  add_skill "modular-mvc-refactor"
+  add_intent "refactor"
+fi
+
+if has "$RE_REFACTOR"; then
+  add_skill "refraktor"
+  add_intent "refactor"
+fi
+
+if has "$RE_CODEGRAPH"; then
+  add_skill "codegraph-orchestrator"
+  add_intent "explore"
+fi
+
+if has "$RE_BATCH"; then
+  add_skill "batch-codegraph"
+  add_intent "batch"
+fi
+
+if has "$RE_EXPORT"; then
+  add_skill "export-codegraph"
+  add_intent "export"
+fi
+
+if has "$RE_TEST"; then
+  add_skill "coder"
+  add_intent "test"
+fi
+
+if has "$RE_DOCS"; then
+  add_skill "coder"
+  add_intent "docs"
+fi
+
+if has "$RE_DB"; then
+  add_skill "coder"
+  add_intent "database"
+fi
+
+if has "$RE_PERFORMANCE"; then
+  add_skill "coder"
+  add_intent "performance"
+fi
+
+if has "$RE_FRONTEND"; then
+  add_skill "coder"
+  add_intent "frontend"
+fi
+
+if has "$RE_BACKEND"; then
+  add_skill "coder"
+  add_intent "backend"
+fi
+
+if has "$RE_ML"; then
+  add_skill "coder"
+  add_intent "ml"
+fi
+
+if has "$RE_IMPLEMENT"; then
+  add_skill "coder"
+  add_intent "implement"
+fi
+
+if has "$RE_PLAN"; then
+  add_intent "plan"
+fi
+
+if has "$RE_ASK"; then
+  add_intent "ask"
+fi
+
+# ============================================================
+# Smart fallback
+# ============================================================
+
+# Looks like code work but no explicit skill detected
+if [ ${#SKILLS_FOUND[@]} -eq 0 ] && has '
+(code|kode|file|folder|function|fungsi|class|module|modul|endpoint|api|route|rute|
+handler|component|komponen|script|config|konfigurasi|package\.json|tsconfig|dockerfile|
+\.ts|\.tsx|\.js|\.jsx|\.py|\.go|\.rs|\.java|\.php|\.sh|\.sql|\.ya?ml|\.json)
+'; then
+  add_skill "coder"
+  add_intent "implement"
+fi
+
+# If prompt is mostly a question, avoid forcing coder unless code-related terms exist
+if [ ${#SKILLS_FOUND[@]} -eq 0 ] && [ ${#INTENTS_FOUND[@]} -gt 0 ]; then
+  true
+fi
+
+# ============================================================
+# Deduplicate while preserving order
+# ============================================================
+
+dedupe_lines() {
+  awk '!seen[$0]++'
+}
+
+UNIQUE_SKILLS=$(
+  printf '%s\n' "${SKILLS_FOUND[@]:-}" 2>/dev/null \
+    | sed '/^$/d' \
+    | dedupe_lines \
+    | paste -sd ',' -
+)
+
+UNIQUE_INTENTS=$(
+  printf '%s\n' "${INTENTS_FOUND[@]:-}" 2>/dev/null \
+    | sed '/^$/d' \
+    | dedupe_lines \
+    | paste -sd ',' -
+)
+
+PRIMARY_INTENT=$(
+  printf '%s\n' "${INTENTS_FOUND[@]:-}" 2>/dev/null \
+    | sed '/^$/d' \
+    | head -1
+)
+
+# ============================================================
+# Output systemMessage for Claude Code hook system
+# ============================================================
+
+if [ -n "${UNIQUE_SKILLS:-}" ]; then
+  SKILL_LIST=$(printf '%s' "$UNIQUE_SKILLS" | sed 's/,/, /g')
+  INTENT_LIST=$(printf '%s' "$UNIQUE_INTENTS" | sed 's/,/, /g')
+  FIRST_SKILL=$(printf '%s' "$UNIQUE_SKILLS" | cut -d',' -f1)
+
+  jq -n \
+    --arg skills "$SKILL_LIST" \
+    --arg intent "${PRIMARY_INTENT:-unknown}" \
+    --arg intents "$INTENT_LIST" \
+    --arg first "$FIRST_SKILL" \
+    '{
+      systemMessage: (
+        "coder-workflow skill detection — " +
+        "Detected primary intent: \($intent). " +
+        "All detected intents: \($intents). " +
+        "Skills to invoke: \($skills). " +
+        "Rule: invoke the \($first) skill BEFORE any response or action. " +
+        "If multiple skills are listed, invoke them in the listed order. " +
+        "Skill names are exact — use the Skill tool with the skill name as-is."
+      )
+    }'
+fi
+
+exit 0

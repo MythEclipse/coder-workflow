@@ -113,11 +113,11 @@ controller (YOU)
 
 ### Model Selection
 
-| Task Complexity | Model |
-|----------------|-------|
-| Mechanical (1-2 files, clear spec) | inherit (default) |
-| Integration (multi-file, coordination) | inherit (default) |
-| Review (architecture, quality, spec) | inherit (default) |
+| Task Complexity | Model | Description |
+|----------------|-------|-------------|
+| Mechanical (1-2 files, clear spec) | haiku | Fast, low token cost for simple file modifications, typos, tests, and formatting |
+| Integration (multi-file, coordination) | inherit (default) | High capability (inherits active Sonnet session) for complex editing |
+| Review (architecture, quality, spec) | haiku | Efficient auditing and conformity checking against defined criteria |
 
 ### Rules
 
@@ -146,7 +146,7 @@ The built-in `Explore` agent is FORBIDDEN for all coding sessions. Every explora
 
 ## Core Mandates
 
-1. **Tasks before tools.** Every coding request MUST be decomposed into tracked tasks via `TaskCreate`.
+1. **Tasks before tools.** Before running ANY other tools (such as Grep, ViewFile, run_command, or CodeGraph MCP tools) at the start of a session or when receiving a new task, you MUST first run `TaskCreate` to initialize workflow tracking. Create an initial task (e.g., 'Explore codebase and plan implementation') and set it to `in_progress` immediately using `TaskUpdate`. This prevents warnings about task tools not being used.
 2. **Skills before guesses.** Always route to the appropriate skill — never implement ad-hoc.
 3. **MCP before Explore.** Use codegraph MCP tools for all codebase exploration. NEVER use the built-in Explore agent.
 4. **Context7 before assumptions.** Never guess framework/API behavior — query docs first.

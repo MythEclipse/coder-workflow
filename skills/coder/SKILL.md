@@ -9,7 +9,7 @@ Run a disciplined coding workflow for Claude Code sessions. Balance speed with s
 
 ## Core mandates
 
-1. **Task tracking is mandatory.** Use `TaskCreate` before starting any work unit and `TaskUpdate` to track progress (`in_progress` when starting, `completed` when verified). Never let a session run without active tasks.
+1. **Task tracking is mandatory.** Before running ANY other tools (such as Grep, ViewFile, run_command, or CodeGraph MCP tools) at the start of a session or task, you MUST first run `TaskCreate` to initialize workflow tracking. Create an initial task (e.g., 'Explore codebase and plan implementation') and set it to `in_progress` immediately using `TaskUpdate`. This prevents warnings about task tools not being used.
 2. **Skills and MCP first.** Before implementing, check if a relevant skill exists (`coder-orchestrator` routing). Use codegraph MCP for cross-file lookups. Use context7 MCP for framework/library docs.
 3. **Research before guessing.** If unfamiliar with a framework, API, or pattern — query context7 MCP or WebSearch. Never say "let me try the most likely answer" without documentation.
 4. **Never give up.** If stuck, decompose the problem further, research more angles, ask clarifying questions. Do not abandon tasks without exhausting options.
@@ -23,12 +23,13 @@ In plan mode, inspect the relevant code, identify the target files, define the i
 
 ## Task tracking protocol
 
-**Before any implementation work:**
-1. Create tasks via `TaskCreate` for each unit of work
-2. Mark task `in_progress` via `TaskUpdate` before starting
-3. Complete the work
-4. Verify the work (typecheck, lint, test, manual check)
-5. Mark task `completed` via `TaskUpdate` with verification results
+**Before any other tool usage (including file reads, search, or command execution):**
+1. Initialize the session by running `TaskCreate` to create an initial task (e.g., "Explore codebase and plan implementation") and mark it `in_progress` via `TaskUpdate`. This must be done BEFORE using any other tools to avoid task warning alerts.
+2. Decompose the primary task into specific units of work via `TaskCreate`.
+3. Mark the active task `in_progress` via `TaskUpdate` before starting its implementation.
+4. Complete the work.
+5. Verify the work (typecheck, lint, test, manual check).
+6. Mark task `completed` via `TaskUpdate` with verification results.
 
 **Task granularity:** Each task should be completable and verifiable in one focused pass. If a task is too large, create sub-tasks. Target: one task per function, per bug fix, per test file, per refactor.
 
@@ -76,6 +77,7 @@ In plan mode, inspect the relevant code, identify the target files, define the i
    - Verify each fix independently
    - Session is NOT complete until all High and Medium discovered bugs are fixed
    - Report any remaining Low bugs with exact file:line references and reason for deferral
+   - **Deferred bug protocol:** If the user says "defer" or "fix later" for a discovered bug, mark the task as `pending` (not deleted) and note the deferral reason. The bug stays tracked but does NOT block session completion. Deferred bugs appear in the final report.
    - **Forbidden phrases:** "not related to my changes", "pre-existing, skipping", "let me focus on my task and ignore these"
 
 7. **Report**

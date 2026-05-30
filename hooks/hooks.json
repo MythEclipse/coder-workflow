@@ -1,7 +1,57 @@
 {
-  "description": "coder-workflow comprehensive hooks — session lifecycle, safety guards, graph maintenance, task tracking, change awareness, and session telemetry.",
+  "description": "coder-workflow comprehensive hooks — skill triggers (first), session lifecycle, safety guards, graph maintenance, task tracking, change awareness, and session telemetry.",
   "hooks": {
-
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/prompt-security-filter.sh"
+            ],
+            "timeout": 5,
+            "async": false,
+            "statusMessage": "Security filter..."
+          },
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/skill-detector.sh"
+            ],
+            "timeout": 5,
+            "async": false,
+            "statusMessage": "Detecting skills..."
+          },
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/intent-classifier.sh"
+            ],
+            "timeout": 5,
+            "async": false,
+            "statusMessage": "Classifying intent..."
+          },
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/prompt-cache.sh"
+            ],
+            "timeout": 5,
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); PROMPT=$(printf \"%s\" \"$INPUT\" | jq -r \".prompt // empty\" 2>/dev/null | head -c 140); printf \"[%s] PROMPT: %s\\n\" \"$(date -u +%T)\" \"$PROMPT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup",
@@ -9,7 +59,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-banner.sh"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-banner.sh"
+            ],
             "timeout": 15,
             "statusMessage": "coder-workflow initializing..."
           },
@@ -19,6 +71,12 @@
             "timeout": 180,
             "async": true,
             "statusMessage": "Auto-scanning codebase graph..."
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'DB=.codegraph/graph.db; if [ -f \"$DB\" ]; then if stat --version >/dev/null 2>&1; then MTIME=$(stat -c %Y \"$DB\" 2>/dev/null || echo 0); else MTIME=$(stat -f %m \"$DB\" 2>/dev/null || echo 0); fi; NOW=$(date +%s); AGE_HOURS=$(( (NOW - MTIME) / 3600 )); if [ \"$AGE_HOURS\" -ge 24 ]; then echo \"Graph is ${AGE_HOURS}h old — run /coder-workflow:scan-codegraph to refresh\"; fi; fi; exit 0'",
+            "timeout": 5,
+            "statusMessage": "Checking graph freshness..."
           }
         ]
       },
@@ -28,7 +86,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-resume.sh"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-resume.sh"
+            ],
             "timeout": 10,
             "statusMessage": "Checking session state..."
           }
@@ -49,26 +109,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "rm -f /tmp/cw-session.log 2>/dev/null; echo 'Session cleared. Clean slate — use /coder-workflow:coder-orchestrator for any coding task.'",
+            "command": "echo 'Session cleared. Clean slate — use /coder-workflow:coder-orchestrator for any coding task.'",
             "timeout": 5
           }
         ]
       }
     ],
-
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'INPUT=$(cat); PROMPT=$(printf \"%s\" \"$INPUT\" | jq -r \".prompt // empty\" 2>/dev/null | head -c 140); printf \"[%s] PROMPT: %s\\n\" \"$(date -u +%T)\" \"$PROMPT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
-            "timeout": 5,
-            "async": true
-          }
-        ]
-      }
-    ],
-
     "PreToolUse": [
       {
         "matcher": "Bash",
@@ -76,7 +122,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/rm-guard.sh"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/rm-guard.sh"
+            ],
             "if": "Bash(rm *)",
             "timeout": 5,
             "statusMessage": "Safety check..."
@@ -84,7 +132,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/force-push-guard.sh"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/force-push-guard.sh"
+            ],
             "if": "Bash(git push *)",
             "timeout": 5,
             "statusMessage": "Checking push safety..."
@@ -100,6 +150,12 @@
             "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"DROP\\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\\s+TABLE\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: Destructive SQL detected (DROP/TRUNCATE). Confirm this is targeting a dev/test database, not production.\\\"}\" ; fi; exit 0'",
             "if": "Bash(psql *)|Bash(mysql *)|Bash(sqlite3 *)",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+merge\\s+\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: git merge detected. If this involves parallel worktree changes, verify no conflicts before completing. Run git diff --name-only --diff-filter=U after merge to check.\\\"}\"; fi; exit 0'",
+            "if": "Bash(git merge *)",
+            "timeout": 5
           }
         ]
       },
@@ -109,7 +165,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/env-write-guard.sh"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/env-write-guard.sh"
+            ],
             "if": "Write(.env*)|Edit(.env*)",
             "timeout": 5,
             "statusMessage": "Checking env file..."
@@ -117,7 +175,6 @@
         ]
       }
     ],
-
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit|NotebookEdit",
@@ -163,6 +220,13 @@
             "if": "Bash(npm test)|Bash(npm run test *)|Bash(npm run lint *)|Bash(npm run typecheck)",
             "timeout": 5,
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+checkout|git\\s+switch\"; then BRANCH=$(printf \"%s\" \"$CMD\" | grep -oE \"[a-zA-Z0-9_.-]+\" | tail -1); printf \"[%s] BRANCH SWITCH: %s\\n\" \"$(date -u +%T)\" \"$BRANCH\" >> /tmp/cw-session.log 2>/dev/null; fi; exit 0'",
+            "if": "Bash(git checkout *)|Bash(git switch *)",
+            "timeout": 5,
+            "async": true
           }
         ]
       },
@@ -176,9 +240,19 @@
             "async": true
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.subagent_type // .tool_input.prompt // empty\" 2>/dev/null | head -c 100); printf \"[%s] AGENT SPAWN: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
       }
     ],
-
     "PostToolUseFailure": [
       {
         "matcher": "*",
@@ -192,7 +266,6 @@
         ]
       }
     ],
-
     "PostToolBatch": [
       {
         "hooks": [
@@ -205,7 +278,6 @@
         ]
       }
     ],
-
     "Stop": [
       {
         "hooks": [
@@ -223,7 +295,6 @@
         ]
       }
     ],
-
     "StopFailure": [
       {
         "matcher": "rate_limit",
@@ -256,7 +327,6 @@
         ]
       }
     ],
-
     "FileChanged": [
       {
         "matcher": "package.json|package-lock.json|bun.lockb|yarn.lock|pnpm-lock.yaml",
@@ -293,7 +363,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'hooks.json changed on disk — hook configuration updated. Changes take effect on the next hook event.',",
+            "command": "echo 'hooks.json changed on disk — hook configuration updated. Changes take effect on the next hook event.'",
             "timeout": 5
           }
         ]
@@ -317,9 +387,28 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "agents/*.md",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Agent definition changed on disk. New agent instructions apply to subsequent subagent spawns.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "skills/*/SKILL.md",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Skill definition changed on disk. New skill rules apply immediately — invoke the skill to pick up updated behavior.'",
+            "timeout": 5
+          }
+        ]
       }
     ],
-
     "CwdChanged": [
       {
         "hooks": [
@@ -331,7 +420,6 @@
         ]
       }
     ],
-
     "PostCompact": [
       {
         "matcher": "*",
@@ -344,7 +432,6 @@
         ]
       }
     ],
-
     "SubagentStart": [
       {
         "matcher": "*",
@@ -358,7 +445,6 @@
         ]
       }
     ],
-
     "SubagentStop": [
       {
         "matcher": "*",
@@ -372,7 +458,6 @@
         ]
       }
     ],
-
     "TaskCreated": [
       {
         "hooks": [
@@ -384,7 +469,6 @@
         ]
       }
     ],
-
     "TaskCompleted": [
       {
         "hooks": [
@@ -396,7 +480,6 @@
         ]
       }
     ],
-
     "InstructionsLoaded": [
       {
         "matcher": "session_start|nested_traversal|include",
@@ -410,7 +493,6 @@
         ]
       }
     ],
-
     "ConfigChange": [
       {
         "matcher": "project_settings|user_settings",
@@ -424,19 +506,17 @@
         ]
       }
     ],
-
     "SessionEnd": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'LOG=/tmp/cw-session.log; if [ -f \"$LOG\" ]; then TASKS=$(grep -c \"TASK+:\" \"$LOG\" 2>/dev/null || echo 0); DONE=$(grep -c \"TASK done:\" \"$LOG\" 2>/dev/null || echo 0); COMMITS=$(grep -c \"GIT COMMIT:\" \"$LOG\" 2>/dev/null || echo 0); FAILS=$(grep -c \"FAIL \\[\" \"$LOG\" 2>/dev/null || echo 0); AGENTS=$(grep -c \"AGENT START:\" \"$LOG\" 2>/dev/null || echo 0); WRITES=$(grep -c \"WRITE:\" \"$LOG\" 2>/dev/null || echo 0); echo \"Session summary: tasks=$TASKS done=$DONE writes=$WRITES commits=$COMMITS agents=$AGENTS failures=$FAILS\"; rm -f \"$LOG\"; fi; exit 0'",
+            "command": "bash -c 'LOG=/tmp/cw-session.log; if [ -f \"$LOG\" ]; then TASKS=$(grep -c \"TASK+:\" \"$LOG\" 2>/dev/null || echo 0); DONE=$(grep -c \"TASK done:\" \"$LOG\" 2>/dev/null || echo 0); COMMITS=$(grep -c \"GIT COMMIT:\" \"$LOG\" 2>/dev/null || echo 0); FAILS=$(grep -c \"FAIL\" \"$LOG\" 2>/dev/null || echo 0); AGENTS=$(grep -c \"AGENT START:\" \"$LOG\" 2>/dev/null || echo 0); WRITES=$(grep -c \"WRITE:\" \"$LOG\" 2>/dev/null || echo 0); PROMPTS=$(grep -c \"PROMPT:\" \"$LOG\" 2>/dev/null || echo 0); echo \"Session summary: tasks=$TASKS done=$DONE writes=$WRITES commits=$COMMITS agents=$AGENTS failures=$FAILS prompts=$PROMPTS\"; fi; exit 0'",
             "timeout": 10
           }
         ]
       }
     ]
-
   }
 }

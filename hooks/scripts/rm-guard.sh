@@ -2,10 +2,16 @@
 # rm-guard.sh — PreToolUse guard for catastrophically destructive rm commands.
 # Reads JSON from stdin (Claude Code hook input), parses the Bash command,
 # and denies execution if the rm targets root, home, or unqualified globs.
-# Non-destructive rm commands pass through silently (exit 0, no output).
 set -euo pipefail
 
-# Require jq — if missing, pass through silently rather than false-blocking.
+# Try running python3 script if available (preferred, robust argument parsing)
+SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+if command -v python3 >/dev/null 2>&1; then
+  python3 "$SCRIPT_DIR/rm-guard.py"
+  exit 0
+fi
+
+# Fallback basic bash parser if python3 is missing
 if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
@@ -17,50 +23,29 @@ if [ -z "$COMMAND" ]; then
   exit 0
 fi
 
-# Normalise: collapse multiple spaces, strip leading env assignments
-NORM=$(printf '%s' "$COMMAND" | sed 's/[A-Z_][A-Z_0-9]*=[^ ]* //g' | tr -s ' ')
+# Collapse spaces
+NORM=$(printf '%s' "$COMMAND" | tr -s ' ')
 
-# Helper: check if rm has both -r/-R and -f flags (combined or separate)
-has_rf_flags() {
-  local cmd="$1"
-  # Combined: -rf, -fr, -Rf, -fR, -rRf etc.
-  printf '%s' "$cmd" | grep -qE 'rm\s+-[a-zA-Z]*[rR][a-zA-Z]*[fF]|rm\s+-[a-zA-Z]*[fF][a-zA-Z]*[rR]' && return 0
-  # Separate flags: rm -r -f or rm -f -r
-  printf '%s' "$cmd" | grep -qE 'rm(\s+-[a-zA-Z]+)+\s' && \
-    printf '%s' "$cmd" | grep -qE 'rm.*-[a-zA-Z]*[rR]' && \
-    printf '%s' "$cmd" | grep -qE 'rm.*-[a-zA-Z]*[fF]' && return 0
+# Helper: check if string has a specific word bounded by spaces or line ends
+contains_word() {
+  local str="$1"
+  local word="$2"
+  # Escape special chars for grep
+  local escaped_word
+  escaped_word=$(printf '%s' "$word" | sed 's/[.昨*+$?^]/\\&/g')
+  printf '%s' "$str" | grep -qE "(^|[[:space:]])${escaped_word}([[:space:]]|$)" && return 0
   return 1
 }
 
-if ! has_rf_flags "$NORM"; then
-  exit 0
-fi
-
-# Extract the target path(s) — everything after the flags
-TARGET=$(printf '%s' "$NORM" | sed 's/rm\s\+\(-[a-zA-Z]\+\s*\)*//g' | sed 's/^\s*//;s/\s*$//')
-
-# Patterns that are catastrophically dangerous
-DANGEROUS_PATTERNS=(
-  '^/$'
-  '^\*$'
-  '^\.$'
-  '^[.][/]$'
-  '^[.][/][*]$'
-  '^[/][*]$'
-  '^~$'
-  '^~[/]$'
-  '^~[/][*]$'
-  '^\$HOME$'
-  '^\$HOME[/]$'
-  '^\$HOME[/][*]$'
-)
-
-for PAT in "${DANGEROUS_PATTERNS[@]}"; do
-  # Check each whitespace-separated token in TARGET
-  for TOKEN in $TARGET; do
-    if printf '%s' "$TOKEN" | grep -qE "$PAT"; then
+# Check if it has rm and recursive flags
+if printf '%s' "$NORM" | grep -qE '\brm\b' && printf '%s' "$NORM" | grep -qE '\s-[a-zA-Z]*[rR]'; then
+  # Check for dangerous targets as standalone words
+  DANGEROUS_TARGETS=("/" "*" "." "./" "./*" "/*" "~" "~/" "~/*" "\$HOME" "\$HOME/" "\$HOME/*")
+  for TARGET in "${DANGEROUS_TARGETS[@]}"; do
+    if contains_word "$NORM" "$TARGET"; then
+      reason="coder-workflow safety guard: rm command targeting '${TARGET}' with recursive flag is blocked. Narrow the target explicitly."
       jq -n \
-        --arg reason "coder-workflow safety guard: rm -rf targeting '${TOKEN}' is blocked. This would destroy critical filesystem paths. Narrow the target explicitly (e.g. rm -rf ./dist/specific-file) and re-run." \
+        --arg reason "$reason" \
         '{
           hookSpecificOutput: {
             hookEventName: "PreToolUse",
@@ -71,6 +56,6 @@ for PAT in "${DANGEROUS_PATTERNS[@]}"; do
       exit 0
     fi
   done
-done
+fi
 
 exit 0
