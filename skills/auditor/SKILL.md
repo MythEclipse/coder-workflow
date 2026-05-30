@@ -2,7 +2,7 @@
 name: auditor
 description: This skill should be used when the user asks to "audit architecture", "review layer violations", "find fat controllers", "cek struktur controller service repository", "assess refactor risk", or wants a read-only review of coding workflow, Modular MVC layering, coupling, and verification gaps.
 version: 0.1.0
-allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), mcp__codegraph__query_graph, mcp__codegraph__analyze_impact, mcp__codegraph__analyze_quality, mcp__codegraph__find_cycles, mcp__codegraph__find_orphans, mcp__codegraph__summarize_architecture, mcp__codegraph__search_code, mcp__codegraph__read_file
+allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
 Perform a read-only audit of code structure, layering, refactor risk, and verification readiness. Produce actionable findings with file paths and line numbers. If the user requests code modifications, instruct them to switch to a developer implementation skill.

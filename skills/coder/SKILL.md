@@ -2,7 +2,7 @@
 name: coder
 description: This skill should be used when the user asks to "implement this feature", "fix this bug", "work on this code", "buat workflow coding", "kerjakan task coding", or requests a coding workflow that needs planning, implementation, verification, and concise reporting.
 version: 0.2.0
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(cargo:*)
+allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(cargo:*), mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
 Run a disciplined coding workflow for Claude Code sessions. Balance speed with safety: understand scope, plan when changes are significant, implement the smallest complete change, verify behavior, and report clearly.

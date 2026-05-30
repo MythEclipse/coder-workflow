@@ -1,7 +1,7 @@
 ---
 description: Run a read-only architecture audit of the current project. Check for fat controllers, missing repositories, schema-less boundaries, layer leakage, cross-module leaks, and circular dependencies.
 argument-hint: [scope-optional]
-allowed-tools: Read, Grep, Glob, Bash
+allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 model: sonnet
 ---
 

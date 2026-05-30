@@ -43,7 +43,7 @@ Options:
 
 Components:
   Optional component names to install. Examples: coder, refraktor, auditor,
-  scan-codegraph, codegraph-orchestrator, etc.
+  scan-codegraph, coder-orchestrator, etc.
 
 Default (no --project):
   Installs to ~/.claude/skills/coder-workflow/ so Claude Code auto-discovers

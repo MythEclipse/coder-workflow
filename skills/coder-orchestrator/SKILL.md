@@ -1,6 +1,6 @@
 ---
 name: coder-orchestrator
-description: Use when starting any coding conversation — establishes how to find and use coding skills, requiring Skill tool invocation before ANY response including clarifying questions. Always invoke for: implement, fix, refactor, audit, test, deploy, debug, review, or any request that touches source code.
+description: Use when starting any coding conversation — establishes how to find and use coding skills, requiring Skill tool invocation before ANY response including clarifying questions. Always invoke for: implement, fix, refactor, audit, test, deploy, debug, review, or any request that touches source code. Also handles codebase exploration — graph before grep, graph before find, graph before Explore agents.
 ---
 
 <SUBAGENT-STOP>
@@ -27,21 +27,15 @@ This is not negotiable. This is not optional.
 
 ```
 User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
-             → Invoke codegraph-orchestrator (ALWAYS — for efficient codebase exploration)
              → Check: might any other skill apply? → YES → Invoke Skill tool
                                                        → Announce: "Using [skill] to [purpose]"
                                                        → Follow skill exactly
                                                        → NO → Respond (including clarifications)
 ```
 
-## Dual-Orchestrator Model
+## Graph-First Before Search
 
-| Orchestrator | Purpose | When |
-|---|---|---|
-| **`coder-orchestrator`** | WORKFLOW GUIDE — how to plan, implement, verify, fix bugs, run agents | ALWAYS triggers for any coding request |
-| **`codegraph-orchestrator`** | SEARCH GUIDE — how to explore codebase efficiently using MCP tools | ALWAYS loaded by coder-orchestrator for code search/exploration |
-
-**ALWAYS invoke `codegraph-orchestrator` immediately after this skill.**
+**Graph before grep. Graph before find. Graph before Explore agents.** Use CodeGraph Mapper for structure, dependencies, callers, routes, components, architecture, impact, risk, flow, project-structure mapping. Use CodeGraph text search (`search_code` MCP or CLI `search`) for exact literal text search or regex. Raw grep/find/Explore are fallbacks only after graph/search tools cannot answer.
 
 ## What Triggers This Orchestrator
 
@@ -54,10 +48,15 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
 | Test / verify / validate | Any testwriting, test running, coverage question |
 | Deploy / setup / configure | Any CI/CD, Docker, VPS, Traefik, environment |
 | "Work on this" / "kerjakan" / "buat" | Any vague coding request |
+| Understand repo / search code / architecture / impact / flow | Codebase exploration, start of session, first repo exploration |
+
+**Trigger even without explicit codegraph mention.** This orchestrator routes BOTH coding work AND codebase search.
 
 ## Skill Routing Matrix
 
-After both orchestrators are invoked, check which sub-skill applies:
+After the orchestrator is invoked, check which sub-skill applies:
+
+### Workflow Skills
 
 | Request | Route to skill |
 |---------|---------------|
@@ -67,7 +66,58 @@ After both orchestrators are invoked, check which sub-skill applies:
 | Setup Docker, CI/CD, VPS deploy, Traefik | `deploy-docker` |
 | Batch file reads / parallel searches | `batch-codegraph` |
 
+### CodeGraph (Codebase Exploration) Skills
+
+| User asks | Use skill |
+|-----------|-----------|
+| Build/refresh graph or explore repo | `scan-codegraph` |
+| Read 5+ files or search 5+ patterns | `batch-codegraph` |
+| Where is X / who calls Y / what imports Z | `query-codegraph` |
+| Exact text/regex search (TODO, error string, etc.) | `query-codegraph` + `search_code` |
+| Architecture / impact / cycles / orphans / hotspots | `analyze-codegraph` |
+| Refactor to Modular MVC + Service + Repository | `modular-mvc-refactor` (→ delegates to `refraktor`) |
+| Export Mermaid / DOT / JSON / Markdown / HTML | `export-codegraph` |
+| Interactive graph visualization | `open-codegraph-ui` |
+
 **If multiple skills apply — invoke ALL of them in dependency order.**
+
+## CodeGraph-First Workflow
+
+1. Classify request (coding? structure? lookup? search? impact? refactor? export? visualize?).
+2. If graph missing/stale, use `scan-codegraph` first.
+3. Route to appropriate skill per matrix above.
+4. Read source files only after graph identifies precise targets.
+
+### Fallback Order
+
+1. **Graph tools** — `query_graph`, `search_code`, `analyze_impact`, etc.
+2. **CLI tools** — `codegraph-mapper query`, `codegraph-mapper search`, etc.
+3. **Fallback** — grep/find/Explore agents (only after graph/search cannot answer)
+
+### Graph Before Grep
+
+| Instead of | Use |
+|-----------|-----|
+| `grep -r "UserRepository" .` | `query_graph("UserRepository")` |
+| `find . -name "*.route.ts"` | `query_graph("routes")` |
+| `grep -r "import.*auth" .` | `query_graph("what imports auth")` |
+| Explore agent for architecture | `analyze-codegraph` |
+
+### Benchmark Flow (First Exploration)
+
+When first exploring a codebase:
+1. `scan-codegraph` — build graph
+2. `summarize_architecture` — get overview
+3. `summarize_graph` — understand scale
+4. `analyze_quality` — check for issues
+5. Route subsequent work based on findings
+
+### Red Flags
+
+- Graph missing: run `scan-codegraph` before proceeding
+- Graph stale: user reports recent changes not reflected; suggest rescan
+- User asks for grep/find/Explore before graph: redirect to graph-backed skill first
+- Ambiguous request: ask for clarification before routing
 
 ## Agent Coordination (Right-Sized Subagent Pattern)
 
@@ -125,12 +175,12 @@ controller (YOU)
 - **NEVER** skip reviews for Complex tasks — spec compliance THEN code quality, in that order
 - **NEVER** dispatch multiple implementers in parallel for overlapping files — check file overlap first
 - **NEVER** make sub-agent read plan file — provide FULL task text directly
-- **NEVER** use the built-in Explore agent — use codegraph-orchestrator + MCP tools instead
+- **NEVER** use the built-in Explore agent — use codegraph MCP tools instead
 - **Parallel execution**: tasks with disjoint file sets MAY run in parallel with worktree isolation. See code-implementer agent for parallel decision algorithm.
 
 ### Explore Agent — BANNED
 
-The built-in `Explore` agent is FORBIDDEN for all coding sessions. Every exploration must go through codegraph MCP tools via `codegraph-orchestrator`:
+The built-in `Explore` agent is FORBIDDEN for all coding sessions. Every exploration must go through codegraph MCP tools:
 
 | Instead of Explore agent | Use codegraph MCP |
 |---|---|
@@ -150,8 +200,9 @@ The built-in `Explore` agent is FORBIDDEN for all coding sessions. Every explora
 2. **Skills before guesses.** Always route to the appropriate skill — never implement ad-hoc.
 3. **MCP before Explore.** Use codegraph MCP tools for all codebase exploration. NEVER use the built-in Explore agent.
 4. **Context7 before assumptions.** Never guess framework/API behavior — query docs first.
-5. **Never give up.** If stuck, decompose further, research more, ask clarifying questions.
-6. **Fix every discovered bug.** Never skip as "not related to my changes." Create task, fix in Bug Fix Phase.
+5. **Graph before grep.** Scan codebase graph before broad file search.
+6. **Never give up.** If stuck, decompose further, research more, ask clarifying questions.
+7. **Fix every discovered bug.** Never skip as "not related to my changes." Create task, fix in Bug Fix Phase.
 
 ## Bug Discovery Mandate
 
@@ -176,12 +227,22 @@ When this orchestrator is invoked, state:
 
 ```
 Using coder-orchestrator to route: [one-sentence goal]
-Also invoked: codegraph-orchestrator (for efficient codebase search/exploration)
 Skills invoked: [list]
 Agents invoked: [list]
 Tasks created: [count]
 Architecture pattern: [MVC | GraphQL | CLI | Event-Driven | Functional | Library]
 Complexity mix: Simple [N] | Standard [N] | Complex [N]
+```
+
+For codebase exploration queries, keep answers graph-backed: file paths, symbols, nodes, edges, uncertainty noted. Example:
+
+```
+Request: "Who calls the auth middleware?"
+Route: query-codegraph
+Answer:
+- src/routes/auth.ts:authMiddleware called by:
+  1. src/server.ts:setupRoutes (line 42)
+  2. src/routes/admin.ts:adminRoutes (line 15)
 ```
 
 ## Session Metrics (Optional)

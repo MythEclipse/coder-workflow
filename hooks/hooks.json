@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Context was compacted and then resumed. Skills, orchestrators, and CodeGraph MCP tools are still active. Re-read your active task before proceeding.'",
+            "command": "echo 'Context was compacted and then resumed. Skills, orchestrator, and CodeGraph MCP tools are still active. Re-read your active task before proceeding.'",
             "timeout": 5
           }
         ]
@@ -142,6 +142,16 @@
             "if": "Write(.env*)|Edit(.env*)",
             "timeout": 5,
             "statusMessage": "Checking env file..."
+          }
+        ]
+      },
+      {
+        "matcher": "Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -f .codegraph/graph.db ]; then jq -n \"{systemMessage: \\\"coder-workflow notice: Graph-first rule active. Make sure you have checked the CodeGraph MCP tools (e.g. query_graph_tool, search_code) before performing a broad text search (Grep/Glob) to preserve context space and find callers/definitions more accurately.\\\"}\"; fi; exit 0'",
+            "timeout": 5
           }
         ]
       }
@@ -397,7 +407,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Context compacted. All skills, orchestrators, and graph MCP tools remain active. Re-read active task state before your next action — the CodeGraph DB is unchanged.'",
+            "command": "echo 'Context compacted. All skills, orchestrator, and graph MCP tools remain active. Re-read active task state before your next action — the CodeGraph DB is unchanged.'",
             "timeout": 5
           }
         ]

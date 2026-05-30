@@ -1,7 +1,7 @@
 ---
 description: Refactor codebase ke arsitektur Modular MVC + Service + Repository
 argument-hint: [scope-optional]
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*)
+allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), mcp__codegraph__*, mcp__code-review-graph__*
 model: sonnet
 ---
 

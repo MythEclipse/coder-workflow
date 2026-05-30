@@ -45,17 +45,19 @@ test("scan-codegraph advertises graph refresh before broad exploration", async (
   assert.match(skill, /exact literal text searches/i);
 });
 
-test("codegraph-orchestrator coordinates early exploration and benchmark routing", async () => {
-  const skill = await read("skills/codegraph-orchestrator/SKILL.md");
+test("coder-orchestrator includes codebase exploration and benchmark routing", async () => {
+  const skill = await read("skills/coder-orchestrator/SKILL.md");
 
-  assert.match(skill, /start of session|first repo exploration/i);
-  assert.match(skill, /benchmark/i);
+  assert.match(skill, /graph before grep/i);
+  assert.match(skill, /graph before find/i);
+  assert.match(skill, /graph before Explore agents/i);
   assert.match(skill, /scan-codegraph/i);
   assert.match(skill, /query-codegraph/i);
   assert.match(skill, /analyze-codegraph/i);
-  assert.match(skill, /before .*grep/i);
-  assert.match(skill, /before .*find/i);
-  assert.match(skill, /before .*Explore agents/i);
+  assert.match(skill, /first exploration|graph before grep/i);
+  assert.match(skill, /summarize_architecture/i);
+  assert.match(skill, /summarize_graph/i);
+  assert.match(skill, /analyze_quality/i);
   assert.match(skill, /exact literal text search/i);
 });
 

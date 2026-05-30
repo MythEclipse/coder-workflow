@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - `test/` directory with skill-trigger validation tests (20 tests)
 
+### Changed
+- Merged `codegraph-orchestrator` into `coder-orchestrator` — single orchestrator with unified workflow + codegraph search routing
+
 ### Removed
 - `skills/batch-codegraph/` — duplicate removed; canonical version is in codegraph-mapper plugin
 

@@ -6,18 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Coder Workflow is a Claude Code plugin that orchestrates all coding work through aggressive task decomposition, skill-first routing, and persistent execution. It combines **coding workflow skills** (implement, audit, refactor, deploy) with **graph-first codebase understanding** via the CodeGraph MCP server. Ships skills, agents, commands, hooks, and an MCP server for disciplined coding workflows.
 
-## Dual-Orchestrator Model
+## Single Orchestrator Model
 
-Two orchestrators work together — they are complementary, not conflicting:
+**`coder-orchestrator`** is the single entry point for ALL coding work — it handles both workflow routing (plan, implement, verify, fix bugs, run agents) AND codebase exploration (graph before grep, query before read, analyze before edit). Invoke it for every coding request.
 
-| Orchestrator | Purpose | When |
-|---|---|---|
-| **`coder-orchestrator`** | WORKFLOW GUIDE — how to plan, implement, verify, fix bugs, run agents | ALWAYS triggers for any coding request |
-| **`codegraph-orchestrator`** | SEARCH GUIDE — how to explore codebase efficiently using MCP tools | ALWAYS loaded by coder-orchestrator for code search/exploration |
-
-**Always load both.** `coder-orchestrator` is the main entry point for any coding request. It ALWAYS invokes `codegraph-orchestrator` immediately after for efficient codebase exploration (graph before grep, query before read, analyze before edit).
-
-**BANNED: The built-in `Explore` agent.** ALL codebase exploration MUST use codegraph MCP tools via `codegraph-orchestrator`. `mcp__codegraph__query_graph` for definitions/references/callers. `mcp__codegraph__search_code` for text search. `mcp__codegraph__analyze_impact` for impact analysis. `mcp__codegraph__read_file` for file content. Never dispatch an Explore agent when codegraph MCP tools can answer.
+**BANNED: The built-in `Explore` agent.** ALL codebase exploration MUST use codegraph MCP tools. `mcp__codegraph__query_graph` for definitions/references/callers. `mcp__codegraph__search_code` for text search. `mcp__codegraph__analyze_impact` for impact analysis. `mcp__codegraph__read_file` for file content. Never dispatch an Explore agent when codegraph MCP tools can answer.
 
 ## Plugin Discovery
 
@@ -51,7 +44,6 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | Build/refresh code graph | `scan-codegraph` |
 | Find definitions, references, callers | `query-codegraph` |
 | Architecture analysis, impact, risk, cycles | `analyze-codegraph` |
-| Route codebase work through CodeGraph | `codegraph-orchestrator` |
 | Parallel file reads / searches | `batch-codegraph` |
 | Export Mermaid, DOT, JSON, HTML | `export-codegraph` |
 | Interactive graph visualization | `open-codegraph-ui` |
@@ -113,9 +105,8 @@ Hooks are defined in `hooks/hooks.json` and companion scripts in `hooks/scripts/
 
 ## Orchestrator Usage (Required)
 
-- **Always trigger `coder-orchestrator`** at session start for any coding task — features, bugs, refactors, reviews, deployments.
+- **Always trigger `coder-orchestrator`** at session start for any coding task — features, bugs, refactors, reviews, deployments. It handles both workflow routing AND codebase exploration (graph before grep, query before read).
 - **Always run `TaskCreate` + `TaskUpdate` first**: Before using any search or file-reading tools for initial exploration or planning, you MUST first run `TaskCreate` to create an initial task (e.g., 'Explore codebase and plan implementation') and mark it `in_progress` via `TaskUpdate`. This prevents task tool usage warnings.
-- **Always invoke `codegraph-orchestrator`** immediately after — provides efficient search/exploration patterns via MCP tools.
 - The coding orchestrator routes work through a fixed agent sequence: `workflow-planner` → `architecture-auditor` → `code-implementer` → `architecture-auditor` (post-verify).
 - Every coding session uses right-sized agents: simple tasks execute directly, complex tasks use full agent chain. Scale to complexity, not ceremony.
 - Every discovered bug MUST be tracked and fixed — never skip as "not related to my changes."
@@ -165,7 +156,7 @@ claude --plugin-dir /mnt/code/djnaidwhbwda/coder-workflow
 
 ## Plugin Surface
 
-- `skills/` — workflow (coder, auditor, coder-orchestrator, refraktor, deploy-docker) + codegraph (scan, query, analyze, codegraph-orchestrator, batch, export, open-ui, modular-mvc-refactor)
+- `skills/` — workflow (coder, auditor, coder-orchestrator, refraktor, deploy-docker) + codegraph (scan, query, analyze, batch, export, open-ui, modular-mvc-refactor)
 - `agents/` — workflow-planner, architecture-auditor, code-implementer, codegraph-builder, codegraph-analyst
 - `commands/` — slash commands for orchestrator, audit, plan, setup-codegraph, refraktor
 - `hooks/hooks.json` — auto-trigger for session start, file changes, session end

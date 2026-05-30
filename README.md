@@ -4,7 +4,7 @@ Orchestrator-driven Claude Code plugin for disciplined software engineering: agg
 
 ## Highlights
 
-- **`coder-orchestrator`** — central brain that ALWAYS triggers for coding work, routes through ALL sub-agents
+- **`coder-orchestrator`** — single orchestrator for coding work AND codebase exploration (graph before grep, query before read)
 - **Mandatory sub-agent sequence** — workflow-planner → architecture-auditor → code-implementer → architecture-auditor (post-verify)
 - **Bug Discovery Mandate** — every bug found MUST be tracked and fixed, never skipped as "not related to my changes"
 - **Research-first** — context7 MCP for docs, codegraph MCP for code search, never guess API behavior
@@ -23,7 +23,7 @@ Orchestrator-driven Claude Code plugin for disciplined software engineering: agg
 
 | Skill | Purpose |
 | --- | --- |
-| `coder-orchestrator` | **Central orchestrator** — always triggers, decomposes tasks, routes to ALL agents, enforces bug discovery |
+| `coder-orchestrator` | **Central orchestrator** — always triggers, decomposes tasks, routes to ALL agents, enforces bug discovery, handles codebase exploration |
 | `coder` | General coding workflow with planning, implementation, verification, and bug fix phase |
 | `refraktor` | Modular MVC + Service + Repository refactor with mandatory planning gate |
 | `auditor` | Read-only architecture and layer violation audit with codegraph MCP integration |
