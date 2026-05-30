@@ -24,7 +24,7 @@ Options:
   --dry-run        Print planned actions without changing files
   --skills-only    Install only skills
   --agents-only    Install only agents
-  --hooks-only     Install only hooks
+  --hooks-only     Install only hooks (merges with existing hooks.json)
   --commands-only  Install only commands
   -h, --help       Show this help
 
@@ -129,6 +129,79 @@ install_dir_items() {
   done
 }
 
+# Merge hooks.json: appends new hooks from this plugin into existing hooks.json
+# instead of overwriting. Each hook event (SessionStart, PostToolUse, Stop) has
+# its array extended with new entries. Deduplicates by description.
+merge_hooks() {
+  local src_hooks="$PLUGIN_ROOT/hooks/hooks.json"
+  local dest_hooks="$DEST/hooks/hooks.json"
+  [[ -f "$src_hooks" ]] || return 0
+
+  # If no existing hooks, just copy
+  if [[ ! -f "$dest_hooks" ]]; then
+    run mkdir -p "$DEST/hooks"
+    if $LINK; then
+      run ln -s "$src_hooks" "$dest_hooks"
+      echo "linked hooks: $src_hooks -> $dest_hooks"
+    else
+      run cp -a "$src_hooks" "$dest_hooks"
+      echo "installed hooks: $src_hooks -> $dest_hooks"
+    fi
+    return 0
+  fi
+
+  # If jq is available, merge properly
+  if command -v jq &> /dev/null; then
+    if $DRY_RUN; then
+      printf 'dry-run: jq merge hooks %s -> %s\n' "$src_hooks" "$dest_hooks"
+      return 0
+    fi
+
+    local merged
+    merged=$(jq -s '
+      # Reduce all inputs into first (existing) object
+      reduce .[1:][] as $new (.[0];
+        . as $existing |
+        $new | to_entries | reduce .[] as $entry (
+          $existing;
+          if $entry.key == "hooks" then
+            # Merge hooks by event type
+            .hooks as $e_hooks |
+            $entry.value | to_entries | reduce .[] as $hevent (
+              $existing;
+              .hooks[$hevent.key] = (
+                (($e_hooks[$hevent.key] // []) + $hevent.value) | unique_by(.description // .)
+              )
+            )
+          elif $entry.key == "description" then
+            # Combine descriptions
+            .description = ((.description // "") + "; " + $entry.value)
+          else
+            .[$entry.key] = $entry.value
+          end
+        )
+      )
+    ' "$dest_hooks" "$src_hooks")
+
+    echo "$merged" > "$dest_hooks"
+    echo "merged hooks: $src_hooks -> $dest_hooks"
+  else
+    # Fallback without jq: append a warning
+    echo "WARNING: jq not found — hooks will be appended, not merged" >&2
+    echo "Install jq for proper hook merging: sudo apt install jq / brew install jq" >&2
+    if $DRY_RUN; then
+      printf 'dry-run: append hooks (jq unavailable)\n'
+    else
+      # Backup existing, then use source hooks (user should merge manually)
+      cp "$dest_hooks" "${dest_hooks}.backup"
+      echo "Backed up existing hooks to ${dest_hooks}.backup" >&2
+      # Copy source hooks — user can manually merge from backup
+      cp -a "$src_hooks" "$dest_hooks"
+      echo "installed hooks: $src_hooks -> $dest_hooks (existing backed up)" >&2
+    fi
+  fi
+}
+
 if [[ $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
   install_dir_items "$PLUGIN_ROOT/skills" "skills"
 fi
@@ -138,7 +211,7 @@ if [[ $SKILLS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
 fi
 
 if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
-  install_dir_items "$PLUGIN_ROOT/hooks" "hooks"
+  merge_hooks
 fi
 
 if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 ]]; then
