@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { test } from "node:test";
 import { dirname, join } from "node:path";
+import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -228,4 +228,3 @@ test("hooks.json defines SessionStart, PostToolUse, and Stop", async () => {
   assert.ok(hooks.hooks.PostToolUse, "PostToolUse hook missing");
   assert.ok(hooks.hooks.Stop, "Stop hook missing");
 });
-

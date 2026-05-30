@@ -1,5 +1,5 @@
 {
-  "description": "Coder Workflow hooks — orchestrate workflow at session start, ensure task tracking on Stop, and remind about bug tracking after file changes. Also refreshes codegraph if available.",
+  "description": "Unified hooks for coder-workflow + codegraph-mapper: orchestrator reminder, auto-scan graph, bug tracking, task verification, and graph refresh.",
   "hooks": {
     "SessionStart": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'SessionStart reminder: run /coder-workflow:coder-workflow (or /coder-workflow:plan) to initialize orchestrator routing.' && test -f .codegraph/graph.db || (codegraph-mapper scan 2>/dev/null || npx codegraph-mapper scan 2>/dev/null || true)",
+            "command": "echo 'SessionStart reminder: run /coder-workflow:coder-workflow (or /coder-workflow:plan) to initialize orchestrator routing.' && test -f .codegraph/graph.db || (codegraph-mapper scan 2>/dev/null || npx codegraph-mapper scan 2>/dev/null || coder-workflow scan 2>/dev/null || true)",
             "timeout": 120
           }
         ]
@@ -24,7 +24,7 @@
           },
           {
             "type": "command",
-            "command": "test -f .codegraph/graph.db && codegraph-mapper update 2>/dev/null || true",
+            "command": "test -f .codegraph/graph.db && (codegraph-mapper update 2>/dev/null || coder-workflow update 2>/dev/null || true) || (codegraph-mapper scan 2>/dev/null || coder-workflow scan 2>/dev/null || true)",
             "timeout": 120,
             "async": true
           }
@@ -42,7 +42,7 @@
           },
           {
             "type": "command",
-            "command": "test -f .codegraph/graph.db && codegraph-mapper update 2>/dev/null || true",
+            "command": "test -f .codegraph/graph.db && (codegraph-mapper update 2>/dev/null || coder-workflow update 2>/dev/null || true) || (codegraph-mapper scan 2>/dev/null || coder-workflow scan 2>/dev/null || true)",
             "timeout": 120,
             "async": true
           }

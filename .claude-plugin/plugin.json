@@ -1,7 +1,7 @@
 {
   "name": "coder-workflow",
-  "version": "0.2.0",
-  "description": "Orchestrator-driven workflow for coding, planning, auditing, and Modular MVC + Service + Repository refactoring. Routes all coding work through aggressive task decomposition, skill/MCP-first execution, and persistent learning. Never guess — research first via context7 and codegraph MCP.",
+  "version": "0.3.0",
+  "description": "Orchestrator-driven coding workflow with graph-first codebase understanding — task decomposition, skill routing, coding agents, architecture audit, Docker deploy, and CodeGraph MCP server.",
   "author": {
     "name": "Asep Haryana",
     "email": "asepharyana71@gmail.com"
@@ -19,6 +19,18 @@
     "skill-routing",
     "mcp-first",
     "learning-first",
-    "codegraph-first"
-  ]
+    "codegraph-first",
+    "codegraph",
+    "architecture",
+    "static-analysis",
+    "dependency-graph",
+    "visualization",
+    "code-search",
+    "codebase-understanding",
+    "impact-analysis",
+    "call-graph",
+    "graph-first",
+    "codebase-routing"
+  ],
+  "mcpServers": "./.mcp.json"
 }

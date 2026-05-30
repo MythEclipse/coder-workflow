@@ -1,10 +1,15 @@
 {
   "name": "coder-workflow",
-  "version": "0.2.0",
-  "description": "Orchestrator-driven workflow for coding, planning, auditing, and Modular MVC + Service + Repository refactoring in Claude Code.",
+  "version": "0.3.0",
   "type": "module",
+  "bin": {
+    "coder-workflow": "./dist/cli.js"
+  },
   "files": [
+    "dist",
+    "src",
     ".claude-plugin",
+    ".mcp.json",
     "agents",
     "hooks",
     "skills",
@@ -16,10 +21,30 @@
     "install.ps1"
   ],
   "scripts": {
+    "build": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "prepack": "npm run build",
+    "test": "npm run build && npm run typecheck && node --test dist/test/**/*.test.js",
+    "start:mcp": "node dist/mcp-server.js",
+    "scan": "node dist/cli.js scan",
+    "ui": "node dist/cli.js ui",
+    "lint": "biome check src test package.json tsconfig.json biome.json esbuild.config.mjs",
+    "format": "biome format --write src test package.json tsconfig.json biome.json esbuild.config.mjs",
+    "check": "biome check --write src test package.json tsconfig.json biome.json esbuild.config.mjs",
     "install:global": "./install.sh",
     "install:project": "./install.sh --project",
     "install:link": "./install.sh --link"
   },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "@types/node": "latest",
+    "typescript": "latest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "esbuild": "^0.28.0"
+  },
+  "description": "Orchestrator-driven coding workflow with graph-first codebase understanding — task decomposition, skill routing, architecture audit, Docker deploy, and CodeGraph MCP server.",
   "author": {
     "name": "Asep Haryana",
     "email": "asepharyana71@gmail.com"
@@ -37,6 +62,18 @@
     "task-decomposition",
     "skill-routing",
     "mcp-first",
-    "learning-first"
+    "learning-first",
+    "codegraph-first",
+    "codegraph",
+    "architecture",
+    "static-analysis",
+    "dependency-graph",
+    "visualization",
+    "code-search",
+    "codebase-understanding",
+    "impact-analysis",
+    "call-graph",
+    "graph-first",
+    "codebase-routing"
   ]
 }
