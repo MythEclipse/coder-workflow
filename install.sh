@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Installer for the coder-workflow Claude Code plugin components.
-# Usage: ./install.sh [--project] [--link] [--dry-run] [--skills-only] [--agents-only] [<component>...]
+# Usage: ./install.sh [--project] [--link] [--dry-run] [--skills-only] [--agents-only] [--hooks-only] [--commands-only] [<component>...]
 
 PLUGIN_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 DEST="${HOME}/.claude"
@@ -10,6 +10,8 @@ LINK=false
 DRY_RUN=false
 SKILLS_ONLY=false
 AGENTS_ONLY=false
+HOOKS_ONLY=false
+COMMANDS_ONLY=false
 COMPONENTS=()
 
 usage() {
@@ -22,11 +24,13 @@ Options:
   --dry-run        Print planned actions without changing files
   --skills-only    Install only skills
   --agents-only    Install only agents
+  --hooks-only     Install only hooks
+  --commands-only  Install only commands
   -h, --help       Show this help
 
 Components:
   Optional component names to install. Examples: coder, refraktor, auditor,
-  workflow-planner, code-implementer, architecture-auditor.
+  workflow-planner, code-implementer, architecture-auditor, coder-orchestrator.
 USAGE
 }
 
@@ -42,6 +46,10 @@ while [[ $# -gt 0 ]]; do
       SKILLS_ONLY=true; shift ;;
     --agents-only)
       AGENTS_ONLY=true; shift ;;
+    --hooks-only)
+      HOOKS_ONLY=true; shift ;;
+    --commands-only)
+      COMMANDS_ONLY=true; shift ;;
     --help|-h)
       usage; exit 0 ;;
     *)
@@ -49,8 +57,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if $SKILLS_ONLY && $AGENTS_ONLY; then
-  echo "error: --skills-only and --agents-only cannot be combined" >&2
+if [ "$(( SKILLS_ONLY + AGENTS_ONLY + HOOKS_ONLY + COMMANDS_ONLY ))" -gt 1 ]; then
+  echo "error: only one of --skills-only, --agents-only, --hooks-only, --commands-only allowed" >&2
   exit 1
 fi
 
@@ -121,12 +129,20 @@ install_dir_items() {
   done
 }
 
-if ! $AGENTS_ONLY; then
+if ! $AGENTS_ONLY && ! $HOOKS_ONLY && ! $COMMANDS_ONLY; then
   install_dir_items "$PLUGIN_ROOT/skills" "skills"
 fi
 
-if ! $SKILLS_ONLY; then
+if ! $SKILLS_ONLY && ! $HOOKS_ONLY && ! $COMMANDS_ONLY; then
   install_dir_items "$PLUGIN_ROOT/agents" "agents"
+fi
+
+if ! $SKILLS_ONLY && ! $AGENTS_ONLY && ! $COMMANDS_ONLY; then
+  install_dir_items "$PLUGIN_ROOT/hooks" "hooks"
+fi
+
+if ! $SKILLS_ONLY && ! $AGENTS_ONLY && ! $HOOKS_ONLY; then
+  install_dir_items "$PLUGIN_ROOT/commands" "commands"
 fi
 
 echo "Install complete: $DEST"
