@@ -1,35 +1,442 @@
 {
-  "description": "Unified hooks for coder-workflow + codegraph-mapper: orchestrator reminder, auto-scan graph, bug tracking, task verification, and graph refresh.",
+  "description": "coder-workflow comprehensive hooks — session lifecycle, safety guards, graph maintenance, task tracking, change awareness, and session telemetry.",
   "hooks": {
+
     "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-banner.sh"],
+            "timeout": 15,
+            "statusMessage": "coder-workflow initializing..."
+          },
+          {
+            "type": "command",
+            "command": "test -f .codegraph/graph.db || (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || npx codegraph-mapper scan 2>/dev/null || true)",
+            "timeout": 180,
+            "async": true,
+            "statusMessage": "Auto-scanning codebase graph..."
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-resume.sh"],
+            "timeout": 10,
+            "statusMessage": "Checking session state..."
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Context was compacted and then resumed. Skills, orchestrators, and CodeGraph MCP tools are still active. Re-read your active task before proceeding.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rm -f /tmp/cw-session.log 2>/dev/null; echo 'Session cleared. Clean slate — use /coder-workflow:coder-orchestrator for any coding task.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); PROMPT=$(printf \"%s\" \"$INPUT\" | jq -r \".prompt // empty\" 2>/dev/null | head -c 140); printf \"[%s] PROMPT: %s\\n\" \"$(date -u +%T)\" \"$PROMPT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/rm-guard.sh"],
+            "if": "Bash(rm *)",
+            "timeout": 5,
+            "statusMessage": "Safety check..."
+          },
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/force-push-guard.sh"],
+            "if": "Bash(git push *)",
+            "timeout": 5,
+            "statusMessage": "Checking push safety..."
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+reset\\s+--hard|git\\s+clean\\s+-[a-zA-Z]*f\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: git reset --hard or git clean -f will destroy uncommitted work. Ensure nothing unsaved exists before proceeding.\\\"}\"; fi; exit 0'",
+            "if": "Bash(git reset *)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"DROP\\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\\s+TABLE\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: Destructive SQL detected (DROP/TRUNCATE). Confirm this is targeting a dev/test database, not production.\\\"}\" ; fi; exit 0'",
+            "if": "Bash(psql *)|Bash(mysql *)|Bash(sqlite3 *)",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scripts/env-write-guard.sh"],
+            "if": "Write(.env*)|Edit(.env*)",
+            "timeout": 5,
+            "statusMessage": "Checking env file..."
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Bug tracking enforced: every bug discovered during this turn must be created as a task and fixed before session end. No exceptions — do not defer as unrelated.'",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); FILE=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\" 2>/dev/null); printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "test -f .codegraph/graph.db && (command -v coder-workflow >/dev/null 2>&1 && coder-workflow update 2>/dev/null || npx codegraph-mapper update 2>/dev/null || true) || true",
+            "timeout": 120,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"(npm (i|install|ci)|yarn add|bun add|pnpm add)\"; then echo \"Package install detected — verify lock file is committed and no phantom dependencies were introduced.\"; fi; exit 0'",
+            "if": "Bash(npm install *)|Bash(npm i *)|Bash(npm ci)|Bash(yarn add *)|Bash(bun add *)|Bash(pnpm add *)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); printf \"[%s] GIT COMMIT: %s\\n\" \"$(date -u +%T)\" \"$CMD\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "if": "Bash(git commit *)",
+            "timeout": 5,
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); OUTPUT=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_response // .output // empty\" 2>/dev/null | head -c 300); if printf \"%s\" \"$CMD\" | grep -qE \"npm (test|run test|run lint|run typecheck|run check)\"; then printf \"[%s] TEST/LINT: %s\\n\" \"$(date -u +%T)\" \"$CMD\" >> /tmp/cw-session.log 2>/dev/null; fi; exit 0'",
+            "if": "Bash(npm test)|Bash(npm run test *)|Bash(npm run lint *)|Bash(npm run typecheck)",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__codegraph__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); TOOL=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_name // empty\" 2>/dev/null); printf \"[%s] GRAPH: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+
+    "PostToolUseFailure": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'SessionStart reminder: run /coder-workflow:coder-workflow (or /coder-workflow:plan) to initialize orchestrator routing.' && test -f .codegraph/graph.db || (codegraph-mapper scan 2>/dev/null || npx codegraph-mapper scan 2>/dev/null || coder-workflow scan 2>/dev/null || true)",
-            "timeout": 120
+            "command": "bash -c 'INPUT=$(cat); TOOL=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_name // empty\" 2>/dev/null); ERR=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_error // .error // empty\" 2>/dev/null | head -c 200); printf \"[%s] FAIL [%s]: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" \"$ERR\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
           }
         ]
       }
     ],
-    "PostToolUse": [
+
+    "PostToolBatch": [
       {
-        "matcher": "Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Bug tracking reminder: ensure all discovered bugs are tracked as TaskCreate entries and fixed in the Bug Fix Phase.'",
-            "timeout": 10
+            "command": "bash -c 'INPUT=$(cat); COUNT=$(printf \"%s\" \"$INPUT\" | jq \".tool_results | length // 0\" 2>/dev/null || echo \"?\"); printf \"[%s] BATCH: %s tool calls resolved\\n\" \"$(date -u +%T)\" \"$COUNT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Turn complete. Mandatory checklist before next user message: (1) all discovered tasks tracked, (2) no bugs left unfixed, (3) tests pass, (4) no TODO/FIXME left without a tracked task, (5) graph is current.'",
+            "timeout": 5
           },
           {
             "type": "command",
-            "command": "test -f .codegraph/graph.db && (codegraph-mapper update 2>/dev/null || coder-workflow update 2>/dev/null || true) || (codegraph-mapper scan 2>/dev/null || coder-workflow scan 2>/dev/null || true)",
+            "command": "test -f .codegraph/graph.db && (command -v coder-workflow >/dev/null 2>&1 && coder-workflow update 2>/dev/null || npx codegraph-mapper update 2>/dev/null || true) || true",
             "timeout": 120,
             "async": true
           }
         ]
       }
+    ],
+
+    "StopFailure": [
+      {
+        "matcher": "rate_limit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Rate limited. Wait 60+ seconds before retrying. Consider breaking the work into smaller incremental steps to reduce per-turn token load.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "max_output_tokens",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Output token limit hit. Break the response into smaller steps — ask for one piece at a time rather than generating everything at once.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "server_error|unknown|authentication_failed|billing_error",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); ERR=$(printf \"%s\" \"$INPUT\" | jq -r \".error_type // unknown\" 2>/dev/null); printf \"[%s] STOP FAILURE: %s\\n\" \"$(date -u +%T)\" \"$ERR\" >> /tmp/cw-session.log 2>/dev/null; echo \"API error ($ERR) — session ended unexpectedly. Resume with /resume and re-read task state before continuing.\"; exit 0'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+
+    "FileChanged": [
+      {
+        "matcher": "package.json|package-lock.json|bun.lockb|yarn.lock|pnpm-lock.yaml",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Package manifest changed on disk. Run the appropriate install command before using any new or updated packages.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": ".env|.env.local|.env.production|.env.development|.env.test|.env.staging",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Env file changed on disk. Verify it is gitignored and contains no committed secrets before the next git operation.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "CLAUDE.md",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'CLAUDE.md changed on disk — project instructions updated. New rules apply to subsequent turns immediately.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "hooks.json",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'hooks.json changed on disk — hook configuration updated. Changes take effect on the next hook event.',",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "tsconfig.json|biome.json",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'TypeScript/linter config changed on disk. A rebuild may be needed: npm run build && npm run typecheck'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": ".mcp.json",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'MCP configuration changed on disk. Restart Claude Code (or reload plugins) for the new server configuration to take effect.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CWD=$(printf \"%s\" \"$INPUT\" | jq -r \".cwd // empty\" 2>/dev/null); [ -z \"$CWD\" ] && CWD=$(pwd); echo \"cwd changed to: $CWD\"; if [ ! -f \"$CWD/.codegraph/graph.db\" ]; then echo \"  No CodeGraph in this directory. Run /coder-workflow:setup-codegraph if code analysis is needed.\"; fi; exit 0'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+
+    "PostCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Context compacted. All skills, orchestrators, and graph MCP tools remain active. Re-read active task state before your next action — the CodeGraph DB is unchanged.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+
+    "SubagentStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".agent_type // .subagent_type // unknown\" 2>/dev/null); printf \"[%s] AGENT START: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".agent_type // .subagent_type // unknown\" 2>/dev/null); printf \"[%s] AGENT STOP: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); TITLE=$(printf \"%s\" \"$INPUT\" | jq -r \".task.title // .title // unknown\" 2>/dev/null); printf \"[%s] TASK+: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> /tmp/cw-session.log 2>/dev/null; echo \"Task tracked: $TITLE\"; exit 0'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); TITLE=$(printf \"%s\" \"$INPUT\" | jq -r \".task.title // .title // unknown\" 2>/dev/null); printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> /tmp/cw-session.log 2>/dev/null; echo \"Task complete: $TITLE\"; exit 0'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+
+    "InstructionsLoaded": [
+      {
+        "matcher": "session_start|nested_traversal|include",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); FILE=$(printf \"%s\" \"$INPUT\" | jq -r \".file // .path // unknown\" 2>/dev/null); REASON=$(printf \"%s\" \"$INPUT\" | jq -r \".reason // unknown\" 2>/dev/null); printf \"[%s] INSTRUCTIONS [%s]: %s\\n\" \"$(date -u +%T)\" \"$REASON\" \"$FILE\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+
+    "ConfigChange": [
+      {
+        "matcher": "project_settings|user_settings",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); SRC=$(printf \"%s\" \"$INPUT\" | jq -r \".source // unknown\" 2>/dev/null); printf \"[%s] CONFIG CHANGE: %s\\n\" \"$(date -u +%T)\" \"$SRC\" >> /tmp/cw-session.log 2>/dev/null; echo \"Configuration changed ($SRC). Hooks and permissions may have updated.\"; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'LOG=/tmp/cw-session.log; if [ -f \"$LOG\" ]; then TASKS=$(grep -c \"TASK+:\" \"$LOG\" 2>/dev/null || echo 0); DONE=$(grep -c \"TASK done:\" \"$LOG\" 2>/dev/null || echo 0); COMMITS=$(grep -c \"GIT COMMIT:\" \"$LOG\" 2>/dev/null || echo 0); FAILS=$(grep -c \"FAIL \\[\" \"$LOG\" 2>/dev/null || echo 0); AGENTS=$(grep -c \"AGENT START:\" \"$LOG\" 2>/dev/null || echo 0); WRITES=$(grep -c \"WRITE:\" \"$LOG\" 2>/dev/null || echo 0); echo \"Session summary: tasks=$TASKS done=$DONE writes=$WRITES commits=$COMMITS agents=$AGENTS failures=$FAILS\"; rm -f \"$LOG\"; fi; exit 0'",
+            "timeout": 10
+          }
+        ]
+      }
     ]
+
   }
 }

@@ -91,6 +91,7 @@ Use bundled agents for larger work:
 - `workflow-planner`: delegate decomposition and implementation strategy when scope is unclear or multi-file.
 - `architecture-auditor`: delegate read-only architecture and layer violation audits.
 - `code-implementer`: delegate scoped implementation only after a plan or explicit implementation target exists.
+- `test-engineer`: delegate test generation, coverage gap detection, and test scaffolding after implementation or when user asks for tests.
 
 Do not delegate understanding completely. Provide agents with concrete goals, relevant files, expected output, and constraints.
 

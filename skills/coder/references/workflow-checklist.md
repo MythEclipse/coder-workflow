@@ -5,7 +5,7 @@ Reusable checklist for implementation sessions in the coder-workflow plugin.
 ## Phase 0: Orchestrator Entry
 
 - [ ] `coder-orchestrator` triggered — request classified and routed
-- [ ] Tasks created via `TaskCreate` for every unit of work (target: 5-20+ for non-trivial work)
+- [ ] Tasks created via `TaskCreate` for every unit of work (right-sized: 1-3 simple, 3-8 feature, 10+ complex)
 - [ ] Tasks ordered by dependency: foundation → schema → repository → service → controller → routes → integration → tests → verification
 
 ## Phase 1: Understand & Inspect
@@ -50,6 +50,7 @@ Reusable checklist for implementation sessions in the coder-workflow plugin.
 - [ ] Verification failures create new tasks, not shortcuts
 - [ ] No task marked `completed` without verification evidence
 - [ ] Skipped checks reported with exact reason
+- [ ] **Record ALL pre-existing issues found** — warnings, deprecations, console errors, type errors in files you didn't edit. Create `TaskCreate` entries for each.
 
 ## Phase 5b: Bug Discovery (During Verification)
 
@@ -86,10 +87,20 @@ Reusable checklist for implementation sessions in the coder-workflow plugin.
 - [ ] New learnings stored for future sessions
 - [ ] No commit/push unless user explicitly asked
 
+## Phase 8: Session Metrics (Optional)
+
+- [ ] Record total tasks created and completed
+- [ ] Record total bugs discovered and fixed
+- [ ] Record agent invocations: which agents, how many, complexity mix
+- [ ] Record review pass/fail ratio: how many tasks needed rework
+- [ ] Record session duration and estimated token efficiency (simple tasks direct vs complex with full SDD)
+- [ ] Note patterns: which tasks could have been simpler, which needed more decomposition
+- [ ] Save metrics to `.claude/session-metrics.json` for trend tracking
+
 ## Red Flag Checks
 
 - [ ] No "let me try the most likely answer" without research
-- [ ] No single giant "implement X" task — all decomposed
+- [ ] No single giant "implement X" task — all decomposed per complexity threshold
 - [ ] No "I think this should work" without verification
 - [ ] No raw grep/find when codegraph MCP was available
 - [ ] No Explore agent used — all exploration via codegraph MCP tools
@@ -97,3 +108,4 @@ Reusable checklist for implementation sessions in the coder-workflow plugin.
 - [ ] No abandoned tasks without exhausting all options
 - [ ] No skipped bugs — every discovered issue was tracked and fixed
 - [ ] No "not related to my changes" — if you see it, you fix it
+- [ ] No over-ceremony on simple tasks — right-sized to complexity

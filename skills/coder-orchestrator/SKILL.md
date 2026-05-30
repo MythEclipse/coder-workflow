@@ -9,15 +9,11 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 <EXTREMELY-IMPORTANT>
 If you think there is even a 1% chance a skill might apply to what you are doing, you ABSOLUTELY MUST invoke the skill.
-
 IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
-
-This is not negotiable. This is not optional. You cannot rationalize your way out of using skills.
+This is not negotiable. This is not optional.
 </EXTREMELY-IMPORTANT>
 
 ## Instruction Priority
-
-Coder-workflow skills override default system prompt behavior, but **user instructions always take precedence**:
 
 1. **User's explicit instructions** (CLAUDE.md, direct requests) — highest priority
 2. **Coder-workflow skills** — override default system behavior where they conflict
@@ -35,45 +31,19 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
              → Check: might any other skill apply? → YES → Invoke Skill tool
                                                        → Announce: "Using [skill] to [purpose]"
                                                        → Follow skill exactly
-                                                       → Skill delegates to sub-agents
-                                                       → Execute
                                                        → NO → Respond (including clarifications)
 ```
 
 ## Dual-Orchestrator Model
-
-**Two orchestrators work together — they are complementary, not conflicting:**
 
 | Orchestrator | Purpose | When |
 |---|---|---|
 | **`coder-orchestrator`** | WORKFLOW GUIDE — how to plan, implement, verify, fix bugs, run agents | ALWAYS triggers for any coding request |
 | **`codegraph-orchestrator`** | SEARCH GUIDE — how to explore codebase efficiently using MCP tools | ALWAYS loaded by coder-orchestrator for code search/exploration |
 
-**The flow:**
-
-```
-coder-orchestrator (ENTRY POINT — main brain for coding workflow)
-├── ALWAYS invoke codegraph-orchestrator (search/exploration guide)
-│   ├── scan-codegraph (build/refresh graph)
-│   ├── query-codegraph (find definitions, references, callers)
-│   ├── analyze-codegraph (impact, architecture, cycles, orphans)
-│   └── search_code (exact literal/regex search)
-├── Route to workflow skills
-│   ├── coder (implementation)
-│   ├── auditor (architecture review)
-│   ├── refraktor (structural refactor)
-│   └── deploy-docker (deployment)
-└── Invoke sub-agents
-    ├── workflow-planner (decompose)
-    ├── architecture-auditor (pre/post audit)
-    └── code-implementer (execute)
-```
-
-**ALWAYS invoke `codegraph-orchestrator` immediately after this skill.** It provides the efficient search/exploration patterns (graph before grep, query before read, analyze before edit) that the coding workflow depends on.
+**ALWAYS invoke `codegraph-orchestrator` immediately after this skill.**
 
 ## What Triggers This Orchestrator
-
-**ALWAYS invoke this skill** when the user asks about ANY of the following:
 
 | Request Type | Trigger |
 |---|---|
@@ -81,15 +51,13 @@ coder-orchestrator (ENTRY POINT — main brain for coding workflow)
 | Fix / debug / resolve | Any bug, error, crash, warning, deprecation |
 | Refactor / reorganize / restructure | Any code movement, layer extraction, module split |
 | Audit / review / check | Any architecture, layer, coupling, quality question |
-| Test / verify / validate | Any test writing, test running, coverage question |
+| Test / verify / validate | Any testwriting, test running, coverage question |
 | Deploy / setup / configure | Any CI/CD, Docker, VPS, Traefik, environment |
 | "Work on this" / "kerjakan" / "buat" | Any vague coding request |
 
-**If ANY of the above match — invoke this skill BEFORE anything else.**
-
 ## Skill Routing Matrix
 
-After this orchestrator AND codegraph-orchestrator are invoked, check which sub-skill applies:
+After both orchestrators are invoked, check which sub-skill applies:
 
 | Request | Route to skill |
 |---------|---------------|
@@ -101,36 +69,38 @@ After this orchestrator AND codegraph-orchestrator are invoked, check which sub-
 
 **If multiple skills apply — invoke ALL of them in dependency order.**
 
-## Agent Coordination (Superpowers Subagent Pattern)
+## Agent Coordination (Right-Sized Subagent Pattern)
 
-After skills are invoked, use sub-agents following the **Subagent-Driven Development** pattern:
+After skills are invoked, use sub-agents following the **Right-Sized Subagent** pattern:
 
-**Core principle: Fresh sub-agent per task + two-stage review = high quality, fast iteration.**
+**Core principle: Scale agent chain to task complexity.** Simple tasks execute directly. Complex tasks get full SDD chain.
 
-### The Dispatch Sequence
+### Complexity Triage
+
+| Complexity | Criteria | Workflow |
+|---|---|---|
+| **Simple** | 1-2 files, clear spec, typo fix, config change | Direct implement -> self-verify -> complete |
+| **Standard** | 3-5 files, moderate coordination | Implement -> lightweight spec review -> complete |
+| **Complex** | 5+ files, architectural change, new patterns | Full SDD: implementer -> spec review -> quality review -> loop |
+
+### The Dispatch Sequence (Complex Tasks Only)
 
 ```
 controller (YOU)
 ├── Extract ALL tasks from workflow-planner output
 ├── FOR EACH task (in dependency order):
-│   ├── Dispatch FRESH implementer sub-agent (full task text + context)
-│   ├── Handle status: DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT
-│   ├── Dispatch FRESH spec review sub-agent (verify vs requirements)
-│   ├── Handle: ✅ approved → proceed | ❌ issues → implementer fixes → re-review
-│   ├── Dispatch FRESH code quality sub-agent (verify quality)
-│   ├── Handle: ✅ approved → mark complete | ❌ issues → implementer fixes → re-review
+│   ├── Simple? → implement directly → self-verify → next
+│   ├── Standard? → implement → light spec review → next
+│   └── Complex? → Full SDD chain:
+│   │   ├── Dispatch FRESH implementer sub-agent
+│   │   ├── Handle status: DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT
+│   │   ├── Dispatch FRESH spec review sub-agent
+│   │   ├── Handle: ✅ approved → proceed | ❌ issues → fix → re-review
+│   │   └── Dispatch FRESH code quality sub-agent
 │   └── Track ALL discovered bugs as TaskCreate
 ├── Bug Fix Phase: fix all High/Medium bugs
 └── Final code review + mark session complete
 ```
-
-### Model Selection
-
-| Task Complexity | Model |
-|----------------|-------|
-| Mechanical (1-2 files, clear spec) | inherit (default) |
-| Integration (multi-file, coordination) | inherit (default) |
-| Review (architecture, quality, spec) | inherit (default) |
 
 ### Status Handling
 
@@ -141,61 +111,44 @@ controller (YOU)
 | NEEDS_CONTEXT | Provide missing context → re-dispatch same task same agent |
 | BLOCKED | Assess: context problem → re-dispatch; too large → split; plan wrong → re-plan |
 
-### Rules (From Superpowers)
+### Model Selection
 
-- **NEVER** reuse sub-agents — FRESH agent per task, FRESH context
-- **NEVER** skip reviews — spec compliance THEN code quality, in that order
-- **NEVER** dispatch multiple implementers in parallel (conflicts)
+| Task Complexity | Model |
+|----------------|-------|
+| Mechanical (1-2 files, clear spec) | inherit (default) |
+| Integration (multi-file, coordination) | inherit (default) |
+| Review (architecture, quality, spec) | inherit (default) |
+
+### Rules
+
+- **NEVER** reuse sub-agents for Complex tasks — FRESH agent per task
+- **NEVER** skip reviews for Complex tasks — spec compliance THEN code quality, in that order
+- **NEVER** dispatch multiple implementers in parallel for overlapping files — check file overlap first
 - **NEVER** make sub-agent read plan file — provide FULL task text directly
 - **NEVER** use the built-in Explore agent — use codegraph-orchestrator + MCP tools instead
+- **Parallel execution**: tasks with disjoint file sets MAY run in parallel with worktree isolation. See code-implementer agent for parallel decision algorithm.
 
 ### Explore Agent — BANNED
 
-**The built-in `Explore` agent is FORBIDDEN for all coding sessions.** Every exploration must go through codegraph MCP tools via `codegraph-orchestrator`:
+The built-in `Explore` agent is FORBIDDEN for all coding sessions. Every exploration must go through codegraph MCP tools via `codegraph-orchestrator`:
 
 | Instead of Explore agent | Use codegraph MCP |
 |---|---|
-| Explore: "find database schema" | `mcp__codegraph__query_graph` + `mcp__codegraph__read_file` |
-| Explore: "search for routes" | `mcp__codegraph__query_graph` (query: "routes" or "handler") |
-| Explore: "trace call chain" | `mcp__codegraph__analyze_impact` |
-| Explore: "find all imports of X" | `mcp__codegraph__query_graph` (def/references) |
-| Explore: "map architecture" | `mcp__codegraph__summarize_architecture` |
-| Explore: "find cycles" | `mcp__codegraph__find_cycles` |
-| Explore: "search for TODO/FIXME text" | `mcp__codegraph__search_code` |
+| "find database schema" | `mcp__codegraph__query_graph` + `mcp__codegraph__read_file` |
+| "search for routes" | `mcp__codegraph__query_graph` (query: "routes" or "handler") |
+| "trace call chain" | `mcp__codegraph__analyze_impact` |
+| "find all imports of X" | `mcp__codegraph__query_graph` (def/references) |
+| "map architecture" | `mcp__codegraph__summarize_architecture` |
+| "find cycles" | `mcp__codegraph__find_cycles` |
+| "search for TODO/FIXME text" | `mcp__codegraph__search_code` |
 
-**Why:** Explore agent burns tokens reading files without graph context. CodeGraph MCP gives precise answers — file paths, symbols, edges — before any file read. Graph before grep. Graph before find. Graph before Explore. **Always query graph first.**
-- **NEVER** pause between tasks to ask "should I continue?" — execute continuously
-- **NEVER** accept "close enough" on spec compliance
-- **NEVER** skip review loops — reviewer found issues = fix = review again
-- **CONTROLLER** provides curated context, full task text, file targets, verification commands
-- **SUB-AGENTS** ask questions BEFORE starting, not during
-
-## Red Flags
-
-These thoughts mean STOP — you're rationalizing:
-
-| Thought | Reality |
-|---------|---------|
-| "This is just a simple fix" | Simple fixes need skills too. Check first. |
-| "I need more context first" | Skill check comes BEFORE exploring. |
-| "Let me read the codebase first" | Skills tell you HOW to explore. Check first. |
-| "I can check git status quickly" | Files lack workflow context. Check for skills. |
-| "This doesn't need formal workflow" | If a skill exists, use it. |
-| "The skill is overkill" | Simple things become complex. Use it. |
-| "I'll just do this one thing first" | Check BEFORE doing anything. |
-| "This feels productive" | Undisciplined action wastes time. Skills prevent this. |
-| "I know what to do" | Knowing ≠ following workflow. Invoke the skill. |
-| "Not related to my changes" | If you see a bug, you own it. Track and fix it. |
-| "Pre-existing, skipping" | Create task, fix in Bug Fix Phase. |
-| "Let me use Explore to find..." | FORBIDDEN. Use codegraph MCP: query_graph, search_code, analyze_impact. |
-| Using Explore agent for code search | Use `mcp__codegraph__query_graph` or `mcp__codegraph__search_code` instead. |
-| Dispatching Explore subagent | Dispatch general-purpose agent with codegraph MCP tools instead. |
+**Why:** Explore agent burns tokens reading files without graph context. CodeGraph MCP gives precise answers before any file read. **Always query graph first.**
 
 ## Core Mandates
 
 1. **Tasks before tools.** Every coding request MUST be decomposed into tracked tasks via `TaskCreate`.
 2. **Skills before guesses.** Always route to the appropriate skill — never implement ad-hoc.
-3. **MCP before Explore.** Use codegraph MCP tools for all codebase exploration. NEVER use the built-in Explore agent. Graph before grep. Graph before find. Graph before Explore.
+3. **MCP before Explore.** Use codegraph MCP tools for all codebase exploration. NEVER use the built-in Explore agent.
 4. **Context7 before assumptions.** Never guess framework/API behavior — query docs first.
 5. **Never give up.** If stuck, decompose further, research more, ask clarifying questions.
 6. **Fix every discovered bug.** Never skip as "not related to my changes." Create task, fix in Bug Fix Phase.
@@ -227,4 +180,28 @@ Also invoked: codegraph-orchestrator (for efficient codebase search/exploration)
 Skills invoked: [list]
 Agents invoked: [list]
 Tasks created: [count]
+Architecture pattern: [MVC | GraphQL | CLI | Event-Driven | Functional | Library]
+Complexity mix: Simple [N] | Standard [N] | Complex [N]
 ```
+
+## Session Metrics (Optional)
+
+At session end, save metrics to `.claude/session-metrics.json`:
+
+```json
+{
+  "sessionDate": "ISO-8601",
+  "tasksCreated": N,
+  "tasksCompleted": N,
+  "bugsDiscovered": N,
+  "bugsFixed": N,
+  "agentInvocations": {"workflow-planner": N, "architecture-auditor": N, "code-implementer": N, "test-engineer": N},
+  "complexityMix": {"simple": N, "standard": N, "complex": N},
+  "reviewPassRate": "X%",
+  "parallelBatches": N,
+  "checkpointsUsed": N,
+  "architecturePattern": "MVC"
+}
+```
+
+These metrics enable trend tracking: is bug discovery rate decreasing? Is review pass rate improving? Are we right-sizing complexity appropriately?

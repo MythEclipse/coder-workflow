@@ -1,12 +1,12 @@
 ---
 name: refraktor
-description: Refactor codebases toward Modular MVC + Service + Repository architecture. Language-agnostic — works with TypeScript, JavaScript, Python, Go, Rust, Java, C#, PHP, Ruby, Kotlin, Swift, or any other stack. Trigger when the user asks to refactor to Modular MVC, separate Controller-Service-Repository layers, reorganize by feature/module, fix fat controllers, add schema validation, or migrate from flat layout.
+description: Refactor codebases toward layered modular architecture. Language-agnostic structural patterns — full graph analysis for TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin (with parsers); text-search fallback for other languages. Trigger when the user asks to refactor to Modular MVC, separate Controller-Service-Repository layers, reorganize by feature/module, fix fat controllers, add schema validation, or migrate from flat layout.
 version: 0.3.0
 argument-hint: "[scope-optional]"
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git:*), Bash(*)
 ---
 
-Transform any codebase toward **Modular MVC + Service + Repository** architecture without changing existing functional behavior. Organize by feature/module, not by global technical layer. This skill adapts to any language, framework, ORM, or validation library.
+Transform any codebase toward **layered modular architecture** without changing existing functional behavior. Organize by feature/module, not by global technical layer. This skill adapts to any language, framework, ORM, or validation library.
 
 ## HARD GATE: Planning is mandatory
 
@@ -15,9 +15,10 @@ Transform any codebase toward **Modular MVC + Service + Repository** architectur
 The mandatory planning flow:
 
 1. **Enter plan mode** (`EnterPlanMode`) before any file edit, file move, or import rewrite.
-2. Inside plan mode, execute Phase 0 (stack detection) and Phase 1 (recon & violation detection).
+2. Inside plan mode, execute Phase 0 (stack detection + architecture pattern detection) and Phase 1 (recon & violation detection).
 3. Write the plan to the plan file. The plan must include:
    - Detected stack summary (language, framework, ORM, validation lib, test runner, linter, type checker, package manager).
+   - Architecture pattern: MVC, GraphQL Resolver, CLI Command/Handler, Event-Driven Handler/Processor, or Functional.
    - Architecture map before: current file topology with layer assignments and violation locations (`file:line`).
    - Migration manifest: every `old path → new path` mapping proposed.
    - Module migration order: which modules get refactored first, second, third, with rationale.
@@ -29,39 +30,80 @@ The mandatory planning flow:
 
 **Never skip planning.** Even if the user says "just do it quickly" or "this is simple" — plan first. A five-minute plan prevents hour-long rollbacks.
 
-## Phase 0: Stack detection
+## Phase 0: Stack + Architecture Detection
 
-Detect the project stack automatically before any analysis. Adapt all conventions, file extensions, and commands to the detected stack:
+Detect the project stack and architecture pattern automatically before any analysis:
 
-1. **Language**: identify from source files — TypeScript, JavaScript, Python, Go, Rust, Java, C#, PHP, Ruby, Kotlin, Swift, etc.
+### Stack Detection
+1. **Language**: identify from source files
 2. **Framework**: Express, NestJS, FastAPI, Django, Flask, Gin, Echo, Actix, Spring Boot, Laravel, Rails, etc.
-3. **ORM / database layer**: Prisma, TypeORM, SQLAlchemy, GORM, Diesel, Hibernate, Eloquent, ActiveRecord, raw SQL client, etc.
-4. **Validation library**: Zod, Joi, class-validator, Pydantic, Marshmallow, go-playground/validator, Bean Validation, etc.
-5. **Package manager / build tool**: npm, pnpm, yarn, pip, poetry, go mod, cargo, maven, gradle, composer, bundler, etc.
-6. **Test runner**: jest, vitest, pytest, go test, cargo test, JUnit, phpunit, rspec, etc.
-7. **Linter/formatter**: biome, eslint, ruff, black, gofmt, clippy, checkstyle, php-cs-fixer, rubocop, etc.
-8. **Type checker** (if applicable): tsc, mypy, pyright, go build, cargo check, javac, etc.
-9. **File extensions**: detect from project convention; use the same extensions for all new files.
+3. **ORM / database layer**: Prisma, TypeORM, SQLAlchemy, GORM, Diesel, Hibernate, Eloquent, etc.
+4. **Validation library**: Zod, Joi, Pydantic, class-validator, go-playground/validator, etc.
+5. **Package manager / build tool**: npm, pnpm, yarn, pip, poetry, go mod, cargo, etc.
+6. **Test runner**: jest, vitest, pytest, go test, cargo test, etc.
+7. **Linter/formatter**: biome, eslint, ruff, black, gofmt, clippy, etc.
+8. **File extensions**: detect from project convention.
 
-Map each category to a concrete command. When a category doesn't exist in the stack, skip it and note the gap in the plan.
+### Architecture Pattern Detection
+
+Detect the project's architectural pattern and adapt layer names accordingly. **Do not force MVC on projects that don't use HTTP routes.**
+
+| Pattern | Detection Signals | Layer Names | Folder Structure |
+|---|---|---|---|
+| **MVC (Web/API)** | HTTP routes, controllers, request/response objects | Route → Controller → Service → Repository → Schema | `modules/{feature}/` |
+| **GraphQL Resolver** | GraphQL schema files, `Resolver` classes, `Query/Mutation` types | Schema → Resolver → Service → Repository → Input Validator | `modules/{feature}/` |
+| **CLI Tool** | `main` entry, `Command` classes, `ArgParser`, no HTTP | Entry → Command → Handler → Repository → Config | `commands/`, `handlers/` |
+| **Event-Driven** | Event emitters, message handlers, `on(event)`, queues, pub/sub | Event → Handler → Service → Repository → Schema | `events/`, `handlers/` |
+| **Functional** | Pure functions, no classes, function composition, immutable data | Entry → Pure Functions → Data Access → Types | `modules/{feature}/` |
+| **Library/SDK** | No entry point, exported APIs, public interfaces | Public API → Internal Service → Core → Utils | `src/`, `lib/` |
+
+Detection logic:
+- **Has HTTP routes/controllers** → MVC pattern (default)
+- **Has GraphQL schema + Resolvers** → GraphQL Resolver pattern
+- **Has CLI commands, no HTTP server** → CLI Command/Handler pattern
+- **Has event bus/message queue, no HTTP** → Event-Driven pattern
+- **Mostly pure functions, no classes** → Functional pattern
+- **No entry point, exports-only** → Library/SDK pattern
+
+Adapt all subsequent phases (Fase 1-5) to the detected pattern. The **principles remain the same**: separate concerns, organize by feature, one-way dependency flow. Only the **layer names** change.
+
+## Supported languages for graph-first analysis
+
+CodeGraph parsers exist for: **TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin**. These languages get full graph analysis (callers, callees, impact, cycles, orphans).
+
+For languages without parsers (C#, PHP, Ruby, Swift, etc.), the refactor skill still applies for structural changes, but graph-backed analysis (impact, caller tracing) falls back to text search. Use `mcp__codegraph__search_code` with regex for these languages.
 
 ## Target architecture contract
 
-Route requests through this one-way layer order:
+**MVC Pattern (default)**:
 
 ```text
 Route → Controller → Service → Repository → Schema
 ```
 
-Apply these responsibilities regardless of language/framework:
+**GraphQL Resolver Pattern**:
+```text
+Schema → Resolver → Service → Repository → InputValidator
+```
 
-- **Route**: declare endpoint method/path and connect middleware/controller. Keep business logic out.
-- **Controller**: parse incoming request data (body, params, query, headers, cookies, form data, context); call service; return response. Keep database calls, hashing, and business decisions out.
-- **Service**: hold application decisions and orchestration. Check uniqueness, hash passwords, calculate totals, validate stock, and coordinate repositories. Never touch framework request/response objects or ORM models directly.
-- **Repository**: contain database access only: find, create, update, delete, pagination, filtering, joins, and transactions. Avoid business branching and framework response types.
-- **Schema**: validate input at request boundaries using the project's validation library. Connect via middleware, decorators, dependency injection, or framework-native validation hooks.
+**CLI Command Pattern**:
+```text
+Entry → Command → Handler → Repository → Config
+```
 
-Prefer feature modules. Adapt directory layout and file extensions to the detected stack:
+**Event-Driven Pattern**:
+```text
+Event → Handler → Service → Repository → Schema
+```
+
+**Functional Pattern**:
+```text
+Entry → PureFunctions → DataAccess → Types
+```
+
+Layer responsibilities adapt per pattern. The universal rule: **each layer has one responsibility, dependencies flow inward, shared never imports from modules.**
+
+### MVC folder structure (most common)
 
 ```text
 src/
@@ -81,7 +123,7 @@ src/
 └── types/                          # shared type definitions (if applicable)
 ```
 
-For languages that don't use files per class (e.g. Go package convention), group by package and adjust filenames accordingly. For framework-specific module conventions (NestJS modules, Django apps, Laravel modules), adapt the folder structure while preserving layer separation.
+Adapt to the detected pattern and framework conventions.
 
 ## Workflow
 
@@ -96,13 +138,13 @@ Before touching any code, and before exiting plan mode:
 5. **Ensure graph data is fresh** — if `.codegraph/graph.db` exists, use `analyze-codegraph` for architecture overview, dependency mapping, and hotspots. If stale or missing, run `scan-codegraph`.
 6. **If any gate fails**, stop and report the blocker in the plan. Do not proceed until user resolves.
 
-Identify every violation with `file:line` evidence:
+Identify every violation with `file:line` evidence (adapt layer names to detected pattern):
 
 | Smell | Signature | Violating layer |
 |-------|-----------|-----------------|
-| Fat controller | Controller contains ORM queries, SQL strings, business decisions, hashing, or pricing logic | Controller |
+| Fat controller | Controller/Resolver/Handler contains ORM queries, SQL strings, business decisions | Controller/Resolver |
 | Missing repository | Service calls ORM/model/database directly instead of through a repository | Service |
-| Schema-less boundary | Validation is inline in route handler, controller, or service; no dedicated schema file | Schema |
+| Schema-less boundary | Validation is inline in handler; no dedicated schema/validator file | Schema/Validator |
 | Layer leakage | Repository imports framework request/response types or HTTP context | Repository |
 | Cross-module leak | Module A imports Module B's repository or controller directly | Cross-module |
 | Flat layout | All controllers/services/repositories in global flat folders obscuring feature ownership | Structure |
@@ -131,14 +173,14 @@ If any import violation or error appears, stop and fix before continuing.
 
 ### Fase 3: Migrate module-by-module
 
-For each feature module (user, auth, product, order, payment, etc.), follow the safe extraction order:
+For each feature module (user, auth, product, order, payment, etc.), follow the safe extraction order. Adapt layer names to the detected architecture pattern.
 
-#### Route file
-- Only endpoint declarations (HTTP method + path → controller method).
+#### Route/Entry file
+- Only endpoint declarations or command registrations.
 - No logic beyond middleware selection/wiring.
 - Gate: typecheck + lint clean.
 
-#### Controller file
+#### Controller/Resolver/Handler file
 - Only: parse request → call service → format response.
 - No database queries, hashing, or business calculations.
 - Gate: typecheck + lint clean.
@@ -156,13 +198,13 @@ For each feature module (user, auth, product, order, payment, etc.), follow the 
 - No business logic or conditional branching beyond persistence concerns.
 - Gate: typecheck + lint clean.
 
-#### Schema file
+#### Schema/Validator file
 - Input validation at the request boundary.
 - Wired as middleware, decorator, or first call in controller — per framework convention.
 - Gate: typecheck + lint clean.
 
 #### Cross-module rule
-- Module A may only import from Module B's **service**, never its controller or repository.
+- Module A may only import from Module B's **service**, never its controller, repository, or handler.
 - If cross-module circular dependency emerges, extract shared logic to `shared/utils/` or create a domain service.
 - Gate: `analyze-codegraph` must detect no cross-module repository/controller imports.
 

@@ -169,11 +169,6 @@ export async function scanCodebase(root: string, settings: CodeGraphSettings): P
 
     const cached = cache.files[rel];
 
-    // Metadata fast path
-    if (isReusableCacheEntry(cached, undefined, mtime, size, language)) {
-      return { rel, language, source: undefined as string | undefined, cached };
-    }
-
     // Read file
     const source = await readFile(file, "utf8");
     const hash = getFileHash(source);

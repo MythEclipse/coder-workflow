@@ -61,28 +61,62 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 
 | Agent | Purpose |
 |---|---|
-| `workflow-planner` | Decompose requests into many small tracked tasks (10+ minimum) |
+| `workflow-planner` | Decompose requests into tracked tasks (right-sized: 1-3 for simple, 3-8 for features, 10+ for complex) |
 | `architecture-auditor` | Read-only architecture and layer violation audit |
-| `code-implementer` | Scoped implementation after plan approval |
+| `code-implementer` | Scoped implementation after plan approval (right-sized: simple=direct, complex=full SDD) |
+| `test-engineer` | Test generation, coverage gap detection, test scaffolding |
 | `codegraph-builder` | Build/refresh code graph, handle scan errors |
 | `codegraph-analyst` | Analyze graph for patterns, cycles, risk, hotspots |
 
 ## Hooks (Auto-Loaded)
 
-Hooks are defined in `hooks/hooks.json` and auto-merged with all other plugin hooks at runtime:
+Hooks are defined in `hooks/hooks.json` and companion scripts in `hooks/scripts/`. Auto-merged at runtime:
 
-| Hook Event | Purpose |
-|---|---|
-| `SessionStart` | Invoke orchestrator reminder + auto-scan graph if missing |
-| `PostToolUse` (Write/Edit/NotebookEdit) | Bug tracking reminder + async graph update |
-| `Stop` | Verify all tasks completed + async graph update |
+| Hook Event | Matcher | Purpose |
+|---|---|---|
+| `SessionStart` | `startup` | Banner with graph status + CLI check + async auto-scan if no DB |
+| `SessionStart` | `resume` | Graph age check + task-state reminder |
+| `SessionStart` | `compact` | Post-compact re-orientation notice |
+| `SessionStart` | `clear` | Clear session log + clean-slate notice |
+| `UserPromptSubmit` | — | Async: log prompt preview to `/tmp/cw-session.log` |
+| `PreToolUse` | `Bash(rm *)` | **Safety guard**: block `rm -rf` targeting root/home/glob |
+| `PreToolUse` | `Bash(git push *)` | **Safety guard**: block force-push to main/master; warn on feature branches |
+| `PreToolUse` | `Bash(git reset *)` | Warn before `--hard` reset or `clean -f` |
+| `PreToolUse` | `Bash(psql/mysql/sqlite3)` | Warn on destructive SQL (DROP/TRUNCATE) |
+| `PreToolUse` | `Write/Edit(.env*)` | Warn if env file is not gitignored |
+| `PostToolUse` | `Write/Edit/MultiEdit/NotebookEdit` | Bug tracking reminder + log write + async graph update |
+| `PostToolUse` | `Bash(npm/yarn/bun install)` | Package install notice |
+| `PostToolUse` | `Bash(git commit)` | Async: log commit |
+| `PostToolUse` | `Bash(npm test/lint/typecheck)` | Async: log test/lint run |
+| `PostToolUse` | `mcp__codegraph__.*` | Async: log all graph MCP operations |
+| `PostToolUseFailure` | `*` | Async: log tool failure with error detail |
+| `PostToolBatch` | — | Async: log resolved batch count |
+| `Stop` | — | Full verification checklist + async graph update |
+| `StopFailure` | `rate_limit` | Rate limit advice + retry guidance |
+| `StopFailure` | `max_output_tokens` | Token limit guidance |
+| `StopFailure` | `server_error/unknown/…` | Async: log error + resume instructions |
+| `FileChanged` | `package.json/lock files` | Install reminder |
+| `FileChanged` | `.env*` | Secret exposure warning |
+| `FileChanged` | `CLAUDE.md` | Instructions updated notice |
+| `FileChanged` | `hooks.json` | Hook config updated notice |
+| `FileChanged` | `tsconfig.json/biome.json` | Rebuild reminder |
+| `FileChanged` | `.mcp.json` | MCP restart reminder |
+| `CwdChanged` | — | Log new directory + CodeGraph availability check |
+| `PostCompact` | `*` | Re-orientation notice after compaction |
+| `SubagentStart` | `*` | Async: log agent spawn |
+| `SubagentStop` | `*` | Async: log agent completion |
+| `TaskCreated` | — | Echo task name + async log |
+| `TaskCompleted` | — | Echo task name + async log |
+| `InstructionsLoaded` | `session_start/nested/include` | Async: log which CLAUDE.md files loaded |
+| `ConfigChange` | `project_settings/user_settings` | Async: log config source + notice |
+| `SessionEnd` | `*` | Print session summary (tasks/commits/agents/failures) + cleanup log |
 
 ## Orchestrator Usage (Required)
 
 - **Always trigger `coder-orchestrator`** at session start for any coding task — features, bugs, refactors, reviews, deployments.
 - **Always invoke `codegraph-orchestrator`** immediately after — provides efficient search/exploration patterns via MCP tools.
 - The coding orchestrator routes work through a fixed agent sequence: `workflow-planner` → `architecture-auditor` → `code-implementer` → `architecture-auditor` (post-verify).
-- Every coding session MUST invoke ALL sub-agents. No exceptions.
+- Every coding session uses right-sized agents: simple tasks execute directly, complex tasks use full agent chain. Scale to complexity, not ceremony.
 - Every discovered bug MUST be tracked and fixed — never skip as "not related to my changes."
 - Use skills and MCP tools before guessing. Use context7 MCP for framework docs. Use codegraph MCP for code search.
 

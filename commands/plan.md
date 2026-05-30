@@ -9,7 +9,7 @@ Invoke the `workflow-planner` agent to aggressively decompose the given coding r
 
 ## Mandate
 
-- **NEVER** produce a single "implement X" task — decompose into 10+ subtasks minimum
+- **NEVER** produce a single "implement X" task — decompose per threshold table: 1-3 for simple fixes, 3-8 for features, 10+ for complex/architecture changes
 - **NEVER** suggest reducing scope — embrace complexity and decompose it
 - **NEVER** skip MCP/skill research — if unfamiliar with a framework, flag for context7 MCP lookup
 - **NEVER** give up or suggest "let's do the simplest thing" — plan the full solution in small steps
