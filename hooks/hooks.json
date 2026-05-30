@@ -1,6 +1,17 @@
 {
-  "description": "Coder Workflow hooks — trigger orchestrator routing after file changes and ensure task tracking at session stop.",
+  "description": "Coder Workflow hooks — invoke coder-orchestrator at SessionStart, ensure task tracking at Stop, and refresh codegraph on file changes via PostToolUse.",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "SessionStart hook: Invoke the coder-orchestrator skill via the Skill tool NOW, before any other response or action. This establishes workflow routing for the entire session. After coder-orchestrator, also invoke codegraph-orchestrator if the user's request involves codebase exploration."
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|NotebookEdit",
