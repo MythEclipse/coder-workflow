@@ -8,40 +8,11 @@
             "type": "command",
             "command": "bash",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/prompt-security-filter.sh"
-            ],
-            "timeout": 5,
-            "async": false,
-            "statusMessage": "Security filter..."
-          },
-          {
-            "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/skill-detector.sh"
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-context"
             ],
             "timeout": 5,
             "async": false,
             "statusMessage": "Detecting skills..."
-          },
-          {
-            "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/intent-classifier.sh"
-            ],
-            "timeout": 5,
-            "async": false,
-            "statusMessage": "Classifying intent..."
-          },
-          {
-            "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/prompt-cache.sh"
-            ],
-            "timeout": 5,
-            "async": true
           },
           {
             "type": "command",

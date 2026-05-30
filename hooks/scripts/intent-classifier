@@ -124,16 +124,24 @@ fi
 # Output systemMessage
 # ============================================================
 if [ -n "$PRIMARY" ] && [ "$PRIMARY_SCORE" -gt 0 ]; then
-  jq -n \
-    --arg primary "$PRIMARY" \
-    --arg secondary "$SECONDARY" \
-    --arg confidence "$CONFIDENCE" \
-    --arg complexity "$COMPLEXITY" \
-    --arg lang "$LANG" \
-    --arg words "$WORD_COUNT" \
-    '{
-      systemMessage: ("coder-workflow intent classified — primary: \($primary) (confidence: \($confidence)%), secondary: \($secondary), complexity: \($complexity), language: \($lang), words: \($words). Use this to right-size agent chain: simple→direct, standard→light review, complex→full SDD.")
-    }'
+  # Escape for JSON embedding (superpowers pattern)
+  escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+  }
+
+  context_msg=$(escape_for_json "coder-workflow: intent=${PRIMARY} (confidence=${CONFIDENCE}%), complexity=${COMPLEXITY}, lang=${LANG}, words=${WORD_COUNT}. Right-size agent chain: simple→direct, standard→light review, complex→full SDD.")
+
+  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '{\n  "additional_context": "%s"\n}\n' "$context_msg"
+  else
+    printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "UserPromptSubmit",\n    "additionalContext": "%s"\n  }\n}\n' "$context_msg"
+  fi
 fi
 
 exit 0

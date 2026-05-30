@@ -67,12 +67,28 @@ if [ ${#WARNINGS[@]} -gt 0 ]; then
   # Join all warnings
   WARNING_TEXT=$(printf '%s\n' "${WARNINGS[@]}" | head -3 | tr '\n' ' ')
 
-  jq -n \
-    --arg severity "$SEVERITY" \
-    --arg warning "$WARNING_TEXT" \
-    '{
-      systemMessage: ("⚠️  coder-workflow security filter [severity: \($severity)] — \($warning). Confirm before proceeding. This is a pre-flight safety check, not a block.")
-    }'
+  # Escape for JSON embedding (superpowers pattern: bash parameter substitution)
+  escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+  }
+
+  # Security warnings SHOULD use systemMessage — user must see these
+  # But also inject additionalContext for agent awareness
+  context_msg=$(escape_for_json "coder-workflow security filter [${SEVERITY}]: ${WARNING_TEXT}. Confirm before proceeding.")
+
+  # For PreToolUse: systemMessage blocks/warns user (correct behavior)
+  # For UserPromptSubmit: additionalContext informs agent silently
+  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '{\n  "additional_context": "%s",\n  "systemMessage": "⚠️ coder-workflow security filter [%s] — %s"\n}\n' "$context_msg" "$SEVERITY" "$WARNING_TEXT"
+  else
+    printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "UserPromptSubmit",\n    "additionalContext": "%s",\n    "systemMessage": "⚠️ coder-workflow security filter [%s] — %s"\n  }\n}\n' "$context_msg" "$SEVERITY" "$WARNING_TEXT"
+  fi
 fi
 
 exit 0

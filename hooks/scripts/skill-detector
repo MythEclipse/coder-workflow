@@ -374,22 +374,25 @@ if [ -n "${UNIQUE_SKILLS:-}" ]; then
   INTENT_LIST=$(printf '%s' "$UNIQUE_INTENTS" | sed 's/,/, /g')
   FIRST_SKILL=$(printf '%s' "$UNIQUE_SKILLS" | cut -d',' -f1)
 
-  jq -n \
-    --arg skills "$SKILL_LIST" \
-    --arg intent "${PRIMARY_INTENT:-unknown}" \
-    --arg intents "$INTENT_LIST" \
-    --arg first "$FIRST_SKILL" \
-    '{
-      systemMessage: (
-        "coder-workflow skill detection — " +
-        "Detected primary intent: \($intent). " +
-        "All detected intents: \($intents). " +
-        "Skills to invoke: \($skills). " +
-        "Rule: invoke the \($first) skill BEFORE any response or action. " +
-        "If multiple skills are listed, invoke them in the listed order. " +
-        "Skill names are exact — use the Skill tool with the skill name as-is."
-      )
-    }'
+  # Escape for JSON embedding (superpowers pattern: bash parameter substitution)
+  escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+  }
+
+  context_msg=$(escape_for_json "coder-workflow: detected primary intent=${PRIMARY_INTENT:-unknown}, intents=[${INTENT_LIST}], skills=[${SKILL_LIST}]. Rule: invoke the ${FIRST_SKILL} skill BEFORE any response or action. If multiple skills, invoke in listed order. Skill names are exact.")
+
+  # Platform-aware output: Claude Code reads additionalContext, Cursor reads additional_context
+  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '{\n  "additional_context": "%s"\n}\n' "$context_msg"
+  else
+    printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "UserPromptSubmit",\n    "additionalContext": "%s"\n  }\n}\n' "$context_msg"
+  fi
 fi
 
 exit 0

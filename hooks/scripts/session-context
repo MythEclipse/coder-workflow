@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+# session-context — consolidated UserPromptSubmit hook
+# Detects skills, classifies intent, checks security, and injects additionalContext.
+# Superpowers pattern: one hook script, one JSON output, additionalContext (invisible to user).
+# Security warnings also emit systemMessage (user must see these).
+
+set -euo pipefail
+
+INPUT=$(cat)
+
+PROMPT=$(printf '%s' "$INPUT" | jq -r '
+  .prompt
+  // .message
+  // .userPrompt
+  // .transcript[-1].content
+  // empty
+' 2>/dev/null || true)
+
+[ -z "${PROMPT:-}" ] && exit 0
+
+LOWER=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]' | sed -E 's/[[:space:]]+/ /g')
+
+# ============================================================
+# Helpers
+# ============================================================
+
+has() {
+  printf '%s' "$LOWER" | grep -qiE "\b($1)\b"
+}
+
+declare -a SKILLS=()
+declare -a INTENTS=()
+declare -a WARNINGS=()
+SEVERITY="low"
+
+add() { local arr="$1"; shift; eval "$arr+=(\"\$*\")"; }
+
+# ============================================================
+# Skill detection (simplified keyword matching)
+# ============================================================
+
+if has 'deploy|deployment|docker|traefik|vps|ghcr|ci/cd|github.*action|container|production server|compose|nginx|dockerize|dockerisasi|publikasikan|server production|kontainer|server produksi|pasang di vps'; then
+  SKILLS+=("deploy-docker"); INTENTS+=("deploy")
+fi
+
+if has 'refactor|refactoring|reorganize|restructure|extract|modular|modularize|mvc|rewrite|rework|cleanup|clean up|layer.*separation|pisah.*layer|susun ulang|struktur ulang|rapikan'; then
+  SKILLS+=("refraktor"); INTENTS+=("refactor")
+fi
+
+if has 'modular.*mvc|mvc.*refactor|mvc.*modular|feature.*module|by feature|feature based|graph.*first.*refactor|controller.*service.*repository|pisah.*controller|pisah.*service|modul.*fitur|berdasarkan.*fitur'; then
+  SKILLS+=("modular-mvc-refactor"); INTENTS+=("refactor")
+fi
+
+if has 'audit|review|assess|evaluate|inspect|analyze|analisis|analisa|layer violation|fat controller|coupling|circular dependency|code smell'; then
+  SKILLS+=("auditor"); INTENTS+=("audit")
+fi
+
+if has 'scan.*code|build.*graph|refresh.*graph|update.*graph|codegraph|dependency graph|call graph|find.*definition|find.*caller|find.*reference|impact analysis|blast radius|peta.*kode|graf.*kode|cari.*definisi|cari.*pemanggil'; then
+  SKILLS+=("codegraph-orchestrator"); INTENTS+=("explore")
+fi
+
+if has 'batch.*read|parallel.*search|bulk.*lookup|semua.*file|banyak.*file|cari.*di.*semua|mass.*edit|bulk.*edit'; then
+  SKILLS+=("batch-codegraph"); INTENTS+=("batch")
+fi
+
+if has 'export.*graph|export.*mermaid|export.*dot|export.*json|generate.*diagram|visualize|visualization|diagram.*depend|buat.*diagram|ekspor.*graf|visualisasi.*dependency|diagram.*arsitektur'; then
+  SKILLS+=("export-codegraph"); INTENTS+=("export")
+fi
+
+if has 'implement|implementation|create|add|build|develop|implementasi|buat|bikin|tambahkan|kerjakan|kerja|nambah|endpoint|route|handler|controller|service|repository|component|api|function|class|module|fix|bugfix|hotfix|patch|debug|troubleshoot|perbaiki|benahi|error|crash|broken|not working|gagal|fail|failed|bug.*fix|error.*fix|type.*error|lint.*error|compile.*error|runtime.*error'; then
+  SKILLS+=("coder"); INTENTS+=("implement")
+fi
+
+if has 'test|testing|unit test|integration test|e2e|coverage|mock|stub|assert|tdd|bdd|uji.*unit|pengujian|tes.*otomatis'; then
+  INTENTS+=("test")
+fi
+
+if has 'plan|planning|roadmap|decompose|break.*down|strategy|rencana|pecah.*task|tahapan|langkah|strategi|baiknya.*bagaimana'; then
+  INTENTS+=("plan")
+fi
+
+if has '^what is |^how does |^why |^explain |^describe |^can you explain|apa itu|jelaskan|bagaimana cara|kenapa|mengapa|cara kerja|maksudnya|perbedaan|arti dari'; then
+  INTENTS+=("ask")
+fi
+
+# ============================================================
+# Security check (only critical/high — keep it tight)
+# ============================================================
+
+if has 'hapus semua file|delete all files|rm -rf /[^t]|rm -rf ~|hapus.*semua.*direktori|wipe.*filesystem|format.*disk'; then
+  WARNINGS+=("Destructive file operation: prompt targets system-wide deletion"); SEVERITY="critical"
+fi
+
+if has 'force push.*main|force push.*master|push.*-f.*main|push.*--force.*master|reset.*main.*--hard|reset.*master.*--hard|hapus.*git|delete.*git.*history'; then
+  WARNINGS+=("Destructive git: force-push or hard-reset to main/master is blocked"); SEVERITY="critical"
+fi
+
+if has 'drop.*all.*table|drop.*database.*prod|truncate.*all|hancurkan.*database|hapus.*semua.*data|drop.*schema.*cascade.*prod'; then
+  WARNINGS+=("Destructive DB: confirm this targets dev/test, not production"); SEVERITY="critical"
+fi
+
+if has 'print.*env.*token|echo.*password|cat.*\.env|commit.*secret|commit.*credential|commit.*api.key|upload.*secret'; then
+  WARNINGS+=("Secret exposure: prompt suggests printing or committing credentials"); SEVERITY="high"
+fi
+
+if has 'deploy.*to.*prod|push.*production|live.*server|production.*database|reset.*production|migrate.*prod'; then
+  WARNINGS+=("Production targeting: confirm environment before deploying"); SEVERITY="high"
+fi
+
+# ============================================================
+# Complexity estimation
+# ============================================================
+WORD_COUNT=$(printf '%s' "$PROMPT" | wc -w | tr -d ' ')
+COMPLEXITY="simple"
+[ "$WORD_COUNT" -gt 50 ] && COMPLEXITY="standard"
+[ "$WORD_COUNT" -gt 150 ] && COMPLEXITY="complex"
+
+# ============================================================
+# Language detection
+# ============================================================
+LANG="en"
+printf '%s' "$LOWER" | grep -qE '(kerjakan|implementasi|perbaiki|buat|tambah|apa itu|bagaimana|jelaskan|fitur|kode|saya|kita|tolong|bisa|tidak|sudah|belum|sedang|akan|dari|untuk|dengan|pada|yang|ini|itu)' && LANG="id"
+
+# ============================================================
+# Build context message
+# ============================================================
+SKILL_STR=$(IFS=','; echo "${SKILLS[*]:-none}")
+INTENT_STR=$(IFS=','; echo "${INTENTS[*]:-none}")
+PRIMARY_INTENT="${INTENTS[0]:-unknown}"
+
+context_msg="coder-workflow: skills=[${SKILL_STR}], intents=[${INTENT_STR}], primary=${PRIMARY_INTENT}, complexity=${COMPLEXITY}, lang=${LANG}, words=${WORD_COUNT}."
+
+if [ ${#WARNINGS[@]} -gt 0 ]; then
+  WARNING_STR=$(IFS=' '; echo "${WARNINGS[*]}")
+  context_msg="${context_msg} SECURITY[${SEVERITY}]: ${WARNING_STR}"
+fi
+
+# ============================================================
+# Escape for JSON (superpowers pattern: bash parameter substitution)
+# ============================================================
+escape_for_json() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
+
+context_escaped=$(escape_for_json "$context_msg")
+
+# ============================================================
+# Platform-aware JSON output
+# ============================================================
+if [ ${#WARNINGS[@]} -gt 0 ]; then
+  WARNING_ESCAPED=$(escape_for_json "⚠️ coder-workflow security [${SEVERITY}]: $(IFS=' '; echo "${WARNINGS[*]}")")
+
+  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '{"additional_context":"%s","systemMessage":"%s"}\n' "$context_escaped" "$WARNING_ESCAPED"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s","systemMessage":"%s"}}\n' "$context_escaped" "$WARNING_ESCAPED"
+  fi
+else
+  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '{"additional_context":"%s"}\n' "$context_escaped"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$context_escaped"
+  fi
+fi
+
+exit 0
