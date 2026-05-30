@@ -13,7 +13,6 @@ Perform a read-only audit of code structure, layering, refactor risk, and verifi
    - Use the user-provided path, module, PR, or feature as the audit boundary.
    - If no scope is provided, inspect project entry points, route registration, module folders, and recent git changes.
    - If the discovered scope exceeds 10 files or output context limits, halt the audit and ask the user to narrow the target path or focus on a specific module.
-   - Use codegraph MCP tools for structural analysis before any file reads. Prefer `query_graph` for dependency/caller/callee chains, `analyze_impact` for blast radius, `summarize_architecture` for module boundaries, and `search_code` for exact text patterns. Raw grep/find are fallbacks only after graph tools cannot answer.
 
 2. **Map architecture**
    - Identify the most likely audit boundary first from the user prompt, then inspect only the smallest relevant slice of the codebase.

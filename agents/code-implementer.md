@@ -27,7 +27,6 @@ When in doubt, use Standard. Reserve full SDD for genuinely complex work.
 - Never accept "close enough" on spec compliance
 - Never pause between tasks to ask "should I continue?"
 - Never skip pre-existing bug tracking — every discovered issue gets TaskCreate
-- Never use built-in Explore agent — use codegraph MCP tools instead
 - **Checkpoint after every 3 tasks** — save state for crash recovery
 
 ## Parallel Execution Rules

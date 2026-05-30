@@ -45,7 +45,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'DB=.codegraph/graph.db; if [ -f \"$DB\" ]; then if stat --version >/dev/null 2>&1; then MTIME=$(stat -c %Y \"$DB\" 2>/dev/null || echo 0); else MTIME=$(stat -f %m \"$DB\" 2>/dev/null || echo 0); fi; NOW=$(date +%s); AGE_HOURS=$(( (NOW - MTIME) / 3600 )); if [ \"$AGE_HOURS\" -ge 24 ]; then echo \"Graph is ${AGE_HOURS}h old — run /coder-workflow:scan-codegraph to refresh\"; fi; fi; exit 0'",
+            "command": "bash -c 'DB=.codegraph/graph.db; if [ -f \"$DB\" ]; then if stat --version >/dev/null 2>&1; then MTIME=$(stat -c %Y \"$DB\" 2>/dev/null || echo 0); else MTIME=$(stat -f %m \"$DB\" 2>/dev/null || echo 0); fi; NOW=$(date +%s); AGE_HOURS=$(( (NOW - MTIME) / 3600 )); if [ \"$AGE_HOURS\" -ge 24 ]; then echo \"Graph is ${AGE_HOURS}h old — run mcp__codegraph__scan_codebase to refresh\"; fi; fi; exit 0'",
             "timeout": 5,
             "statusMessage": "Checking graph freshness..."
           }
@@ -150,7 +150,35 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if [ -f .codegraph/graph.db ]; then jq -n \"{systemMessage: \\\"coder-workflow notice: Graph-first rule active. Make sure you have checked the CodeGraph MCP tools (e.g. query_graph_tool, search_code) before performing a broad text search (Grep/Glob) to preserve context space and find callers/definitions more accurately.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'if [ -f .codegraph/graph.db ]; then jq -n \"{systemMessage: \\\"coder-workflow: Graph-first — use mcp__codegraph__query_graph / search_code before Grep/Glob. Graph finds definitions, callers, and dependencies that raw text search misses.\\\"}\"; else jq -n \"{systemMessage: \\\"coder-workflow: No .codegraph/graph.db found. Run mcp__codegraph__scan_codebase first, then query_graph/search_code.\\\"}\"; fi; exit 0'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"^find\\s|^/usr/bin/find\\s|\\\\bfind\\\\s+\\\\.\"; then jq -n \"{systemMessage: \\\"coder-workflow: Prefer mcp__codegraph__query_graph or mcp__codegraph__search_code over find. Use Bash(find) only after graph tools cannot answer.\\\"}\"; fi; exit 0'",
+            "if": "Bash(find *)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"^grep\\s|\\\\bgrep\\\\s+-[a-zA-Z]*r\"; then jq -n \"{systemMessage: \\\"coder-workflow: Prefer mcp__codegraph__search_code or mcp__codegraph__query_graph over grep -r. Use Bash(grep) only for exact patterns that codegraph search cannot resolve.\\\"}\"; fi; exit 0'",
+            "if": "Bash(grep *)",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.subagent_type // empty\" 2>/dev/null); if [ \"$AGENT\" = \"Explore\" ]; then jq -n \"{systemMessage: \\\"coder-workflow: Explore agent is BANNED. Use mcp__codegraph__query_graph (definitions/references/callers), mcp__codegraph__search_code (text search), mcp__codegraph__analyze_impact (blast radius), or mcp__codegraph__summarize_architecture (structure overview). NEVER dispatch Explore.\\\"}\"; fi; exit 0'",
+            "if": "Explore",
             "timeout": 5
           }
         ]
@@ -395,7 +423,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CWD=$(printf \"%s\" \"$INPUT\" | jq -r \".cwd // empty\" 2>/dev/null); [ -z \"$CWD\" ] && CWD=$(pwd); echo \"cwd changed to: $CWD\"; if [ ! -f \"$CWD/.codegraph/graph.db\" ]; then echo \"  No CodeGraph in this directory. Run /coder-workflow:setup-codegraph if code analysis is needed.\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CWD=$(printf \"%s\" \"$INPUT\" | jq -r \".cwd // empty\" 2>/dev/null); [ -z \"$CWD\" ] && CWD=$(pwd); echo \"cwd changed to: $CWD\"; if [ ! -f \"$CWD/.codegraph/graph.db\" ]; then echo \"  No CodeGraph in this directory. Run mcp__codegraph__scan_codebase if code analysis is needed.\"; fi; exit 0'",
             "timeout": 5
           }
         ]

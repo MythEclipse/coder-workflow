@@ -135,7 +135,7 @@ Before touching any code, and before exiting plan mode:
 2. **Run the full test suite** — must be all-green before starting. Use the detected test command.
 3. **Run type checker** (if applicable) — must be clean. Use the detected typecheck command.
 4. **Run linter** — must be clean. Use the detected lint command.
-5. **Ensure graph data is fresh** — if `.codegraph/graph.db` exists, use `analyze-codegraph` for architecture overview, dependency mapping, and hotspots. If stale or missing, run `scan-codegraph`.
+5. **Ensure graph data is fresh** — if `.codegraph/graph.db` exists, use MCP tools (`summarize_architecture`, `analyze_impact`, `find_cycles`) for architecture overview, dependency mapping, and hotspots. If stale or missing, scan via `mcp__codegraph__scan_codebase`.
 6. **If any gate fails**, stop and report the blocker in the plan. Do not proceed until user resolves.
 
 Identify every violation with `file:line` evidence (adapt layer names to detected pattern):
@@ -206,7 +206,7 @@ For each feature module (user, auth, product, order, payment, etc.), follow the 
 #### Cross-module rule
 - Module A may only import from Module B's **service**, never its controller, repository, or handler.
 - If cross-module circular dependency emerges, extract shared logic to `shared/utils/` or create a domain service.
-- Gate: `analyze-codegraph` must detect no cross-module repository/controller imports.
+- Gate: codegraph MCP tools must detect no cross-module repository/controller imports.
 
 ### Fase 4: Verify after each batch
 
@@ -216,7 +216,7 @@ After completing each module, run full verification:
 2. **Lint**: detected linter command — must be clean.
 3. **Affected module tests**: run the subset most relevant to the changed module.
 4. **Full test suite**: detected test command — must be all-green.
-5. **Impact check**: `analyze-codegraph` to verify no unexpected broken callers.
+5. **Impact check**: codegraph MCP tools to verify no unexpected broken callers.
 
 **If any new failure appears → stop, fix it, then continue to the next module. Never proceed with failing gates.**
 

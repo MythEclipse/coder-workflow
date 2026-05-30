@@ -8,9 +8,9 @@ Coder Workflow is a Claude Code plugin that orchestrates all coding work through
 
 ## Single Orchestrator Model
 
-**`coder-orchestrator`** is the single entry point for ALL coding work — it handles both workflow routing (plan, implement, verify, fix bugs, run agents) AND codebase exploration (graph before grep, query before read, analyze before edit). Invoke it for every coding request.
+**`coder-orchestrator`** is the single entry point for ALL coding work — workflow routing (plan, implement, verify, fix bugs, run agents). Invoke it for every coding request.
 
-**BANNED: The built-in `Explore` agent.** ALL codebase exploration MUST use codegraph MCP tools. `mcp__codegraph__query_graph` for definitions/references/callers. `mcp__codegraph__search_code` for text search. `mcp__codegraph__analyze_impact` for impact analysis. `mcp__codegraph__read_file` for file content. Never dispatch an Explore agent when codegraph MCP tools can answer.
+Codebase exploration and MCP tool usage rules (graph-first, Explore ban, Context7-first, etc.) are enforced by **hooks** (`PreToolUse`/`PostToolUse`) — no need to repeat in skills or commands.
 
 ## Plugin Discovery
 
@@ -25,11 +25,10 @@ Coder Workflow is a Claude Code plugin that orchestrates all coding work through
 
 After install: restart Claude Code or run `/reload-plugins`.
 
-When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder-workflow:scan-codegraph`, etc.
+When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder-workflow:auditor`, etc.
 
 ## Skill Routing
 
-### Workflow Skills
 | Request | Skill |
 |---------|-------|
 | Implement feature, fix bug, write tests | `coder` |
@@ -37,17 +36,6 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | Refactor to Modular MVC + Service + Repository | `refraktor` |
 | Setup Docker, CI/CD, VPS deploy, Traefik | `deploy-docker` |
 | Orchestrate any coding work | `coder-orchestrator` |
-
-### CodeGraph Skills
-| Request | Skill |
-|---------|-------|
-| Build/refresh code graph | `scan-codegraph` |
-| Find definitions, references, callers | `query-codegraph` |
-| Architecture analysis, impact, risk, cycles | `analyze-codegraph` |
-| Parallel file reads / searches | `batch-codegraph` |
-| Export Mermaid, DOT, JSON, HTML | `export-codegraph` |
-| Interactive graph visualization | `open-codegraph-ui` |
-| Graph-first refactor to MVC | `modular-mvc-refactor` (→ delegates to `refraktor`) |
 
 ## Agent Coordination
 
@@ -57,8 +45,6 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | `architecture-auditor` | Read-only architecture and layer violation audit |
 | `code-implementer` | Scoped implementation after plan approval (right-sized: simple=direct, complex=full SDD) |
 | `test-engineer` | Test generation, coverage gap detection, test scaffolding |
-| `codegraph-builder` | Build/refresh code graph, handle scan errors |
-| `codegraph-analyst` | Analyze graph for patterns, cycles, risk, hotspots |
 
 ## Hooks (Auto-Loaded)
 
@@ -156,9 +142,9 @@ claude --plugin-dir /mnt/code/djnaidwhbwda/coder-workflow
 
 ## Plugin Surface
 
-- `skills/` — workflow (coder, auditor, coder-orchestrator, refraktor, deploy-docker) + codegraph (scan, query, analyze, batch, export, open-ui, modular-mvc-refactor)
-- `agents/` — workflow-planner, architecture-auditor, code-implementer, codegraph-builder, codegraph-analyst
-- `commands/` — slash commands for orchestrator, audit, plan, setup-codegraph, refraktor
+- `skills/` — workflow skills (coder, auditor, coder-orchestrator, refraktor, deploy-docker)
+- `agents/` — workflow-planner, architecture-auditor, code-implementer, test-engineer
+- `commands/` — slash commands for orchestrator, audit, plan, refraktor
 - `hooks/hooks.json` — auto-trigger for session start, file changes, session end
 - `src/` — TypeScript source for CLI and MCP server
 - `dist/` — bundled JavaScript artifacts
@@ -169,8 +155,5 @@ claude --plugin-dir /mnt/code/djnaidwhbwda/coder-workflow
 
 1. **Tasks before tools** — Before running ANY other tools (such as Grep, ViewFile, run_command, or CodeGraph MCP tools) at the start of a session or when receiving a new task, you MUST first run `TaskCreate` to initialize workflow tracking. Create an initial task (e.g., 'Explore and research codebase' or 'Plan implementation and explore files') and set it to `in_progress` immediately using `TaskUpdate`. This prevents warnings about task tools not being used.
 2. **Skills before guesses** — always route to appropriate skill
-3. **MCP before grep** — use codegraph/context7 MCP tools first
-4. **Context7 before assumptions** — never guess API behavior
-5. **Graph before grep** — scan codebase graph before broad file search
-6. **Never give up** — decompose, research, ask, try different angles
-7. **Fix every discovered bug** — no exceptions, no "not related to my changes"
+3. **Hooks enforce tool rules** — MCP-before-grep, Explore ban, Context7-first, and graph-first rules are enforced by PreToolUse/PostToolUse hooks automatically
+4. **Fix every discovered bug** — no exceptions, no "not related to my changes"

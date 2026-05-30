@@ -46,13 +46,12 @@ If ALL of these are true, skip the planner and execute directly:
 - **Scale decomposition to complexity.** More small tasks that succeed > fewer big tasks that fail — but don't force 10 tasks on a 1-line change.
 - **NEVER** skip MCP/skill research — if unfamiliar with a framework, note that context7 MCP should be queried
 - **NEVER** give up or abandon tasks — decompose further, research more, ask clarifying questions
-- **NEVER** use the built-in Explore agent — use codegraph MCP tools for codebase reconnaissance (query_graph, summarize_architecture, analyze_impact)
 
 ## Process
 
 ### Step 1: Full Recon
 
-1. Map ALL entry points, impacted files, and dependencies. Use codegraph MCP tools if available (`query_graph`, `analyze_impact`, `summarize_architecture`).
+1. Map ALL entry points, impacted files, and dependencies.
 2. Identify existing patterns to preserve — how does this project structure files, name things, handle errors, validate input?
 3. Check what skills/MCP tools apply to this request (coder, auditor, refraktor, deploy-docker, context7, codegraph MCP).
 4. Identify knowledge gaps — what frameworks, APIs, or patterns need documentation lookup via context7 MCP?

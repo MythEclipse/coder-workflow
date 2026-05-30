@@ -245,31 +245,22 @@ if has "$RE_AUDIT"; then
   add_intent "audit"
 fi
 
-if has "$RE_MVC"; then
-  add_skill "modular-mvc-refactor"
-  add_intent "refactor"
-fi
+	if has '$RE_MVC' || has '$RE_REFACTOR'; then
+	  add_skill "refraktor"
+	  add_intent "refactor"
+	fi
 
-if has "$RE_REFACTOR"; then
-  add_skill "refraktor"
-  add_intent "refactor"
-fi
+	if has '$RE_CODEGRAPH'; then
+	  add_intent "explore"
+	fi
 
-if has "$RE_CODEGRAPH"; then
-  add_skill "codegraph-orchestrator"
-  add_intent "explore"
-fi
+	if has '$RE_BATCH'; then
+	  add_intent "batch"
+	fi
 
-if has "$RE_BATCH"; then
-  add_skill "batch-codegraph"
-  add_intent "batch"
-fi
-
-if has "$RE_EXPORT"; then
-  add_skill "export-codegraph"
-  add_intent "export"
-fi
-
+	if has '$RE_EXPORT'; then
+	  add_intent "export"
+	fi
 if has "$RE_TEST"; then
   add_skill "coder"
   add_intent "test"

@@ -11,9 +11,8 @@ Run a disciplined coding workflow for Claude Code sessions. Balance speed with s
 
 1. **Task tracking is mandatory.** Before running ANY other tools (such as Grep, ViewFile, run_command, or CodeGraph MCP tools) at the start of a session or task, you MUST first run `TaskCreate` to initialize workflow tracking. Create an initial task (e.g., 'Explore codebase and plan implementation') and set it to `in_progress` immediately using `TaskUpdate`. This prevents warnings about task tools not being used.
 2. **Skills and MCP first.** Before implementing, check if a relevant skill exists (`coder-orchestrator` routing). Use codegraph MCP for cross-file lookups. Use context7 MCP for framework/library docs.
-3. **Research before guessing.** If unfamiliar with a framework, API, or pattern — query context7 MCP or WebSearch. Never say "let me try the most likely answer" without documentation.
-4. **Never give up.** If stuck, decompose the problem further, research more angles, ask clarifying questions. Do not abandon tasks without exhausting options.
-5. **Fix every discovered bug.** When pre-existing bugs, warnings, or deprecation notices are found during implementation — NEVER skip or dismiss them as "not related to my changes." Create a tracked task for each, continue primary work, then fix all discovered bugs in a final Bug Fix Phase before ending the session.
+3. **Research before guessing.** If unfamiliar with a framework, API, or pattern — query context7 MCP or WebSearch.
+4. **Fix every discovered bug.** When pre-existing bugs, warnings, or deprecation notices are found during implementation — NEVER skip or dismiss them as "not related to my changes." Create a tracked task for each, continue primary work, then fix all discovered bugs in a final Bug Fix Phase before ending the session.
 
 ## Planning rule
 
@@ -44,7 +43,6 @@ In plan mode, inspect the relevant code, identify the target files, define the i
 
 2. **Inspect current state**
    - Check git status before modifying files to avoid overwriting user work.
-   - Use codegraph MCP tools (`query_graph`, `analyze_impact`, `summarize_architecture`) for cross-file dependency, callers, routes, or architecture questions.
    - Check project instructions and relevant files before editing.
 
 3. **Research knowledge gaps**
@@ -104,9 +102,6 @@ Do not delegate understanding completely. Provide agents with concrete goals, re
 - Do not commit unless the user explicitly asks.
 - Do not broaden the task into opportunistic refactors.
 - Do not claim completion when tests or manual verification were not performed.
-- Do not guess API behavior — research via context7 MCP first.
-- Do not give up on difficult problems — decompose further and research more.
-- Do not use the built-in Explore agent — use codegraph MCP tools for all codebase exploration.
 
 ## Additional resources
 

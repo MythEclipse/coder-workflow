@@ -16,9 +16,6 @@ Trigger the coder-orchestrator skill. Every coding request flows through:
 **Core rules:**
 - Tasks before tools — Run `TaskCreate` + `TaskUpdate` to create an initial task (e.g. 'Explore codebase') before running any other tools.
 - Skills before guesses — always route to appropriate skill
-- MCP before grep — use codegraph/context7 MCP first
-- Context7 before assumptions — never guess API behavior
-- Never give up — decompose, research, ask, try different angles
 - Fix every discovered bug — no "not related to my changes"
 
 If a specific task is provided, decompose it. If no task, ask what to work on and start the orchestrator flow.

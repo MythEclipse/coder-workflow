@@ -15,7 +15,7 @@ Sebelum mulai refactor, verifikasi:
 1. Codebase dalam git state bersih: `git status` harus clean atau user konfirmasi uncommitted changes.
 2. Semua test suite passing: `npm run test` atau ekuivalen harus hijau.
 3. Typecheck clean: `npm run typecheck` atau `tsc --noEmit` tanpa error.
-4. CodeGraph graph fresh: `.codegraph/graph.db` ada dan tidak stale. Jika perlu, jalankan `scan-codegraph`.
+4. CodeGraph graph fresh: `.codegraph/graph.db` ada dan tidak stale.
 
 Jika ada prasyarat gagal, stop dan laporkan blocker. Jangan lanjut sampai user resolve.
 
@@ -23,7 +23,7 @@ Jika ada prasyarat gagal, stop dan laporkan blocker. Jangan lanjut sampai user r
 
 Sebelum ubah apapun:
 
-1. Jalankan `analyze-codegraph` untuk dapatkan arsitektur overview dan hotspot.
+1. Jalankan MCP tools (`summarize_architecture`, `find_cycles`, `find_orphans`) untuk arsitektur overview dan hotspot.
 2. Identifikasi smells berikut dengan lokasi file + baris:
 
 | Smell | Ciri | Layer bermasalah |
@@ -92,7 +92,7 @@ Untuk setiap fitur (user, auth, product, order, payment, dst.), ikuti urutan lay
 ### Cross-module rule
 - Module A hanya boleh import dari service Module B, bukan controller atau repository-nya.
 - Jika ada circular dependency antar modul, ekstrak ke `shared/utils/` atau buat domain service bersama.
-- Gerbang: `analyze-codegraph` harus tidak mendeteksi cross-module repository import.
+- Gerbang: codegraph MCP harus tidak mendeteksi cross-module repository import.
 
 ## Fase 4: Verifikasi setelah tiap batch
 
@@ -102,7 +102,7 @@ Setelah setiap modul selesai, jalankan verifikasi penuh:
 2. Lint: `npm run lint` atau `biome check` — harus clean.
 3. Test modul terpengaruh: `npm run test -- --grep <module-name>` atau ekuivalen.
 4. Test full suite: `npm run test` — harus passing.
-5. Impact check: `analyze-codegraph` untuk verifikasi tidak ada caller tak terduga yang rusak.
+5. Impact check: codegraph MCP untuk verifikasi tidak ada caller tak terduga yang rusak.
 
 Jika ada failure baru → stop, perbaiki dulu, baru lanjut ke modul berikutnya.
 

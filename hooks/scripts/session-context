@@ -48,7 +48,7 @@ if has 'refactor|refactoring|reorganize|restructure|extract|modular|modularize|m
 fi
 
 if has 'modular.*mvc|mvc.*refactor|mvc.*modular|feature.*module|by feature|feature based|graph.*first.*refactor|controller.*service.*repository|pisah.*controller|pisah.*service|modul.*fitur|berdasarkan.*fitur'; then
-  SKILLS+=("modular-mvc-refactor"); INTENTS+=("refactor")
+  INTENTS+=("refactor")
 fi
 
 if has 'audit|review|assess|evaluate|inspect|analyze|analisis|analisa|layer violation|fat controller|coupling|circular dependency|code smell'; then
@@ -56,15 +56,15 @@ if has 'audit|review|assess|evaluate|inspect|analyze|analisis|analisa|layer viol
 fi
 
 if has 'scan.*code|build.*graph|refresh.*graph|update.*graph|codegraph|dependency graph|call graph|find.*definition|find.*caller|find.*reference|impact analysis|blast radius|peta.*kode|graf.*kode|cari.*definisi|cari.*pemanggil'; then
-  SKILLS+=("codegraph-orchestrator"); INTENTS+=("explore")
+  INTENTS+=("explore")
 fi
 
 if has 'batch.*read|parallel.*search|bulk.*lookup|semua.*file|banyak.*file|cari.*di.*semua|mass.*edit|bulk.*edit'; then
-  SKILLS+=("batch-codegraph"); INTENTS+=("batch")
+  INTENTS+=("batch")
 fi
 
 if has 'export.*graph|export.*mermaid|export.*dot|export.*json|generate.*diagram|visualize|visualization|diagram.*depend|buat.*diagram|ekspor.*graf|visualisasi.*dependency|diagram.*arsitektur'; then
-  SKILLS+=("export-codegraph"); INTENTS+=("export")
+  INTENTS+=("export")
 fi
 
 if has 'implement|implementation|create|add|build|develop|implementasi|buat|bikin|tambahkan|kerjakan|kerja|nambah|endpoint|route|handler|controller|service|repository|component|api|function|class|module|fix|bugfix|hotfix|patch|debug|troubleshoot|perbaiki|benahi|error|crash|broken|not working|gagal|fail|failed|bug.*fix|error.*fix|type.*error|lint.*error|compile.*error|runtime.*error'; then

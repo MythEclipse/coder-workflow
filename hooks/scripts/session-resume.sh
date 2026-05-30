@@ -22,13 +22,13 @@ if [ -f "$DB" ]; then
 
   if [ "$AGE_MINS" -gt 60 ]; then
     printf "${Y}  ⚠  CodeGraph DB is ${AGE_MINS}m old — stale. Refresh before deep analysis:${R}\n"
-    printf "${Y}     /coder-workflow:scan-codegraph${R}\n"
+    printf "${Y}     scan_codebase MCP${R}\n"
   else
     printf "${G}  ✔  CodeGraph DB is ${AGE_MINS}m old — recent${R}\n"
   fi
 else
   printf "${Y}  ✘  No .codegraph/graph.db. Graph tools unavailable until you run:${R}\n"
-  printf "${Y}     /coder-workflow:setup-codegraph${R}\n"
+  printf "${Y}     scan_codebase MCP${R}\n"
 fi
 
 printf "${Y}  →  Re-read active task state before next action. All bugs must be tracked.${R}\n"

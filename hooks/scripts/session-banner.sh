@@ -17,7 +17,6 @@ printf "${DIM}Orchestrate${R}  /coder-workflow:coder-orchestrator\n"
 printf "${DIM}Plan        ${R}  /coder-workflow:plan\n"
 printf "${DIM}Audit       ${R}  /coder-workflow:audit\n"
 printf "${DIM}Refactor    ${R}  /coder-workflow:refraktor\n"
-printf "${DIM}Graph setup ${R}  /coder-workflow:setup-codegraph\n"
 printf "${B}${C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}\n"
 
 # CodeGraph DB status
@@ -36,13 +35,13 @@ if [ -f "$DB" ]; then
   AGE_MINS=$(( (NOW - MTIME) / 60 ))
 
   if [ "$AGE_MINS" -gt 120 ]; then
-    printf "${Y}Graph  ⚠  DB ${SIZE} — ${AGE_MINS}m old. Refresh: /coder-workflow:scan-codegraph${R}\n"
+    printf "${Y}Graph  ⚠  DB ${SIZE} — ${AGE_MINS}m old. Refresh graph with scan_codebase MCP${R}\n"
   else
     printf "${G}Graph  ✔  DB ${SIZE} — ${AGE_MINS}m old${R}\n"
   fi
 else
   printf "${RED}Graph  ✘  No .codegraph/graph.db found${R}\n"
-  printf "${Y}       →  Run /coder-workflow:setup-codegraph to build it${R}\n"
+  printf "${Y}       →  Run scan_codebase MCP tool to build it${R}\n"
 fi
 
 # Check if coder-workflow CLI is on PATH
