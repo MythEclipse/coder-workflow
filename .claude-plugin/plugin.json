@@ -1,7 +1,7 @@
 {
   "name": "coder-workflow",
-  "version": "0.1.0",
-  "description": "Workflow plugin for coding, planning, auditing, and Modular MVC + Service + Repository refactoring in Claude Code.",
+  "version": "0.2.0",
+  "description": "Orchestrator-driven workflow for coding, planning, auditing, and Modular MVC + Service + Repository refactoring. Routes all coding work through aggressive task decomposition, skill/MCP-first execution, and persistent learning. Never guess — research first via context7 and codegraph MCP.",
   "author": {
     "name": "Asep Haryana",
     "email": "asepharyana71@gmail.com"
@@ -13,6 +13,12 @@
     "refactoring",
     "modular-mvc",
     "architecture-audit",
-    "service-repository"
+    "service-repository",
+    "orchestrator",
+    "task-decomposition",
+    "skill-routing",
+    "mcp-first",
+    "learning-first",
+    "codegraph-first"
   ]
 }

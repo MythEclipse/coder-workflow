@@ -1,11 +1,18 @@
 ---
 name: coder
 description: This skill should be used when the user asks to "implement this feature", "fix this bug", "work on this code", "buat workflow coding", "kerjakan task coding", or requests a coding workflow that needs planning, implementation, verification, and concise reporting.
-version: 0.1.0
+version: 0.2.0
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(cargo:*)
 ---
 
 Run a disciplined coding workflow for Claude Code sessions. Balance speed with safety: understand scope, plan when changes are significant, implement the smallest complete change, verify behavior, and report clearly.
+
+## Core mandates
+
+1. **Task tracking is mandatory.** Use `TaskCreate` before starting any work unit and `TaskUpdate` to track progress (`in_progress` when starting, `completed` when verified). Never let a session run without active tasks.
+2. **Skills and MCP first.** Before implementing, check if a relevant skill exists (`coder-orchestrator` routing). Use codegraph MCP for cross-file lookups. Use context7 MCP for framework/library docs.
+3. **Research before guessing.** If unfamiliar with a framework, API, or pattern — query context7 MCP or WebSearch. Never say "let me try the most likely answer" without documentation.
+4. **Never give up.** If stuck, decompose the problem further, research more angles, ask clarifying questions. Do not abandon tasks without exhausting options.
 
 ## Planning rule
 
@@ -13,9 +20,18 @@ Use Claude Code built-in plan mode before non-trivial work: new features, archit
 
 In plan mode, inspect the relevant code, identify the target files, define the implementation sequence, list verification commands, and request approval before editing.
 
-## Task tracking
+## Task tracking protocol
 
-Use `TaskCreate`/`TaskUpdate` to track workflow progress so Claude Code does not flag the session as idle. Create a task for each major workflow phase at the start of work, mark it `in_progress` before beginning, and `completed` when done. For multi-step tasks, create sub-tasks or update the description as scope becomes clearer. Delete stale tasks when they are no longer relevant.
+**Before any implementation work:**
+1. Create tasks via `TaskCreate` for each unit of work
+2. Mark task `in_progress` via `TaskUpdate` before starting
+3. Complete the work
+4. Verify the work (typecheck, lint, test, manual check)
+5. Mark task `completed` via `TaskUpdate` with verification results
+
+**Task granularity:** Each task should be completable and verifiable in one focused pass. If a task is too large, create sub-tasks. Target: one task per function, per bug fix, per test file, per refactor.
+
+**Never accumulate stale tasks.** When scope changes, mark old tasks as completed or deleted. Clean up regularly.
 
 ## Default workflow
 
@@ -25,31 +41,38 @@ Use `TaskCreate`/`TaskUpdate` to track workflow progress so Claude Code does not
    - Avoid broad questionnaires when the code can answer the question.
 
 2. **Inspect current state**
-   - Check project instructions and relevant files before editing.
    - Check git status before modifying files to avoid overwriting user work.
-   - Use graph/code intelligence tools first for cross-file dependency, callers, routes, or architecture questions when available.
+   - Use codegraph MCP tools (`query_graph`, `analyze_impact`, `summarize_architecture`) for cross-file dependency, callers, routes, or architecture questions.
+   - Check project instructions and relevant files before editing.
 
-3. **Plan the change**
+3. **Research knowledge gaps**
+   - If the framework, library, or API is unfamiliar — use context7 MCP to query current documentation.
+   - If recent changes or migration may apply — use WebSearch.
+   - Document learnings for future reference.
+
+4. **Plan the change**
    - Identify files to edit and why.
    - Prefer existing patterns over new abstractions.
    - Avoid feature flags, compatibility shims, and defensive code for impossible internal states.
    - Validate only at system boundaries such as user input and external APIs.
 
-4. **Implement narrowly**
+5. **Implement narrowly**
    - Edit existing files where possible.
    - Keep changes scoped to the requested outcome.
    - Preserve public behavior unless explicitly changing it.
    - Avoid comments unless the reason is non-obvious.
 
-5. **Verify**
+6. **Verify**
    - Run the smallest relevant typecheck, lint, and test commands.
    - For UI work, run the app and manually exercise the changed path when feasible.
    - If verification cannot run, state exactly why and what remains unverified.
+   - Do NOT claim completion when tests or verification were not performed.
 
-6. **Report**
+7. **Report**
    - Summarize changed files and verification in one or two concise paragraphs.
    - Include file references as `path:line` when discussing specific code.
    - Mention next steps only when they are actionable.
+   - Document any learnings that should be remembered for future sessions.
 
 ## Agent routing
 
@@ -68,6 +91,8 @@ Do not delegate understanding completely. Provide agents with concrete goals, re
 - Do not commit unless the user explicitly asks.
 - Do not broaden the task into opportunistic refactors.
 - Do not claim completion when tests or manual verification were not performed.
+- Do not guess API behavior — research via context7 MCP first.
+- Do not give up on difficult problems — decompose further and research more.
 
 ## Additional resources
 
