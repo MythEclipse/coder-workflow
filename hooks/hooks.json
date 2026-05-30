@@ -6,9 +6,9 @@
         "matcher": "*",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "SessionStart hook: Invoke the coder-orchestrator skill via the Skill tool NOW, before any other response or action. This establishes workflow routing for the entire session. After coder-orchestrator, also invoke codegraph-orchestrator if the user's request involves codebase exploration. Ensure graph is fresh: if .codegraph/graph.db is missing, run scan-codegraph.",
-            "statusMessage": "Loading coder-workflow orchestrator…"
+            "type": "command",
+            "command": "echo 'SessionStart reminder: run /coder-workflow:coder-workflow (or /coder-workflow:plan) to initialize orchestrator routing.' && test -f .codegraph/graph.db || (codegraph-mapper scan 2>/dev/null || npx codegraph-mapper scan 2>/dev/null || true)",
+            "timeout": 120
           }
         ]
       }
