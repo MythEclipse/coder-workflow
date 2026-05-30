@@ -30,24 +30,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "matcher": "Write|Edit|NotebookEdit|Bash",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Stop hook: If this session involved coding work (TaskCreate calls, bug fixes, source code changes beyond config edits, or test/verification commands), then verify: (1) all tasks are marked completed via TaskUpdate, (2) all discovered High/Medium bugs are fixed, (3) verification commands passed (typecheck, lint, tests). Report any remaining Low bugs with file:line references. If the session only involved config edits or non-coding work, respond with a brief acknowledgment that no verification is needed and end.",
-            "statusMessage": "Verifying session completion…"
-          },
-          {
-            "type": "command",
-            "command": "test -f .codegraph/graph.db && (codegraph-mapper update 2>/dev/null || coder-workflow update 2>/dev/null || true) || (codegraph-mapper scan 2>/dev/null || coder-workflow scan 2>/dev/null || true)",
-            "timeout": 120,
-            "async": true
-          }
-        ]
-      }
     ]
   }
 }

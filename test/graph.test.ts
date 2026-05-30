@@ -14,7 +14,7 @@ import {
 import { exportGraph } from "../src/exporters.js";
 import { readScanCache, replaceGraphPathsInDb } from "../src/graph/db.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "../src/graph.js";
-import type { CodeGraphSettings } from "../src/types.js";
+import type { CodeGraph, CodeGraphSettings } from "../src/types.js";
 
 const settings: CodeGraphSettings = {
   languages: ["javascript", "typescript", "python", "go", "rust", "java"],
@@ -27,7 +27,7 @@ const settings: CodeGraphSettings = {
   exports: ["json", "mermaid", "dot", "markdown"],
 };
 
-test("respects .gitignore file and directory patterns by default", () => {
+test("respects .gitignore file and directory patterns by default", async () => {
   const root = fixture({
     ".gitignore": `ignored.js
 ignored-dir/
@@ -39,7 +39,7 @@ ignored-dir/
     "src/model.generated.ts": `export function ignoredGlob() { return "no"; }`,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assert.equal(graph.metadata.filesScanned, 1);
   assertNode(graph, "file:src/app.ts");
@@ -48,7 +48,7 @@ ignored-dir/
   assertMissingNode(graph, "file:src/model.generated.ts");
 });
 
-test("gitignore negation re-includes paths after broader ignore", () => {
+test("gitignore negation re-includes paths after broader ignore", async () => {
   const root = fixture({
     ".gitignore": `src/*.ts
 !src/keep.ts
@@ -57,20 +57,20 @@ test("gitignore negation re-includes paths after broader ignore", () => {
     "src/keep.ts": `export function keep() { return "yes"; }`,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
 
   assert.equal(graph.metadata.filesScanned, 1);
   assertNode(graph, "file:src/keep.ts");
   assertMissingNode(graph, "file:src/skip.ts");
 });
 
-test("keeps configured ignorePaths and works without gitignore", () => {
+test("keeps configured ignorePaths and works without gitignore", async () => {
   const root = fixture({
     "src/app.ts": `export function included() { return "ok"; }`,
     "custom-ignore/hidden.ts": `export function ignoredByConfig() { return "no"; }`,
   });
 
-  const graph = scanCodebase(root, {
+  const graph = await scanCodebase(root, {
     ...settings,
     languages: ["typescript"],
     ignorePaths: ["custom-ignore"],
@@ -81,14 +81,14 @@ test("keeps configured ignorePaths and works without gitignore", () => {
   assertMissingNode(graph, "file:custom-ignore/hidden.ts");
 });
 
-test("gitignore negation does not override configured ignorePaths", () => {
+test("gitignore negation does not override configured ignorePaths", async () => {
   const root = fixture({
     ".gitignore": `!custom-ignore/hidden.ts\n`,
     "src/app.ts": `export function included() { return "ok"; }`,
     "custom-ignore/hidden.ts": `export function ignoredByConfig() { return "no"; }`,
   });
 
-  const graph = scanCodebase(root, {
+  const graph = await scanCodebase(root, {
     ...settings,
     languages: ["typescript"],
     ignorePaths: ["custom-ignore"],
@@ -99,21 +99,21 @@ test("gitignore negation does not override configured ignorePaths", () => {
   assertMissingNode(graph, "file:custom-ignore/hidden.ts");
 });
 
-test("supports double-star gitignore globs", () => {
+test("supports double-star gitignore globs", async () => {
   const root = fixture({
     ".gitignore": `**/*.generated.ts\n`,
     "src/app.ts": `export function included() { return "ok"; }`,
     "src/nested/model.generated.ts": `export function ignoredGlob() { return "no"; }`,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
 
   assert.equal(graph.metadata.filesScanned, 1);
   assertNode(graph, "file:src/app.ts");
   assertMissingNode(graph, "file:src/nested/model.generated.ts");
 });
 
-test("does not emit control-flow keywords as symbols across supported languages", () => {
+test("does not emit control-flow keywords as symbols across supported languages", async () => {
   const root = fixture({
     "src/app.ts": `
       export function validTs() {
@@ -156,7 +156,7 @@ public class App {
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:src/app.ts:validTs");
   assertNode(graph, "symbol:src/app.ts:validJsHelper");
@@ -177,12 +177,12 @@ public class App {
   }
 });
 
-test("writes graph runtime data to database without runtime json files", () => {
+test("writes graph runtime data to database without runtime json files", async () => {
   const root = fixture({
     "src/app.ts": `export function realSymbol() { return "ok"; }`,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   writeGraph(root, graph);
 
   assert.equal(graphExists(root), true);
@@ -193,12 +193,12 @@ test("writes graph runtime data to database without runtime json files", () => {
   assertNode(readGraph(root), "symbol:src/app.ts:realSymbol");
 });
 
-test("persists scan cache metadata used for unchanged fast path", () => {
+test("persists scan cache metadata used for unchanged fast path", async () => {
   const root = fixture({
     "src/app.ts": `export function cachedSymbol() { return "ok"; }`,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   writeGraph(root, graph);
 
   const cache = readScanCache(root);
@@ -217,7 +217,7 @@ test("persists scan cache metadata used for unchanged fast path", () => {
   );
 });
 
-test("does not emit bare block calls as symbols", () => {
+test("does not emit bare block calls as symbols", async () => {
   const root = fixture({
     "src/spec.ts": `
       describe("suite", () => {
@@ -230,7 +230,7 @@ test("does not emit bare block calls as symbols", () => {
     `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
 
   assertNode(graph, "symbol:src/spec.ts:realSymbol");
   assert.equal(
@@ -247,7 +247,7 @@ test("does not emit bare block calls as symbols", () => {
   );
 });
 
-test("respects configured language allowlist", () => {
+test("respects configured language allowlist", async () => {
   const root = fixture({
     "src/app.ts": `export function tsOnly() { return "ts"; }`,
     "src/app.py": `def py_only():
@@ -255,14 +255,14 @@ test("respects configured language allowlist", () => {
 `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["python"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["python"] });
 
   assert.equal(graph.metadata.filesScanned, 1);
   assertNode(graph, "file:src/app.py");
   assertMissingNode(graph, "file:src/app.ts");
 });
 
-test("scanCodebase extracts TypeScript AST symbols without matching comments or strings", () => {
+test("scanCodebase extracts TypeScript AST symbols without matching comments or strings", async () => {
   const root = fixture({
     "src/decorated.ts": `
 // This is a comment with function stringOnly() {}
@@ -282,7 +282,7 @@ export const buildUser = () => ({
 `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
 
   // Should include AST-extracted symbols
   assertNode(graph, "symbol:src/decorated.ts:UserController");
@@ -294,7 +294,7 @@ export const buildUser = () => ({
   assertMissingNode(graph, "symbol:src/decorated.ts:commentOnly");
 });
 
-test("captures every Go parenthesized import", () => {
+test("captures every Go parenthesized import", async () => {
   const root = fixture({
     "server.go": `package main
 import (
@@ -307,13 +307,13 @@ func main() {
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertEdge(graph, "imports", "file:server.go", "module:fmt");
   assertEdge(graph, "imports", "file:server.go", "module:net/http");
 });
 
-test("does not treat Go string literals as imports", () => {
+test("does not treat Go string literals as imports", async () => {
   const root = fixture({
     "server.go": `package main
 import "net/http"
@@ -324,13 +324,13 @@ func health(w http.ResponseWriter, r *http.Request) {}
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertEdge(graph, "imports", "file:server.go", "module:net/http");
   assertMissingNode(graph, "module:/health");
 });
 
-test("scans JavaScript symbols, imports, and calls", () => {
+test("scans JavaScript symbols, imports, and calls", async () => {
   const root = fixture({
     "src/user.js": `import { saveUser } from "./repo.js";
 export function createUser(name) {
@@ -344,7 +344,7 @@ export class UserService {}
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "file:src/user.js");
   assertNode(graph, "symbol:src/user.js:createUser");
@@ -354,7 +354,7 @@ export class UserService {}
   assertEdge(graph, "calls", "symbol:src/user.js:createUser", "symbol:src/repo.js:saveUser");
 });
 
-test("scans TypeScript classes, interfaces, imports, and calls", () => {
+test("scans TypeScript classes, interfaces, imports, and calls", async () => {
   const root = fixture({
     "src/service.ts": `import { loadUser } from "./repo";
 export interface UserPort {}
@@ -370,7 +370,7 @@ export class UserService {
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:src/service.ts:UserPort");
   assertNode(graph, "symbol:src/service.ts:UserService");
@@ -385,7 +385,7 @@ export class UserService {
   );
 });
 
-test("captures TypeScript type-only imports as module relationships", () => {
+test("captures TypeScript type-only imports as module relationships", async () => {
   const root = fixture({
     "src/service.ts": `import type { User } from "./types";
 export function readUser(user: User) {
@@ -396,7 +396,7 @@ export function readUser(user: User) {
 `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
 
   assertNode(graph, "file:src/types.ts");
   assertNode(graph, "symbol:src/types.ts:User");
@@ -412,7 +412,7 @@ export function readUser(user: User) {
   assert.equal(typeof graph.metadata.qualityScore, "number");
 });
 
-test("scans Python classes, functions, imports, and calls", () => {
+test("scans Python classes, functions, imports, and calls", async () => {
   const root = fixture({
     "app/service.py": `from app.repo import load_user
 class UserService:
@@ -427,7 +427,7 @@ def create_user(name):
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:app/service.py:UserService");
   assertNode(graph, "symbol:app/service.py:find");
@@ -436,7 +436,7 @@ def create_user(name):
   assertEdge(graph, "calls", "symbol:app/service.py:find", "symbol:app/repo.py:load_user");
 });
 
-test("scans Go functions, imports, and calls", () => {
+test("scans Go functions, imports, and calls", async () => {
   const root = fixture({
     "main.go": `package main
 import "example.com/app/repo"
@@ -451,7 +451,7 @@ func LoadUser(id string) string {
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:main.go:main");
   assertNode(graph, "symbol:repo/repo.go:LoadUser");
@@ -459,7 +459,7 @@ func LoadUser(id string) string {
   assertEdge(graph, "calls", "symbol:main.go:main", "symbol:repo/repo.go:LoadUser");
 });
 
-test("scans Rust structs, functions, use imports, and calls", () => {
+test("scans Rust structs, functions, use imports, and calls", async () => {
   const root = fixture({
     "src/main.rs": `use crate::repo::load_user;
 pub struct UserService;
@@ -473,7 +473,7 @@ fn main() {
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:src/main.rs:UserService");
   assertNode(graph, "symbol:src/main.rs:main");
@@ -482,7 +482,7 @@ fn main() {
   assertEdge(graph, "calls", "symbol:src/main.rs:main", "symbol:src/repo.rs:load_user");
 });
 
-test("scans JavaScript components, arrow handlers, routes, and class inheritance", () => {
+test("scans JavaScript components, arrow handlers, routes, and class inheritance", async () => {
   const root = fixture({
     "src/app.jsx": `import React from "react";
 class BaseController {}
@@ -494,7 +494,7 @@ const getUser = (req, res) => res.json(UserCard({ user: req.user }));
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:src/app.jsx:UserController");
   assertNode(graph, "symbol:src/app.jsx:UserCard");
@@ -511,7 +511,7 @@ const getUser = (req, res) => res.json(UserCard({ user: req.user }));
   assertEdge(graph, "route-handler", "route:src/app.jsx:/users/:id", "symbol:src/app.jsx:getUser");
 });
 
-test("deduplicates repeated route nodes", () => {
+test("deduplicates repeated route nodes", async () => {
   const root = fixture({
     "src/routes.js": `app.get("/users", listUsers);
 app.get("/users", getUsers);
@@ -520,7 +520,7 @@ function getUsers() {}
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assert.equal(graph.nodes.filter((node) => node.id === "route:src/routes.js:/users").length, 1);
   assertEdge(
@@ -532,7 +532,7 @@ function getUsers() {}
   assertEdge(graph, "route-handler", "route:src/routes.js:/users", "symbol:src/routes.js:getUsers");
 });
 
-test("scans TypeScript decorators, implements, components, and async handlers", () => {
+test("scans TypeScript decorators, implements, components, and async handlers", async () => {
   const root = fixture({
     "src/controller.tsx": `interface UserPort {}
 abstract class BaseController {}
@@ -548,7 +548,7 @@ function fetchUser(id: string) { return id; }
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:src/controller.tsx:UserController");
   assertNode(graph, "symbol:src/controller.tsx:UserController.getUser");
@@ -580,7 +580,7 @@ function fetchUser(id: string) { return id; }
   );
 });
 
-test("scans Python async functions, decorated routes, and method calls", () => {
+test("scans Python async functions, decorated routes, and method calls", async () => {
   const root = fixture({
     "app/api.py": `from app.service import UserService
 @app.get("/users/{user_id}")
@@ -594,7 +594,7 @@ class UserService:
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:app/api.py:get_user");
   assertNode(graph, "symbol:app/api.py:find");
@@ -608,7 +608,7 @@ class UserService:
   assertEdge(graph, "calls", "symbol:app/api.py:get_user", "symbol:app/api.py:find");
 });
 
-test("scans Go interfaces, methods, route handlers, and method calls", () => {
+test("scans Go interfaces, methods, route handlers, and method calls", async () => {
   const root = fixture({
     "server.go": `package main
 import "net/http"
@@ -624,7 +624,7 @@ func main() {
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:server.go:UserStore");
   assertNode(graph, "symbol:server.go:UserHandler");
@@ -635,7 +635,7 @@ func main() {
   assertEdge(graph, "calls", "symbol:server.go:ServeHTTP", "symbol:server.go:Find");
 });
 
-test("scans Java classes, interfaces, imports, annotations, inheritance, and calls", () => {
+test("scans Java classes, interfaces, imports, annotations, inheritance, and calls", async () => {
   const root = fixture({
     "src/main/java/com/example/UserController.java": `package com.example;
 import com.example.repo.UserRepository;
@@ -660,7 +660,7 @@ public class UserRepository {
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "file:src/main/java/com/example/UserController.java");
   assertNode(graph, "symbol:src/main/java/com/example/UserController.java:UserPort");
@@ -703,7 +703,7 @@ public class UserRepository {
   );
 });
 
-test("joins Java class and method routes without duplicate slashes", () => {
+test("joins Java class and method routes without duplicate slashes", async () => {
   const root = fixture({
     "src/main/java/com/example/UserController.java": `package com.example;
 @RestController
@@ -715,7 +715,7 @@ public class UserController {
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "route:src/main/java/com/example/UserController.java:/api/users");
   assertEdge(
@@ -726,7 +726,7 @@ public class UserController {
   );
 });
 
-test("scans Rust traits, impl methods, enums, and associated calls", () => {
+test("scans Rust traits, impl methods, enums, and associated calls", async () => {
   const root = fixture({
     "src/lib.rs": `pub trait Repository { fn load(&self, id: &str) -> String; }
 pub enum UserState { Active }
@@ -740,7 +740,7 @@ pub fn handle(repo: UserRepo) -> String {
 `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
 
   assertNode(graph, "symbol:src/lib.rs:Repository");
   assertNode(graph, "symbol:src/lib.rs:UserState");
@@ -751,7 +751,7 @@ pub fn handle(repo: UserRepo) -> String {
   assertEdge(graph, "calls", "symbol:src/lib.rs:handle", "symbol:src/lib.rs:load");
 });
 
-test("ignores symbols, imports, and calls inside JavaScript comments and strings", () => {
+test("ignores symbols, imports, and calls inside JavaScript comments and strings", async () => {
   const root = fixture({
     "src/app.ts": `
       import { realTarget } from "./real";
@@ -767,7 +767,7 @@ test("ignores symbols, imports, and calls inside JavaScript comments and strings
     `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
 
   assert.equal(
     graph.nodes.some((node) => node.name === "fakeCommentSymbol"),
@@ -791,7 +791,7 @@ test("ignores symbols, imports, and calls inside JavaScript comments and strings
   );
 });
 
-test("ignores calls inside Python comments and strings", () => {
+test("ignores calls inside Python comments and strings", async () => {
   const root = fixture({
     "app.py": `
 # def fake_comment_symbol(): pass
@@ -806,7 +806,7 @@ def real_handler():
 `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["python"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["python"] });
 
   assert.equal(
     graph.nodes.some((node) => node.name === "fake_comment_symbol"),
@@ -826,7 +826,7 @@ def real_handler():
   );
 });
 
-test("escapes DOT, Mermaid, and HTML exports", () => {
+test("escapes DOT, Mermaid, and HTML exports", async () => {
   const root = fixture({});
   const graph = {
     version: "0.1.0" as const,
@@ -866,7 +866,7 @@ test("escapes DOT, Mermaid, and HTML exports", () => {
   assert.match(html, /evil\\u003c\/script\\u003e/);
 });
 
-test("hooks scan missing graph and update after file changes and stop events", () => {
+test("hooks scan missing graph and update after file changes and stop events", async () => {
   const hooks = JSON.parse(readFileSync(join(process.cwd(), "hooks", "hooks.json"), "utf8"));
   const postToolUseHook = hooks.hooks.PostToolUse[0];
   const command = "test -f .codegraph/graph.db && codegraph-mapper update || codegraph-mapper scan";
@@ -876,13 +876,13 @@ test("hooks scan missing graph and update after file changes and stop events", (
   assert.equal(hooks.hooks.Stop[0].hooks[0].command, command);
 });
 
-test("MCP server command resolves from PATH", () => {
+test("MCP server command resolves from PATH", async () => {
   const config = JSON.parse(readFileSync(join(process.cwd(), ".mcp.json"), "utf8"));
   assert.equal(config.mcpServers.codegraph.command, "codegraph-mapper");
   assert.equal(config.mcpServers.codegraph.args[0], "mcp");
 });
 
-test("analyzes graph quality issues and recommendations", () => {
+test("analyzes graph quality issues and recommendations", async () => {
   const root = fixture({
     "src/app.ts": `import { missingTarget } from "./missing";
 export function duplicateName() {
@@ -902,7 +902,7 @@ export { duplicateName as secondDuplicate } from "./other";
 `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   const report = analyzeGraphQuality(graph, root);
 
   assert.equal(report.summary.issueCount > 0, true);
@@ -927,7 +927,7 @@ export { duplicateName as secondDuplicate } from "./other";
   assert.equal(report.recommendations.length > 0, true);
 });
 
-test("ignores non-exported duplicate helper symbols in graph quality", () => {
+test("ignores non-exported duplicate helper symbols in graph quality", async () => {
   const root = fixture({
     "src/app.ts": `export function app() {
   function sharedHelper() {
@@ -945,7 +945,7 @@ test("ignores non-exported duplicate helper symbols in graph quality", () => {
 `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   const report = analyzeGraphQuality(graph, root);
 
   assert.equal(
@@ -957,7 +957,7 @@ test("ignores non-exported duplicate helper symbols in graph quality", () => {
   );
 });
 
-test("evaluates quality gate thresholds by severity", () => {
+test("evaluates quality gate thresholds by severity", async () => {
   const highOnly = evaluateQualityGate(
     [{ severity: "medium", category: "coverage", message: "coverage" }],
     "high",
@@ -987,23 +987,18 @@ function fixture(files: Record<string, string>): string {
   return root;
 }
 
-function assertNode(graph: ReturnType<typeof scanCodebase>, id: string): void {
+function assertNode(graph: CodeGraph, id: string): void {
   assert.ok(
     graph.nodes.some((node) => node.id === id),
     `missing node ${id}`,
   );
 }
 
-function assertMissingNode(graph: ReturnType<typeof scanCodebase>, id: string): void {
+function assertMissingNode(graph: CodeGraph, id: string): void {
   assert.ok(!graph.nodes.some((node) => node.id === id), `unexpected node ${id}`);
 }
 
-function assertEdge(
-  graph: ReturnType<typeof scanCodebase>,
-  type: string,
-  source: string,
-  target: string,
-): void {
+function assertEdge(graph: CodeGraph, type: string, source: string, target: string): void {
   assert.ok(
     graph.edges.some(
       (edge) => edge.type === type && edge.source === source && edge.target === target,
@@ -1012,7 +1007,7 @@ function assertEdge(
   );
 }
 
-test("resolves 'this' and 'self' method calls locally", () => {
+test("resolves 'this' and 'self' method calls locally", async () => {
   const root = fixture({
     "src/service.ts": `
       export class UserService {
@@ -1026,7 +1021,7 @@ test("resolves 'this' and 'self' method calls locally", () => {
     `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
   assertNode(graph, "symbol:src/service.ts:UserService.find");
   assertNode(graph, "symbol:src/service.ts:UserService.loadUser");
   assertEdge(
@@ -1037,7 +1032,7 @@ test("resolves 'this' and 'self' method calls locally", () => {
   );
 });
 
-test("prevents qualified calls to external library (console.log) from generating false positive calls", () => {
+test("prevents qualified calls to external library (console.log) from generating false positive calls", async () => {
   const root = fixture({
     "src/service.ts": `
       export function log(msg: string) {}
@@ -1047,7 +1042,7 @@ test("prevents qualified calls to external library (console.log) from generating
     `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
   assert.equal(
     graph.edges.some(
       (edge) =>
@@ -1057,7 +1052,7 @@ test("prevents qualified calls to external library (console.log) from generating
   );
 });
 
-test("calculates transitive impact analysis up to maxDepth", () => {
+test("calculates transitive impact analysis up to maxDepth", async () => {
   const graph = {
     version: "0.1.0" as const,
     generatedAt: "2026-05-19T00:00:00.000Z",
@@ -1085,7 +1080,7 @@ test("calculates transitive impact analysis up to maxDepth", () => {
   assert.equal(impactDepth1.upstreamVisited["symbol:A"], undefined);
 });
 
-test("calculates impact through production relationships without traversing exports", () => {
+test("calculates impact through production relationships without traversing exports", async () => {
   const graph = {
     version: "0.1.0" as const,
     generatedAt: "2026-05-19T00:00:00.000Z",
@@ -1152,7 +1147,7 @@ test("calculates impact through production relationships without traversing expo
   );
 });
 
-test("finds cycles without duplication and normalizes path rotations", () => {
+test("finds cycles without duplication and normalizes path rotations", async () => {
   const graph = {
     version: "0.1.0" as const,
     generatedAt: "2026-05-19T00:00:00.000Z",
@@ -1175,7 +1170,7 @@ test("finds cycles without duplication and normalizes path rotations", () => {
   assert.deepEqual(cycles[0], ["file:A", "file:B", "file:C"]);
 });
 
-test("precisely detects file and symbol orphans", () => {
+test("precisely detects file and symbol orphans", async () => {
   const graph = {
     version: "0.1.0" as const,
     generatedAt: "2026-05-19T00:00:00.000Z",
@@ -1229,7 +1224,7 @@ test("precisely detects file and symbol orphans", () => {
   assert.equal(orphanSymbol.id, "symbol:src/main.ts:dead");
 });
 
-test("does not report exported public symbols or entry-like files as orphans", () => {
+test("does not report exported public symbols or entry-like files as orphans", async () => {
   const graph = {
     version: "0.1.0" as const,
     generatedAt: "2026-05-19T00:00:00.000Z",
@@ -1282,7 +1277,7 @@ test("does not report exported public symbols or entry-like files as orphans", (
   );
 });
 
-test("resolves extensionless local imports and directory index imports for JS/TS calls", () => {
+test("resolves extensionless local imports and directory index imports for JS/TS calls", async () => {
   const root = fixture({
     "src/index.ts": `
       import { runHelper } from "./helpers";
@@ -1300,7 +1295,7 @@ test("resolves extensionless local imports and directory index imports for JS/TS
     `,
   });
 
-  const graph = scanCodebase(root, settings);
+  const graph = await scanCodebase(root, settings);
   assertNode(graph, "symbol:src/index.ts:main");
   assertNode(graph, "symbol:src/helpers/index.ts:runHelper");
   assertNode(graph, "symbol:src/utils/worker.ts:doWork");
@@ -1309,14 +1304,14 @@ test("resolves extensionless local imports and directory index imports for JS/TS
   assertEdge(graph, "calls", "symbol:src/index.ts:main", "symbol:src/utils/worker.ts:doWork");
 });
 
-test("reuses unchanged scan cache entries without parsing", () => {
+test("reuses unchanged scan cache entries without parsing", async () => {
   const root = fixture({
     "src/a.ts": `export function a() { return "a"; }`,
     "src/b.ts": `export function b() { return a(); }`,
   });
   const seen: string[] = [];
 
-  scanCodebase(root, {
+  await scanCodebase(root, {
     ...settings,
     languages: ["typescript"],
     onParseFile: (path) => seen.push(path),
@@ -1324,7 +1319,7 @@ test("reuses unchanged scan cache entries without parsing", () => {
   assert.deepEqual(seen.sort(), ["src/a.ts", "src/b.ts"]);
 
   seen.length = 0;
-  const graph = scanCodebase(root, {
+  const graph = await scanCodebase(root, {
     ...settings,
     languages: ["typescript"],
     onParseFile: (path) => seen.push(path),
@@ -1335,14 +1330,14 @@ test("reuses unchanged scan cache entries without parsing", () => {
   assertNode(graph, "symbol:src/b.ts:b");
 });
 
-test("reparses only changed files on repeated scans", () => {
+test("reparses only changed files on repeated scans", async () => {
   const root = fixture({
     "src/a.ts": `export function a() { return "a"; }`,
     "src/b.ts": `export function b() { return a(); }`,
   });
   const seen: string[] = [];
 
-  scanCodebase(root, {
+  await scanCodebase(root, {
     ...settings,
     languages: ["typescript"],
     onParseFile: (path) => seen.push(path),
@@ -1350,7 +1345,7 @@ test("reparses only changed files on repeated scans", () => {
   seen.length = 0;
 
   writeFileSync(join(root, "src/a.ts"), `export function aChanged() { return "changed"; }`);
-  const graph = scanCodebase(root, {
+  const graph = await scanCodebase(root, {
     ...settings,
     languages: ["typescript"],
     onParseFile: (path) => seen.push(path),
@@ -1362,29 +1357,29 @@ test("reparses only changed files on repeated scans", () => {
   assertNode(graph, "symbol:src/b.ts:b");
 });
 
-test("keeps cross-file call relationships when unchanged files reuse cache", () => {
+test("keeps cross-file call relationships when unchanged files reuse cache", async () => {
   const root = fixture({
     "src/a.ts": `export function a() { return "a"; }`,
     "src/b.ts": `import { a } from "./a"; export function b() { return a(); }`,
   });
 
-  scanCodebase(root, { ...settings, languages: ["typescript"] });
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  await scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
 
   assertEdge(graph, "depends-on", "file:src/b.ts", "file:src/a.ts");
   assertEdge(graph, "calls", "symbol:src/b.ts:b", "symbol:src/a.ts:a");
 });
 
-test("removes deleted files from incremental graph", () => {
+test("removes deleted files from incremental graph", async () => {
   const root = fixture({
     "src/a.ts": `export function a() { return "a"; }`,
     "src/b.ts": `import { a } from "./a"; export function b() { return a(); }`,
   });
 
-  scanCodebase(root, { ...settings, languages: ["typescript"] });
+  await scanCodebase(root, { ...settings, languages: ["typescript"] });
   rmSync(join(root, "src/a.ts"));
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
 
   assertMissingNode(graph, "file:src/a.ts");
   assertMissingNode(graph, "symbol:src/a.ts:a");
@@ -1397,15 +1392,15 @@ test("removes deleted files from incremental graph", () => {
   );
 });
 
-test("path-scoped database replacement preserves unrelated graph rows", () => {
+test("path-scoped database replacement preserves unrelated graph rows", async () => {
   const root = fixture({
     "src/a.ts": `import { b } from "./b"; export function a() { return b(); }`,
     "src/b.ts": `export function b() { return "b"; }`,
   });
-  const first = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const first = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   writeGraph(root, first);
 
-  const second = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const second = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   const replacementNodes = second.nodes.filter((node) => node.path === "src/a.ts");
   const replacementEdges = second.edges.filter(
     (edge) => edge.source.includes("src/a.ts") || edge.target.includes("src/a.ts"),
@@ -1418,7 +1413,7 @@ test("path-scoped database replacement preserves unrelated graph rows", () => {
   assertNode(stored, "symbol:src/b.ts:b");
 });
 
-test("scanCodebase extracts AST imports from multiline and destructured TypeScript imports", () => {
+test("scanCodebase extracts AST imports from multiline and destructured TypeScript imports", async () => {
   const root = fixture({
     "src/shared.ts": "export const auth = () => true; export const log = () => undefined;",
     "src/app.ts": `
@@ -1434,7 +1429,7 @@ test("scanCodebase extracts AST imports from multiline and destructured TypeScri
     `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   assert.ok(graph.edges.some((edge) => edge.type === "imports" && edge.evidence === "./shared.js"));
   assert.ok(
     graph.edges.some(
@@ -1446,7 +1441,7 @@ test("scanCodebase extracts AST imports from multiline and destructured TypeScri
   );
 });
 
-test("HTML export includes interactive viewer controls", () => {
+test("HTML export includes interactive viewer controls", async () => {
   const root = fixture({});
   const graph = {
     version: "0.1.0" as const,
@@ -1491,7 +1486,7 @@ test("HTML export includes interactive viewer controls", () => {
   assert.equal(html.includes("window.__CODEGRAPH__"), true);
 });
 
-test("html export safely embeds interactive graph data and script-like strings", () => {
+test("html export safely embeds interactive graph data and script-like strings", async () => {
   const root = fixture({});
   const graph = {
     version: "0.1.0" as const,
@@ -1538,7 +1533,7 @@ test("html export safely embeds interactive graph data and script-like strings",
   assert.match(html, /endLine/);
 });
 
-test("call graph records confidence for ambiguous same-name methods", () => {
+test("call graph records confidence for ambiguous same-name methods", async () => {
   const root = fixture({
     "src/app.ts": `
       export function save() { return "user"; }
@@ -1547,13 +1542,13 @@ test("call graph records confidence for ambiguous same-name methods", () => {
     `,
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   const saveEdges = graph.edges.filter((edge) => edge.type === "calls" && edge.evidence === "save");
   assert.ok(saveEdges.length >= 1);
   assert.ok(saveEdges.every((edge) => typeof edge.confidence === "number"));
 });
 
-test("scanCodebase resolves workspace package imports as internal dependencies", () => {
+test("scanCodebase resolves workspace package imports as internal dependencies", async () => {
   const root = fixture({
     "package.json": JSON.stringify({ private: true, workspaces: ["packages/*"] }),
     "packages/shared/package.json": JSON.stringify({ name: "@acme/shared" }),
@@ -1561,13 +1556,13 @@ test("scanCodebase resolves workspace package imports as internal dependencies",
     "packages/app/src/index.ts": "import { auth } from '@acme/shared'; export const ok = auth();",
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   assert.ok(
     graph.edges.some((edge) => edge.type === "depends-on" && edge.evidence === "@acme/shared"),
   );
 });
 
-test("scanCodebase resolves tsconfig path aliases as internal dependencies", () => {
+test("scanCodebase resolves tsconfig path aliases as internal dependencies", async () => {
   const root = fixture({
     "tsconfig.json": JSON.stringify({
       compilerOptions: { baseUrl: ".", paths: { "@shared/*": ["src/shared/*"] } },
@@ -1576,7 +1571,7 @@ test("scanCodebase resolves tsconfig path aliases as internal dependencies", () 
     "src/app.ts": "import { auth } from '@shared/auth'; export const ok = auth();",
   });
 
-  const graph = scanCodebase(root, { ...settings, languages: ["typescript"] });
+  const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   assert.ok(
     graph.edges.some((edge) => edge.type === "depends-on" && edge.evidence === "@shared/auth"),
   );

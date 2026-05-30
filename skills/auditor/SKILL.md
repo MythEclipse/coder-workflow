@@ -2,7 +2,7 @@
 name: auditor
 description: This skill should be used when the user asks to "audit architecture", "review layer violations", "find fat controllers", "cek struktur controller service repository", "assess refactor risk", or wants a read-only review of coding workflow, Modular MVC layering, coupling, and verification gaps.
 version: 0.1.0
-allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*)
+allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), mcp__codegraph__query_graph, mcp__codegraph__analyze_impact, mcp__codegraph__analyze_quality, mcp__codegraph__find_cycles, mcp__codegraph__find_orphans, mcp__codegraph__summarize_architecture, mcp__codegraph__search_code, mcp__codegraph__read_file
 ---
 
 Perform a read-only audit of code structure, layering, refactor risk, and verification readiness. Produce actionable findings with file paths and line numbers. If the user requests code modifications, instruct them to switch to a developer implementation skill.
@@ -13,7 +13,7 @@ Perform a read-only audit of code structure, layering, refactor risk, and verifi
    - Use the user-provided path, module, PR, or feature as the audit boundary.
    - If no scope is provided, inspect project entry points, route registration, module folders, and recent git changes.
    - If the discovered scope exceeds 10 files or output context limits, halt the audit and ask the user to narrow the target path or focus on a specific module.
-   - Prefer using grep, glob, and find commands in your allowed tools to trace dependencies, caller/callee chains, and route structures.
+   - Use codegraph MCP tools for structural analysis before any file reads. Prefer `query_graph` for dependency/caller/callee chains, `analyze_impact` for blast radius, `summarize_architecture` for module boundaries, and `search_code` for exact text patterns. Raw grep/find are fallbacks only after graph tools cannot answer.
 
 2. **Map architecture**
    - Identify the most likely audit boundary first from the user prompt, then inspect only the smallest relevant slice of the codebase.

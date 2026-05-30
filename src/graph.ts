@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, statSync } from "node:fs";
+import { mkdirSync } from "node:fs";
+import { stat as fsStat, readFile } from "node:fs/promises";
+import { availableParallelism } from "node:os";
 import { basename, join, relative } from "node:path";
 import {
   graphDbExists,
@@ -150,14 +152,46 @@ function parseFile(
   }
 }
 
-export function scanCodebase(root: string, settings: CodeGraphSettings): CodeGraph {
+export async function scanCodebase(root: string, settings: CodeGraphSettings): Promise<CodeGraph> {
   const files = listSourceFiles(root, settings);
-  const nodes: CodeGraphNode[] = [];
-  const edges: CodeGraphEdge[] = [];
   const cache = loadCache(root);
-  const newCacheFiles: Record<string, ScanCacheEntry> = {};
   const workspaceContext = loadWorkspaceResolutionContext(root);
 
+  // Phase 1: Parallel I/O with bounded concurrency
+  const maxWorkers = Math.min(16, availableParallelism());
+  const results = await boundedMap(files, maxWorkers, async (file) => {
+    const rel = relative(root, file);
+    const language = languageForPath(file) ?? "unknown";
+
+    const fstat = await fsStat(file);
+    const mtime = fstat.mtimeMs;
+    const size = fstat.size;
+
+    const cached = cache.files[rel];
+
+    // Metadata fast path
+    if (isReusableCacheEntry(cached, undefined, mtime, size, language)) {
+      return { rel, language, source: undefined as string | undefined, cached };
+    }
+
+    // Read file
+    const source = await readFile(file, "utf8");
+    const hash = getFileHash(source);
+
+    // Hash-based reuse
+    if (isReusableCacheEntry(cached, hash, mtime, size, language)) {
+      return { rel, language, source, cached };
+    }
+
+    // Cache miss — parse
+    const parsed = parseFile(rel, file, language, source, mtime, size, settings);
+    return { rel, language, source, cached: parsed.entry, parsed };
+  });
+
+  // Phase 2: Sequential collect into shared structures (no races)
+  const nodes: CodeGraphNode[] = [];
+  const edges: CodeGraphEdge[] = [];
+  const newCacheFiles: Record<string, ScanCacheEntry> = {};
   const sources: Array<{
     path: string;
     language: string;
@@ -167,76 +201,37 @@ export function scanCodebase(root: string, settings: CodeGraphSettings): CodeGra
     importMap: Map<string, string>;
   }> = [];
 
-  for (const file of files) {
-    const rel = relative(root, file);
-    const language = languageForPath(file) ?? "unknown";
+  for (const r of results) {
+    const entry = r.cached;
+    newCacheFiles[r.rel] = entry;
 
-    const stat = statSync(file);
-    const mtime = stat.mtimeMs;
-    const size = stat.size;
-
-    let entry = cache.files[rel];
-    let source: string | undefined;
-    let parsed: ParsedFileData | undefined;
-
-    // Metadata fast path: check if we can reuse without reading file
-    if (isReusableCacheEntry(entry, undefined, mtime, size, language)) {
-      // Cache hit on metadata, reuse without parsing
-      parsed = undefined;
-    } else {
-      // Need to read file and check hash
-      source = readFileSync(file, "utf8");
-      const hash = getFileHash(source);
-
-      // Hash-based reuse check
-      if (isReusableCacheEntry(entry, hash, mtime, size, language)) {
-        // Cache hit on hash, reuse without parsing
-        parsed = undefined;
-      } else {
-        // Cache miss, parse the file
-        parsed = parseFile(rel, file, language, source, mtime, size, settings);
-        entry = parsed.entry;
-      }
-    }
-
-    // If we didn't parse, we still need to read source for global edge extraction
-    if (!parsed && !source) {
-      source = readFileSync(file, "utf8");
-    }
-
-    if (parsed) {
-      source = parsed.source;
-    }
-
-    newCacheFiles[rel] = entry!;
-
-    // Deduplicate modules globally
-    for (const node of entry!.nodes) {
+    for (const node of entry.nodes) {
       if (!nodes.some((n) => n.id === node.id)) {
         nodes.push(node);
       }
     }
-    edges.push(...entry!.localEdges);
+    edges.push(...entry.localEdges);
 
-    const parser = getParser(language);
-    const sanitized = parser ? parser.sanitize(source!) : source!;
-    const symbols = entry!.nodes.filter(
+    const source = r.source!;
+    const parser = getParser(r.language);
+    const sanitized = parser ? parser.sanitize(source) : source;
+    const symbols = entry.nodes.filter(
       (n) => n.type === "function" || n.type === "class" || n.type === "method",
     );
 
     sources.push({
-      path: rel,
-      language,
-      source: source!,
+      path: r.rel,
+      language: r.language,
+      source,
       sanitized,
       symbols,
-      importMap: new Map(entry!.importMapEntries),
+      importMap: new Map(entry.importMapEntries),
     });
   }
 
-  // Save updated cache
   saveCache(root, { files: newCacheFiles });
 
+  // Phase 3: Resolve depends-on edges
   const filePaths = new Set(nodes.filter((node) => node.type === "file").map((node) => node.path));
   for (const item of sources) {
     const parser = getParser(item.language);
@@ -255,6 +250,7 @@ export function scanCodebase(root: string, settings: CodeGraphSettings): CodeGra
     }
   }
 
+  // Phase 4: Extract call/route/component edges
   const symbolByName = groupByName(
     nodes.filter((node) => node.type !== "file" && node.type !== "module"),
   );
@@ -280,6 +276,29 @@ export function scanCodebase(root: string, settings: CodeGraphSettings): CodeGra
     edges: dedupeEdges(edges),
     metadata,
   };
+}
+
+async function boundedMap<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: (R | undefined)[] = new Array(items.length);
+  let idx = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (true) {
+      const i = idx++;
+      if (i >= items.length) return;
+      try {
+        results[i] = await fn(items[i]);
+      } catch (err) {
+        console.error(`[scan] Error processing item ${i}:`, err);
+        results[i] = undefined as R;
+      }
+    }
+  });
+  await Promise.all(workers);
+  return results as R[];
 }
 
 function buildGraphMetadata(

@@ -184,7 +184,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   switch (request.params.name) {
     case "scan_codebase": {
-      const graph = scanCodebase(root, settings);
+      const graph = await scanCodebase(root, settings);
       writeGraph(root, graph);
       return text({
         graph: ".codegraph/graph.db",

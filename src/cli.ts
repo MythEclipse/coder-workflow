@@ -45,7 +45,7 @@ switch (command) {
   }
   case "scan":
   case "update": {
-    const graph = scanCodebase(root, settings);
+    const graph = await scanCodebase(root, settings);
     writeGraph(root, graph);
     console.log(
       JSON.stringify(
