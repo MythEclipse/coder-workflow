@@ -166,11 +166,11 @@ merge_hooks() {
           $existing;
           if $entry.key == "hooks" then
             # Merge hooks by event type
-            .hooks as $e_hooks |
+            .hooks as $ehooks |
             $entry.value | to_entries | reduce .[] as $hevent (
               $existing;
               .hooks[$hevent.key] = (
-                (($e_hooks[$hevent.key] // []) + $hevent.value) | unique_by(.description // .)
+                (($ehooks[$hevent.key] // []) + $hevent.value) | unique_by(.description // .)
               )
             )
           elif $entry.key == "description" then
