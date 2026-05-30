@@ -1,0 +1,42 @@
+{
+  "name": "coder-workflow",
+  "version": "0.2.0",
+  "description": "Orchestrator-driven workflow for coding, planning, auditing, and Modular MVC + Service + Repository refactoring in Claude Code.",
+  "type": "module",
+  "files": [
+    ".claude-plugin",
+    "agents",
+    "hooks",
+    "skills",
+    "commands",
+    "docs",
+    "CLAUDE.md",
+    "README.md",
+    "install.sh",
+    "install.ps1"
+  ],
+  "scripts": {
+    "install:global": "./install.sh",
+    "install:project": "./install.sh --project",
+    "install:link": "./install.sh --link"
+  },
+  "author": {
+    "name": "Asep Haryana",
+    "email": "asepharyana71@gmail.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "coding-workflow",
+    "planning",
+    "refactoring",
+    "modular-mvc",
+    "architecture-audit",
+    "service-repository",
+    "orchestrator",
+    "task-decomposition",
+    "skill-routing",
+    "mcp-first",
+    "learning-first"
+  ]
+}

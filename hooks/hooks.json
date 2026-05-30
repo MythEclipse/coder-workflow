@@ -1,0 +1,29 @@
+{
+  "description": "Coder Workflow hooks — trigger orchestrator routing after file changes and ensure task tracking at session stop.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'File changed — ensure all discovered bugs are tracked as tasks. If codegraph exists, refresh: test -f .codegraph/graph.db && npx codegraph-mapper update 2>/dev/null || true'",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Session stopping — verify: (1) all tasks marked completed, (2) all discovered bugs fixed, (3) verification commands passed. If codegraph exists, refresh: test -f .codegraph/graph.db && npx codegraph-mapper update 2>/dev/null || true'",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

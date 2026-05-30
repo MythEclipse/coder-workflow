@@ -1,16 +1,21 @@
 # Coder Workflow
 
-Production-ready Claude Code plugin for disciplined software engineering workflows: planning, implementation, architecture auditing, and Modular MVC + Service + Repository refactoring.
+Orchestrator-driven Claude Code plugin for disciplined software engineering: aggressive task decomposition, skill-first routing, persistent execution, and zero-tolerance bug discovery.
 
 ## Highlights
 
-- Built-in planning discipline before significant code changes.
-- `coder` skill for general implementation workflow.
-- `refraktor` skill for Modular MVC + Service + Repository transformations.
-- `auditor` skill for read-only layer, coupling, and verification audits.
-- `deploy-docker` skill and guide for GitHub Actions → GHCR → VPS → Traefik deployments.
-- Focused agents for planning, implementation, and architecture review.
-- Bash and PowerShell installers for user-level or project-level installation.
+- **`coder-orchestrator`** — central brain that ALWAYS triggers for coding work, routes through ALL sub-agents
+- **Mandatory sub-agent sequence** — workflow-planner → architecture-auditor → code-implementer → architecture-auditor (post-verify)
+- **Bug Discovery Mandate** — every bug found MUST be tracked and fixed, never skipped as "not related to my changes"
+- **Research-first** — context7 MCP for docs, codegraph MCP for code search, never guess API behavior
+- **Task tracking** — TaskCreate/TaskUpdate for every unit of work, 10+ tasks minimum for non-trivial work
+- `coder` skill for general implementation workflow
+- `refraktor` skill for Modular MVC + Service + Repository transformations
+- `auditor` skill for read-only architecture audits
+- `deploy-docker` skill for GitHub Actions → GHCR → VPS → Traefik deployments
+- `batch-codegraph` skill for parallel file read/search operations
+- Slash commands: `/coder-workflow`, `/audit`, `/plan`
+- Auto-hooks for post-file-change reminders and session-end verification
 
 ## Components
 
@@ -18,18 +23,35 @@ Production-ready Claude Code plugin for disciplined software engineering workflo
 
 | Skill | Purpose |
 | --- | --- |
-| `coder` | General coding workflow with planning, implementation, and verification discipline. |
-| `refraktor` | Modular MVC + Service + Repository refactor workflow migrated from the previous `codegraph-mapper` command. |
-| `auditor` | Read-only architecture and layer violation audit workflow. |
-| `deploy-docker` | Docker deploy workflow for GitHub Actions, GHCR, VPS, Docker Compose, and Traefik. |
+| `coder-orchestrator` | **Central orchestrator** — always triggers, decomposes tasks, routes to ALL agents, enforces bug discovery |
+| `coder` | General coding workflow with planning, implementation, verification, and bug fix phase |
+| `refraktor` | Modular MVC + Service + Repository refactor with mandatory planning gate |
+| `auditor` | Read-only architecture and layer violation audit with codegraph MCP integration |
+| `deploy-docker` | Docker deploy workflow for GHCR, VPS, Docker Compose, Traefik |
+| `batch-codegraph` | Parallel file read/search operations with bounded concurrency |
 
 ### Agents
 
-| Agent | Purpose |
+| Agent | Purpose | When invoked |
+| --- | --- | --- |
+| `workflow-planner` | Aggressive task decomposition — 10+ subtasks minimum | ALWAYS, first agent in sequence |
+| `architecture-auditor` | Pre/post architecture review, violation detection | ALWAYS, before AND after implementation |
+| `code-implementer` | Scoped code execution after plan approval | ALWAYS, after pre-audit |
+
+### Commands
+
+| Command | Purpose |
 | --- | --- |
-| `workflow-planner` | Read-only implementation planning and plan-mode recommendation. |
-| `code-implementer` | Scoped code editing after a plan exists. |
-| `architecture-auditor` | Read-only layer and coupling audit. |
+| `/coder-workflow` | Main orchestrator trigger — starts full agent sequence |
+| `/audit` | Quick architecture audit of current project |
+| `/plan` | Task decomposition for a specific coding request |
+
+### Hooks
+
+| Hook | Trigger | Purpose |
+| --- | --- | --- |
+| `PostToolUse` | After Write/Edit/NotebookEdit | Remind to track discovered bugs, refresh codegraph if exists |
+| `Stop` | Session end | Verify all tasks completed, all bugs fixed, verification passed |
 
 ## Installation
 
@@ -96,23 +118,61 @@ setup deploy Docker GHCR VPS Traefik
 
 See `docs/docker-ghcr-vps-traefik-deploy.md` for the general Docker deploy template covering GitHub Actions, GHCR, VPS, Docker Compose, Traefik labels, secrets, verification, and 404/502 debugging.
 
+## Workflow Architecture
+
+See `docs/design/workflow-architecture.md` for the full design philosophy, agent coordination pattern, bug discovery mandate, learning protocol, and comparison with codegraph-mapper.
+
 ## Production checklist
 
-- Keep `skills/`, `agents/`, and `docs/` committed and reviewed like source code.
+- Keep `skills/`, `agents/`, `commands/`, and `docs/` committed and reviewed like source code.
 - Run `./install.sh --dry-run` before installing into shared environments.
 - Use `./install.sh --project` for repository-specific workflows.
 - Use `./install.sh --link` only during local plugin development.
 - Keep audits read-only unless the user explicitly asks to implement fixes.
 - Use Claude Code built-in plan mode before significant edits.
+- **Every discovered bug gets tracked and fixed** — no exceptions.
+- **Always use sub-agents** — orchestrator routes, agents do the work.
+- **Research before guessing** — context7 MCP for docs, codegraph MCP for code search.
 
 ## Repository layout
 
 ```text
 coder-workflow/
 ├── .claude-plugin/plugin.json
+├── CLAUDE.md
+├── package.json
+├── hooks/
+│   └── hooks.json
+├── commands/
+│   ├── coder-workflow.md
+│   ├── audit.md
+│   └── plan.md
 ├── agents/
-├── docs/
+│   ├── workflow-planner.md
+│   ├── architecture-auditor.md
+│   └── code-implementer.md
 ├── skills/
+│   ├── coder-orchestrator/
+│   │   ├── SKILL.md
+│   │   └── references/orchestration-guide.md
+│   ├── coder/
+│   │   ├── SKILL.md
+│   │   └── references/workflow-checklist.md
+│   ├── auditor/
+│   │   ├── SKILL.md
+│   │   └── references/audit-checklist.md
+│   ├── refraktor/
+│   │   ├── SKILL.md
+│   │   └── references/layer-contract.md
+│   ├── deploy-docker/
+│   │   ├── SKILL.md
+│   │   └── references/deploy-guide.md
+│   └── batch-codegraph/
+│       └── SKILL.md
+├── docs/
+│   ├── docker-ghcr-vps-traefik-deploy.md
+│   └── design/
+│       └── workflow-architecture.md
 ├── install.sh
 ├── install.ps1
 ├── LICENSE
