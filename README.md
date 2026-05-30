@@ -55,22 +55,22 @@ Orchestrator-driven Claude Code plugin for disciplined software engineering: agg
 
 ## Installation
 
-Install for the current user:
+**Default (global):** Installs to `~/.claude/skills/coder-workflow/` — Claude Code auto-discovers and loads the plugin on every session start.
 
 ```bash
 ./install.sh
 ```
 
-Install into the current project only:
-
-```bash
-./install.sh --project
-```
-
-Symlink components for plugin development:
+Symlink for development (so changes to the repo are immediately reflected):
 
 ```bash
 ./install.sh --link
+```
+
+Install into the current project only (`.claude/` directory):
+
+```bash
+./install.sh --project
 ```
 
 Preview install actions without changing files:
@@ -85,6 +85,8 @@ Install selected components only:
 ./install.sh refraktor architecture-auditor
 ./install.sh --skills-only coder auditor
 ./install.sh --agents-only workflow-planner
+./install.sh --hooks-only
+./install.sh --commands-only
 ```
 
 Windows PowerShell equivalents:
@@ -96,7 +98,28 @@ Windows PowerShell equivalents:
 .\install.ps1 -DryRun
 ```
 
-Restart Claude Code or run `/reload` after installation.
+**After installation:** Restart Claude Code or run `/reload-plugins` to load the new plugin.
+
+## Skill names
+
+When installed as a plugin, skills are namespaced:
+
+| Skill | Command |
+|-------|---------|
+| coder-orchestrator | `/coder-workflow:coder-orchestrator` |
+| coder | `/coder-workflow:coder` |
+| auditor | `/coder-workflow:auditor` |
+| refraktor | `/coder-workflow:refraktor` |
+| deploy-docker | `/coder-workflow:deploy-docker` |
+| batch-codegraph | `/coder-workflow:batch-codegraph` |
+
+Commands are namespaced too:
+
+| Command | Slash command |
+|---------|---------------|
+| coder-workflow | `/coder-workflow:coder-workflow` |
+| audit | `/coder-workflow:audit` |
+| plan | `/coder-workflow:plan` |
 
 ## Local testing
 

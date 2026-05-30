@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Coder Workflow is a Claude Code plugin that orchestrates all coding work through aggressive task decomposition, skill-first routing, and persistent execution. It ships skills, agents, commands, and hooks for disciplined coding workflows.
 
+## Plugin Discovery
+
+**This plugin installs to `~/.claude/skills/coder-workflow/`** (not `~/.claude/plugins/`). Claude Code auto-discovers and loads plugins from `~/.claude/skills/<name>/` on every session start. No marketplace install needed.
+
+```bash
+./install.sh          # installs to ~/.claude/skills/coder-workflow/
+./install.sh --link   # symlinks for development
+./install.sh --project # installs to ./.claude/ for this project only
+```
+
+After install: restart Claude Code or run `/reload-plugins`.
+
+When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder-workflow:auditor`, etc.
+
 ## Dual-Orchestrator Model
 
 Two orchestrators work together — they are complementary, not conflicting:
@@ -18,6 +32,16 @@ Two orchestrators work together — they are complementary, not conflicting:
 **Always load both.** `coder-orchestrator` is the main entry point for any coding request. It ALWAYS invokes `codegraph-orchestrator` immediately after for efficient codebase exploration (graph before grep, query before read, analyze before edit).
 
 **BANNED: The built-in `Explore` agent.** ALL codebase exploration MUST use codegraph MCP tools via `codegraph-orchestrator`. `mcp__codegraph__query_graph` for definitions/references/callers. `mcp__codegraph__search_code` for text search. `mcp__codegraph__analyze_impact` for impact analysis. `mcp__codegraph__read_file` for file content. Never dispatch an Explore agent when codegraph MCP tools can answer.
+
+## Hooks (Auto-Loaded)
+
+Hooks are defined in `hooks/hooks.json` and auto-merged with all other plugin hooks at runtime:
+
+| Hook Event | Purpose |
+|---|---|
+| `SessionStart` | Invoke coder-orchestrator + codegraph-orchestrator at session start |
+| `PostToolUse` (Write/Edit/NotebookEdit) | Remind about bug tracking, refresh codegraph |
+| `Stop` | Verify all tasks completed, all bugs fixed, verification passed |
 
 ## Orchestrator Usage (Required)
 
@@ -44,36 +68,26 @@ Two orchestrators work together — they are complementary, not conflicting:
 - `architecture-auditor`: Read-only architecture and layer violation audit
 - `code-implementer`: Scoped implementation after plan approval
 
-## Installation
-
-```bash
-# Global install (available in all projects)
-./install.sh
-
-# Project-scoped install
-./install.sh --project
-
-# Symlink instead of copy
-./install.sh --link
-```
-
-## Development commands
+## Development Commands
 
 ```bash
 # Verify plugin structure
 ls skills/ agents/ commands/ hooks/
 
-# Test install
+# Test install to current project
 ./install.sh --project --link
+
+# Test with --plugin-dir (no install needed)
+claude --plugin-dir /mnt/code/djnaidwhbwda/coder-workflow
 ```
 
 ## Plugin Surface
 
-- `skills/` — orchestrator, coder, auditor, refraktor, deploy-docker workflows
+- `skills/` — orchestrator, coder, auditor, refraktor, deploy-docker, batch-codegraph workflows
 - `agents/` — workflow-planner, architecture-auditor, code-implementer subagents
 - `commands/` — slash commands for orchestrator trigger, audit, and planning
-- `hooks/hooks.json` — auto-trigger for skill routing after file changes
-- `.claude-plugin/plugin.json` — plugin metadata for Claude Code
+- `hooks/hooks.json` — auto-trigger for session start, file changes, session end
+- `.claude-plugin/plugin.json` — plugin metadata for Claude Code discovery
 
 ## Workflow Philosophy
 
