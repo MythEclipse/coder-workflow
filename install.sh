@@ -8,10 +8,10 @@ PLUGIN_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 DEST="${HOME}/.claude"
 LINK=false
 DRY_RUN=false
-SKILLS_ONLY=false
-AGENTS_ONLY=false
-HOOKS_ONLY=false
-COMMANDS_ONLY=false
+SKILLS_ONLY=0
+AGENTS_ONLY=0
+HOOKS_ONLY=0
+COMMANDS_ONLY=0
 COMPONENTS=()
 
 usage() {
@@ -43,13 +43,13 @@ while [[ $# -gt 0 ]]; do
     --dry-run)
       DRY_RUN=true; shift ;;
     --skills-only)
-      SKILLS_ONLY=true; shift ;;
+      SKILLS_ONLY=1; shift ;;
     --agents-only)
-      AGENTS_ONLY=true; shift ;;
+      AGENTS_ONLY=1; shift ;;
     --hooks-only)
-      HOOKS_ONLY=true; shift ;;
+      HOOKS_ONLY=1; shift ;;
     --commands-only)
-      COMMANDS_ONLY=true; shift ;;
+      COMMANDS_ONLY=1; shift ;;
     --help|-h)
       usage; exit 0 ;;
     *)
@@ -129,19 +129,19 @@ install_dir_items() {
   done
 }
 
-if ! $AGENTS_ONLY && ! $HOOKS_ONLY && ! $COMMANDS_ONLY; then
+if [[ $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
   install_dir_items "$PLUGIN_ROOT/skills" "skills"
 fi
 
-if ! $SKILLS_ONLY && ! $HOOKS_ONLY && ! $COMMANDS_ONLY; then
+if [[ $SKILLS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
   install_dir_items "$PLUGIN_ROOT/agents" "agents"
 fi
 
-if ! $SKILLS_ONLY && ! $AGENTS_ONLY && ! $COMMANDS_ONLY; then
+if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]]; then
   install_dir_items "$PLUGIN_ROOT/hooks" "hooks"
 fi
 
-if ! $SKILLS_ONLY && ! $AGENTS_ONLY && ! $HOOKS_ONLY; then
+if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 ]]; then
   install_dir_items "$PLUGIN_ROOT/commands" "commands"
 fi
 
