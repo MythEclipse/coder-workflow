@@ -74,7 +74,7 @@ fi
 if $PROJECT; then
   DEST="$(pwd)/.claude"
 else
-  DEST="${HOME}/.claude/plugins/coder-workflow"
+  DEST="${HOME}/.claude/skills/coder-workflow"
 fi
 
 contains_component() {
