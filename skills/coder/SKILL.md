@@ -13,6 +13,7 @@ Run a disciplined coding workflow for Claude Code sessions. Balance speed with s
 2. **Skills and MCP first.** Before implementing, check if a relevant skill exists (`coder-orchestrator` routing). Use codegraph MCP for cross-file lookups. Use context7 MCP for framework/library docs.
 3. **Research before guessing.** If unfamiliar with a framework, API, or pattern — query context7 MCP or WebSearch. Never say "let me try the most likely answer" without documentation.
 4. **Never give up.** If stuck, decompose the problem further, research more angles, ask clarifying questions. Do not abandon tasks without exhausting options.
+5. **Fix every discovered bug.** When pre-existing bugs, warnings, or deprecation notices are found during implementation — NEVER skip or dismiss them as "not related to my changes." Create a tracked task for each, continue primary work, then fix all discovered bugs in a final Bug Fix Phase before ending the session.
 
 ## Planning rule
 
@@ -67,6 +68,15 @@ In plan mode, inspect the relevant code, identify the target files, define the i
    - For UI work, run the app and manually exercise the changed path when feasible.
    - If verification cannot run, state exactly why and what remains unverified.
    - Do NOT claim completion when tests or verification were not performed.
+   - **Record ALL pre-existing issues found** — warnings, deprecations, console errors, type errors in files you didn't edit. Create `TaskCreate` entries for each. Never dismiss as "not related to my changes."
+
+6b. **Bug Fix Phase (MANDATORY)**
+   - After all primary tasks complete, list all discovered bugs (severity, file:line, description)
+   - Fix each in order: Blocker → High → Medium
+   - Verify each fix independently
+   - Session is NOT complete until all High and Medium discovered bugs are fixed
+   - Report any remaining Low bugs with exact file:line references and reason for deferral
+   - **Forbidden phrases:** "not related to my changes", "pre-existing, skipping", "let me focus on my task and ignore these"
 
 7. **Report**
    - Summarize changed files and verification in one or two concise paragraphs.

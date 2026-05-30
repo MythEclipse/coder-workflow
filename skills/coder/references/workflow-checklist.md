@@ -51,12 +51,37 @@ Reusable checklist for implementation sessions in the coder-workflow plugin.
 - [ ] No task marked `completed` without verification evidence
 - [ ] Skipped checks reported with exact reason
 
-## Phase 6: Complete & Report
+## Phase 5b: Bug Discovery (During Verification)
+
+- [ ] ALL pre-existing bugs recorded — NOT skipped
+- [ ] Browser API deprecation warnings → `TaskCreate` with severity
+- [ ] Console errors/warnings → `TaskCreate` with severity
+- [ ] Type errors in untouched files → `TaskCreate` with severity
+- [ ] Lint violations in unrelated files → `TaskCreate` with severity
+- [ ] Runtime warnings, unhandled rejections → `TaskCreate` with severity
+- [ ] Broken tests that pre-date changes → `TaskCreate` with severity
+- [ ] **NEVER** dismiss as "not related to my changes" or "pre-existing, skipping"
+
+## Phase 6: Bug Fix Phase (MANDATORY — Before Session End)
+
+- [ ] All discovered bugs listed with severity, file:line, description
+- [ ] Blocker bugs fixed immediately (pause primary work if found)
+- [ ] High severity bugs fixed before session ends
+- [ ] Medium severity bugs fixed before session ends
+- [ ] Each bug fix verified independently
+- [ ] Each bug-fix task marked `completed` with verification results
+- [ ] **Session NOT complete** until all High and Medium bugs are fixed
+- [ ] Remaining Low bugs reported with exact file:line and reason for deferral
+- [ ] **Forbidden:** "pre-existing", "not related to my changes", "let me ignore these", "this was already broken"
+
+## Phase 7: Complete & Report
 
 - [ ] All tasks marked `completed` via `TaskUpdate`
+- [ ] All bug-fix tasks marked `completed` via `TaskUpdate`
 - [ ] Stale tasks cleaned up (deleted or completed)
 - [ ] Changed files summarized with `path:line` references
 - [ ] Verification results reported: commands run, outcomes
+- [ ] Bug fix summary: how many found, how many fixed, what remains
 - [ ] Next steps listed with clear ownership
 - [ ] New learnings stored for future sessions
 - [ ] No commit/push unless user explicitly asked
@@ -69,3 +94,5 @@ Reusable checklist for implementation sessions in the coder-workflow plugin.
 - [ ] No raw grep/find when codegraph MCP was available
 - [ ] No API assumptions without context7 documentation lookup
 - [ ] No abandoned tasks without exhausting all options
+- [ ] No skipped bugs — every discovered issue was tracked and fixed
+- [ ] No "not related to my changes" — if you see it, you fix it
