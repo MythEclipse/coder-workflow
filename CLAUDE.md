@@ -6,10 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Coder Workflow is a Claude Code plugin that orchestrates all coding work through aggressive task decomposition, skill-first routing, and persistent execution. It ships skills, agents, commands, and hooks for disciplined coding workflows.
 
+## Dual-Orchestrator Model
+
+Two orchestrators work together — they are complementary, not conflicting:
+
+| Orchestrator | Source | Purpose |
+|---|---|---|
+| **`coder-orchestrator`** | coder-workflow | WORKFLOW GUIDE — how to plan, implement, verify, fix bugs, run agents |
+| **`codegraph-orchestrator`** | codegraph-mapper | SEARCH GUIDE — how to explore codebase efficiently using MCP tools |
+
+**Always load both.** `coder-orchestrator` is the main entry point for any coding request. It ALWAYS invokes `codegraph-orchestrator` immediately after for efficient codebase exploration (graph before grep, query before read, analyze before edit).
+
 ## Orchestrator Usage (Required)
 
 - **Always trigger `coder-orchestrator`** at session start for any coding task — features, bugs, refactors, reviews, deployments.
-- The orchestrator routes work through a fixed agent sequence: `workflow-planner` → `architecture-auditor` → `code-implementer` → `architecture-auditor` (post-verify).
+- **Always invoke `codegraph-orchestrator`** immediately after — provides efficient search/exploration patterns via MCP tools.
+- The coding orchestrator routes work through a fixed agent sequence: `workflow-planner` → `architecture-auditor` → `code-implementer` → `architecture-auditor` (post-verify).
 - Every coding session MUST invoke ALL sub-agents. No exceptions.
 - Every discovered bug MUST be tracked and fixed — never skip as "not related to my changes."
 - Use skills and MCP tools before guessing. Use context7 MCP for framework docs. Use codegraph MCP for code search.
