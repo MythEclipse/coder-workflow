@@ -472,8 +472,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TITLE=$(printf \"%s\" \"$INPUT\" | jq -r \".task.title // .title // unknown\" 2>/dev/null); printf \"[%s] TASK+: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> /tmp/cw-session.log 2>/dev/null; echo \"Task tracked: $TITLE\"; exit 0'",
-            "timeout": 5
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/task-force-subagent.sh"
+            ],
+            "timeout": 15,
+            "statusMessage": "Enforcing subagent delegation..."
           }
         ]
       }
