@@ -11,6 +11,10 @@
 #
 #   Depth counter file is written by SubagentStart hook and deleted by
 #   SubagentStop hook, providing independent tracking beyond env vars.
+#
+# Complexity heuristic (depth == 0):
+#   Analyzes task title and description to suggest direct execution vs delegation.
+#   Factors: word count, file-path mentions, complexity keywords.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -62,10 +66,72 @@ if [ "$CURRENT_DEPTH" -ge 1 ]; then
 fi
 
 # ============================================================
-# Depth == 0: Main orchestrator thread — encourage right-sized delegation
+# Depth == 0: Main orchestrator thread — complexity heuristic
 # ============================================================
+# Combine title + description for analysis
+FULL_TEXT=$(printf '%s %s' "$TASK_TITLE" "$TASK_DESCRIPTION")
+
+# Score factors
+COMPLEXITY_SCORE=0
+
+# 1. Length heuristic: long descriptions suggest multi-file, complex work
+WORD_COUNT=$(printf '%s' "$FULL_TEXT" | wc -w | tr -d ' ')
+if [ "$WORD_COUNT" -gt 80 ]; then
+  COMPLEXITY_SCORE=$((COMPLEXITY_SCORE + 3))
+elif [ "$WORD_COUNT" -gt 40 ]; then
+  COMPLEXITY_SCORE=$((COMPLEXITY_SCORE + 2))
+elif [ "$WORD_COUNT" -gt 20 ]; then
+  COMPLEXITY_SCORE=$((COMPLEXITY_SCORE + 1))
+fi
+
+# 2. File-path mentions (many file paths = multi-file change)
+FILE_MENTIONS=$(printf '%s' "$FULL_TEXT" | grep -oE '(src/|lib/|app/|test/|\.ts|\.js|\.py|\.go|\.rs|\.java|\.kt)' 2>/dev/null | wc -l | tr -d ' ')
+if [ "$FILE_MENTIONS" -ge 5 ]; then
+  COMPLEXITY_SCORE=$((COMPLEXITY_SCORE + 3))
+elif [ "$FILE_MENTIONS" -ge 3 ]; then
+  COMPLEXITY_SCORE=$((COMPLEXITY_SCORE + 2))
+elif [ "$FILE_MENTIONS" -ge 1 ]; then
+  COMPLEXITY_SCORE=$((COMPLEXITY_SCORE + 1))
+fi
+
+# 3. Complexity keywords
+COMPLEX_KEYWORDS="refactor|architect|migration|multi.file|new.module|implement.*feature|add.*endpoint|database.*schema|authentication|authorization|middleware|circuit.breaker|event.bus|websocket|real.time|deployment|ci.cd|docker|kubernetes"
+if printf '%s' "$FULL_TEXT" | grep -qiE "$COMPLEX_KEYWORDS" 2>/dev/null; then
+  COMPLEXITY_SCORE=$((COMPLEXITY_SCORE + 2))
+fi
+
+# 4. Simple keywords (reduce score)
+SIMPLE_KEYWORDS="fix typo|update readme|rename|rename.*variable|add.*comment|format|whitespace|remove.*unused"
+if printf '%s' "$FULL_TEXT" | grep -qiE "$SIMPLE_KEYWORDS" 2>/dev/null; then
+  COMPLEXITY_SCORE=$((COMPLEXITY_SCORE - 2))
+fi
+
+# Clamp score to 0-8
+if [ "$COMPLEXITY_SCORE" -lt 0 ]; then
+  COMPLEXITY_SCORE=0
+elif [ "$COMPLEXITY_SCORE" -gt 8 ]; then
+  COMPLEXITY_SCORE=8
+fi
+
+# Determine recommendation
+if [ "$COMPLEXITY_SCORE" -ge 5 ]; then
+  COMPLEXITY_LEVEL="COMPLEX"
+  DELEGATION_ADVICE="delegate to a fresh subagent via the Agent tool"
+elif [ "$COMPLEXITY_SCORE" -ge 3 ]; then
+  COMPLEXITY_LEVEL="MODERATE"
+  DELEGATION_ADVICE="consider delegating to a subagent if it involves 3+ files; otherwise execute directly"
+else
+  COMPLEXITY_LEVEL="SIMPLE"
+  DELEGATION_ADVICE="execute directly in the current thread"
+fi
+
 CONTEXT="[DELEGATION RULE]
 Task \"$TASK_TITLE\" (ID: $TASK_ID) has been created.
+
+Complexity assessment: $COMPLEXITY_LEVEL (score: $COMPLEXITY_SCORE/8)
+- Word count: $WORD_COUNT
+- File references: $FILE_MENTIONS
+- Recommendation: $DELEGATION_ADVICE
 
 For Complex tasks (5+ files, architectural change, new file type for project): delegate to a fresh subagent via the Agent tool.
 For Simple/Standard tasks (1-4 files, clear spec, known pattern): execute directly in the current thread.

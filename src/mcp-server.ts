@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { statSync } from "node:fs";
+import { join } from "node:path";
 import { cwd } from "node:process";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -16,7 +18,7 @@ import {
 import { exportGraph } from "./exporters.js";
 import { getDirectoryTree, readFileContent } from "./fs-tools.js";
 import { summarizeGraphForBudget } from "./graph/summarize.js";
-import { readGraph, scanCodebase, writeGraph } from "./graph.js";
+import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { searchCodebase } from "./search.js";
 import { loadSettings } from "./settings.js";
 import { openGraphUi } from "./ui.js";
@@ -165,7 +167,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "summarize_graph",
-      description: "Return bounded graph summary with omitted counts and hotspots.",
+      description:
+        "Return bounded graph summary with omitted counts, hotspots, and graph freshness (ageMinutes).",
       inputSchema: {
         type: "object",
         properties: {
@@ -173,6 +176,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           maxEdges: { type: "number" },
         },
       },
+    },
+    {
+      name: "check_graph_freshness",
+      description:
+        "Check if the CodeGraph database is fresh. Returns age in minutes and staleness status. Recommended before deep analysis or architecture audits.",
+      inputSchema: { type: "object", properties: {} },
     },
   ],
 }));
@@ -261,13 +270,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           numberArg(args?.endLine),
         ),
       );
-    case "summarize_graph":
-      return text(
-        summarizeGraphForBudget(readGraph(root), {
-          maxNodes: numberArg(args?.maxNodes) ?? 50,
-          maxEdges: numberArg(args?.maxEdges) ?? 100,
-        }),
-      );
+    case "summarize_graph": {
+      const summary = summarizeGraphForBudget(readGraph(root), {
+        maxNodes: numberArg(args?.maxNodes) ?? 50,
+        maxEdges: numberArg(args?.maxEdges) ?? 100,
+      });
+      const freshness = getGraphFreshness(root);
+      return text({ ...summary, freshness });
+    }
+    case "check_graph_freshness":
+      return text(getGraphFreshness(root));
     default:
       throw new Error(`Unknown tool: ${request.params.name}`);
   }
@@ -294,4 +306,34 @@ function stringArrayArg(value: unknown, name: string): string[] {
   if (value === undefined) return [];
   if (Array.isArray(value) && value.every((item) => typeof item === "string")) return value;
   throw new Error(`${name} must be an array of strings.`);
+}
+
+interface GraphFreshness {
+  exists: boolean;
+  ageMinutes: number;
+  isStale: boolean;
+  recommendation: string;
+}
+
+function getGraphFreshness(root: string): GraphFreshness {
+  const dbPath = join(root, ".codegraph", "graph.db");
+  if (!graphExists(root)) {
+    return {
+      exists: false,
+      ageMinutes: -1,
+      isStale: true,
+      recommendation: "No graph database found. Run scan_codebase before deep analysis.",
+    };
+  }
+  const mtimeMs = statSync(dbPath).mtimeMs;
+  const ageMinutes = Math.round((Date.now() - mtimeMs) / 60_000);
+  const isStale = ageMinutes > 120;
+  return {
+    exists: true,
+    ageMinutes,
+    isStale,
+    recommendation: isStale
+      ? `Graph is ${ageMinutes}m old — stale. Run scan_codebase before deep analysis or architecture audits.`
+      : `Graph is fresh (${ageMinutes}m old). Safe to use for analysis.`,
+  };
 }

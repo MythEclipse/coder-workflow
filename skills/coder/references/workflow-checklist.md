@@ -66,13 +66,12 @@ Reusable checklist for implementation sessions in the coder-workflow plugin.
 ## Phase 6: Bug Fix Phase (MANDATORY — Before Session End)
 
 - [ ] All discovered bugs listed with severity, file:line, description
-- [ ] Blocker bugs fixed immediately (pause primary work if found)
-- [ ] High severity bugs fixed before session ends
-- [ ] Medium severity bugs fixed before session ends
+- [ ] **Category A (files I touched)**: ALL fixed — no deferral
+- [ ] **Category B (files I did NOT touch)**: Up to 5 High/Medium fixed; beyond 5 → write to `.claude/deferred-bugs.json`
 - [ ] Each bug fix verified independently
 - [ ] Each bug-fix task marked `completed` with verification results
-- [ ] **Session NOT complete** until all High and Medium bugs are fixed
-- [ ] Remaining Low bugs reported with exact file:line and reason for deferral
+- [ ] **Session NOT complete** until all Category A bugs AND up to 5 Category B bugs (High/Medium) are fixed
+- [ ] Remaining deferred bugs reported with: file:line, severity, category, deferral reason
 - [ ] **Forbidden:** "pre-existing", "not related to my changes", "let me ignore these", "this was already broken"
 
 ## Phase 7: Complete & Report

@@ -302,7 +302,7 @@
           },
           {
             "type": "command",
-            "command": "rm -f /tmp/cw-grep-warned-$$ 2>/dev/null || true; test -f .codegraph/graph.db && (command -v coder-workflow >/dev/null 2>&1 && coder-workflow update 2>/dev/null || npx codegraph-mapper update 2>/dev/null || true) || true",
+            "command": "bash -c '\nrm -f /tmp/cw-grep-warned-$$ 2>/dev/null || true\nLOG=.claude/session-$(date +%Y%m%d).log\nmkdir -p .claude 2>/dev/null || true\nif test -f .codegraph/graph.db; then\n  UPDATE_OUTPUT=$(command -v coder-workflow >/dev/null 2>&1 && coder-workflow update 2>&1 || npx codegraph-mapper update 2>&1 || true)\n  if echo \"$UPDATE_OUTPUT\" | grep -qiE \"error|fail|exception\"; then\n    printf \"[%s] GRAPH UPDATE FAILED: %s\\n\" \"$(date -u +%T)\" \"$UPDATE_OUTPUT\" >> \"$LOG\" 2>/dev/null || true\n  fi\nfi\nexit 0'\n            ",
             "timeout": 120,
             "async": true
           }
@@ -530,7 +530,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'LOG=.claude/session-$(date +%Y%m%d).log; if [ -f \"$LOG\" ]; then TASKS=$(grep -c \"TASK+:\" \"$LOG\" 2>/dev/null || echo 0); DONE=$(grep -c \"TASK done:\" \"$LOG\" 2>/dev/null || echo 0); COMMITS=$(grep -c \"GIT COMMIT:\" \"$LOG\" 2>/dev/null || echo 0); FAILS=$(grep -c \"FAIL\" \"$LOG\" 2>/dev/null || echo 0); AGENTS=$(grep -c \"AGENT START:\" \"$LOG\" 2>/dev/null || echo 0); WRITES=$(grep -c \"WRITE:\" \"$LOG\" 2>/dev/null || echo 0); PROMPTS=$(grep -c \"PROMPT:\" \"$LOG\" 2>/dev/null || echo 0); echo \"Session summary: tasks=$TASKS done=$DONE writes=$WRITES commits=$COMMITS agents=$AGENTS failures=$FAILS prompts=$PROMPTS\"; fi; exit 0'",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-metrics.sh"
+            ],
             "timeout": 10
           }
         ]

@@ -43,12 +43,12 @@ Track your state using a simple, deterministically updatable checklist file (e.g
 
 ## Impact Radius Bug Quarantine Phase (MANDATORY)
 
-You operate under an **Impact Radius Protocol**, replacing the naive "fix everything" global policy.
+You operate under an **Impact Radius Protocol** with unified triage rules.
 
 1. **Bug Discovery**: If you encounter errors, type issues, or lint warnings during execution, identify them.
 2. **Boundary Check**: Does this error originate from a file listed in your `FILE_MANIFEST` or is it a direct regression caused by your changes?
-   - **YES (Inside Impact Radius)**: You MUST fix it. It is your responsibility.
-   - **NO (Outside Impact Radius)**: You are **STRICTLY FORBIDDEN** from attempting to fix it. Document it as a pre-existing technical debt and ignore it to prevent infinite refactoring loops.
+   - **YES (Category A — Inside Impact Radius)**: You MUST fix it. It is your responsibility. No deferral.
+   - **NO (Category B — Outside Impact Radius)**: Apply triage — do NOT fix immediately. Record as a tracked task. The session's bug fix budget (up to 5 Category B High/Medium bugs) applies. Document with file:line, severity, and description. See `coder` skill for full triage rules.
 3. **Targeted Verification**: Run tests, typechecks, and linters scoped ONLY to the files you modified. Do not run a global `npm run typecheck` if the codebase is already known to contain hundreds of unrelated errors.
 
 Example:

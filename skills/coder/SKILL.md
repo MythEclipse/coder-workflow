@@ -12,7 +12,10 @@ Run a disciplined coding workflow for Claude Code sessions. Balance speed with s
 1. **Task tracking is mandatory.** Before running ANY other tools (such as Grep, ViewFile, run_command, or CodeGraph MCP tools) at the start of a session or task, you MUST first run `TaskCreate` to initialize workflow tracking. Create an initial task (e.g., 'Explore codebase and plan implementation') and set it to `in_progress` immediately using `TaskUpdate`. This prevents warnings about task tools not being used.
 2. **Skills and MCP first.** Before implementing, check if a relevant skill exists (`coder-orchestrator` routing). Use codegraph MCP for cross-file lookups. Use context7 MCP for framework/library docs.
 3. **Research before guessing.** If unfamiliar with a framework, API, or pattern — query context7 MCP or WebSearch.
-4. **Fix every discovered bug.** When pre-existing bugs, warnings, or deprecation notices are found during implementation — NEVER skip or dismiss them as "not related to my changes." Create a tracked task for each, continue primary work, then fix all discovered bugs in a final Bug Fix Phase before ending the session.
+4. **Fix every discovered bug — Impact Radius Protocol.** When pre-existing bugs, warnings, or deprecation notices are found during implementation:
+   - **Category A (files I touched)**: Fix ALL without exception.
+   - **Category B (files I did NOT touch)**: Budget-capped at 5 High/Medium severity bugs per session. Beyond 5, write to `.claude/deferred-bugs.json` with file:line, severity, and reason. Never silently drop bugs. Always create `TaskCreate` entries for tracking.
+   - This aligns with the orchestrator's Impact Radius Protocol. See `coder-orchestrator` for full details.
 
 ## Planning rule
 

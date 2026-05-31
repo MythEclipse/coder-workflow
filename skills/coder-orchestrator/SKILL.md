@@ -60,15 +60,31 @@ Avoid extreme context fragmentation. The orchestrator routes work and retains co
 - Track your progress using a checklist (e.g., `task.md`).
 - If blocked, do not delegate away the problem. Research via `context7` MCP or `mcp__codegraph` tools, then adjust the plan.
 
+### Crash Recovery (on Session Resume)
+
+When resuming a session after a disconnect or token limit:
+
+1. **Check `task.md`**: If it exists, read it and identify unchecked items (`[ ]`). Resume from the first incomplete task.
+2. **Check TaskList**: Run `TaskList` to find tasks with `in_progress` status. If found, verify whether they were actually completed and update accordingly.
+3. **Check `.claude/deferred-bugs.json`**: If present, review deferred bugs from the prior session. Fix them as part of your first Bug Fix Phase.
+4. **Check `.claude/agent-depth.lock`**: If it exists with depth > 0, a subagent crashed. Delete the lock file before spawning new agents.
+5. **Verify graph freshness**: Run `check_graph_freshness` MCP tool. If stale (>120 min), re-scan before deep analysis.
+6. **Do NOT restart from scratch**: Pick up exactly where the checklist left off.
+
 ## Impact Radius Bug Discovery Mandate
 
-**You operate under an Impact Radius Protocol.**
+**You operate under an Impact Radius Protocol with a unified triage system.**
 
 1. **Declare Scope**: Define the files you intend to modify upfront (`FILE_MANIFEST`).
-2. **Quarantine Zone**: If you encounter errors, type issues, or lint warnings during your work, you MUST fix them **IF AND ONLY IF** they are located within your declared `FILE_MANIFEST` or were directly introduced by your changes.
-3. **External Dependencies Escaping**: If fixing a bug within your `FILE_MANIFEST` absolutely requires modifying a closely coupled external file (e.g., updating an interface), you are permitted to add that file to your `FILE_MANIFEST` and fix it. However, if the fix requires widespread architectural changes outside your scope, REVERT your breaking change and document it as a blocker instead of entering an infinite loop.
-4. **Pre-existing Debt**: If a global typecheck reveals errors in untouched modules, **IGNORE THEM**. Document them as pre-existing technical debt. Do not attempt a global fix unless explicitly instructed by the user. Trying to fix the entire world leads to infinite loops.
+2. **Category A — Bugs Within Impact Radius**: If you encounter errors, type issues, or lint warnings **within your declared `FILE_MANIFEST`** or directly introduced by your changes, you **MUST fix them**. No deferral, no exceptions.
+3. **Category B — Pre-existing Bugs Outside Impact Radius**: If a global typecheck reveals errors in untouched modules, apply a **budget-capped triage**:
+   - Fix up to **5 High/Medium severity** Category B bugs per session.
+   - Beyond 5, defer by writing to `.claude/deferred-bugs.json` with file:line, severity, and deferral reason.
+   - Low severity Category B bugs are documented but do not block session completion.
+   - **Never silently drop bugs.** Always record them as tracked tasks or deferred entries.
+4. **External Dependencies Escaping**: If fixing a Category A bug requires modifying a closely coupled external file (e.g., updating an interface), you are permitted to add that file to your `FILE_MANIFEST` and fix it. If the fix requires widespread architectural changes outside your scope, REVERT your breaking change and document it as a blocker.
 5. **Targeted Checks**: Always run verification commands tailored to your specific files (e.g., `npx eslint path/to/changed/file.ts` rather than `npm run lint`).
+6. **Session Completion Rule**: Session is NOT complete until all Category A bugs AND up to 5 Category B bugs (High/Medium) are fixed. Any remaining deferred bugs appear in the final report.
 
 ## Output Contract
 

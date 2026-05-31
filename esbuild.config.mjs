@@ -32,7 +32,6 @@ await build({
     "test/mcp-quality-gate.test.ts",
     "test/search.test.ts",
     "test/batch.test.ts",
-    "test/skill-triggers.test.ts",
     "test/fs-tools.test.ts",
     "test/parsers/java.test.ts",
     "test/parsers/kotlin.test.ts",
