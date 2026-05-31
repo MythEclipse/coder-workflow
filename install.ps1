@@ -119,6 +119,16 @@ if (-not $SkillsOnly -and -not $AgentsOnly -and -not $HooksOnly -and -not $Comma
   if (Test-Path $PluginJsonSrc) {
     Install-ItemToClaude $PluginJsonSrc $PluginJsonDst
   }
+  $CursorJsonSrc = Join-Path $PluginRoot ".cursor-plugin\plugin.json"
+  $CursorJsonDst = Join-Path $Dest ".cursor-plugin\plugin.json"
+  if (Test-Path $CursorJsonSrc) {
+    Install-ItemToClaude $CursorJsonSrc $CursorJsonDst
+  }
+  $GeminiJsonSrc = Join-Path $PluginRoot "gemini-extension.json"
+  $GeminiJsonDst = Join-Path $Dest "gemini-extension.json"
+  if (Test-Path $GeminiJsonSrc) {
+    Install-ItemToClaude $GeminiJsonSrc $GeminiJsonDst
+  }
   $McpJsonSrc = Join-Path $PluginRoot ".mcp.json"
   $McpJsonDst = Join-Path $Dest ".mcp.json"
   if (Test-Path $McpJsonSrc) {

@@ -49,11 +49,13 @@ Avoid extreme context fragmentation. The orchestrator routes work and retains co
 
 ### Workflow Sequence
 
-1. **Plan & Decompose**: Extract tasks via `workflow-planner` (Feature-Slice Decomposition).
-2. **Sequential Implementation**: You (the orchestrator/main agent) execute the implementation directly using the `code-implementer` protocol to maintain continuity of context.
-3. **Targeted Verification**: Run typechecks and linters **scoped ONLY to the modified files**.
-4. **Impact Radius Quarantine**: Fix bugs strictly within the files you changed.
-5. **Auditing (Optional)**: Dispatch `architecture-auditor` or `test-engineer` sub-agents if structural review or test generation is explicitly requested.
+1. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
+2. **Plan & Decompose**: Extract tasks via `workflow-planner` (Feature-Slice Decomposition).
+3. **State Isolation**: Invoke the `git-branching` skill to checkout an isolated branch before modifying any code.
+4. **Sequential Implementation**: You (the orchestrator/main agent) execute the implementation directly using the `code-implementer` protocol to maintain continuity of context.
+5. **Targeted Verification**: Run typechecks and linters **scoped ONLY to the modified files**.
+6. **Impact Radius Quarantine**: Fix bugs strictly within the files you changed.
+7. **Auditing (Optional)**: Dispatch `architecture-auditor` or `test-engineer` sub-agents if structural review or test generation is explicitly requested.
 
 ### Status Handling
 
@@ -76,7 +78,7 @@ When resuming a session after a disconnect or token limit:
 **You operate under an Impact Radius Protocol with a unified triage system.**
 
 1. **Declare Scope**: Define the files you intend to modify upfront (`FILE_MANIFEST`).
-2. **Category A — Bugs Within Impact Radius**: If you encounter errors, type issues, or lint warnings **within your declared `FILE_MANIFEST`** or directly introduced by your changes, you **MUST fix them**. No deferral, no exceptions.
+2. **Category A — Bugs Within Impact Radius**: If you encounter errors, type issues, or lint warnings **within your declared `FILE_MANIFEST`** or directly introduced by your changes, you **MUST fix them**. No deferral, no exceptions. You MUST invoke the `systematic-debugging` skill to perform root-cause analysis before attempting any fixes. Symptom fixing is strictly prohibited.
 3. **Category B — Pre-existing Bugs Outside Impact Radius**: If a global typecheck reveals errors in untouched modules, apply a **budget-capped triage**:
    - Fix up to **5 High/Medium severity** Category B bugs per session.
    - Beyond 5, defer by writing to `.claude/deferred-bugs.json` with file:line, severity, and deferral reason.

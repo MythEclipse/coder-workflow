@@ -9,6 +9,8 @@
     "dist",
     "src",
     ".claude-plugin",
+    ".cursor-plugin",
+    "gemini-extension.json",
     ".mcp.json",
     "agents",
     "hooks",

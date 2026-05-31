@@ -36,10 +36,13 @@ Track your state using a simple, deterministically updatable checklist file (e.g
 
 ### 3. Execution Phase
 
-1. Implement the task sequentially according to the plan.
+1. **Test-Driven Development (MANDATORY)**: Invoke the `test-driven-development` skill BEFORE writing any implementation code. You must write a failing test first. Code written without a failing test will be rejected.
 2. Read the `FILE_MANIFEST` files.
-3. Perform the necessary logic, using `mcp__codegraph` tools if you need to understand boundaries.
-4. Verify your changes independently via targeted typecheck/lint commands mapped ONLY to the files in your `FILE_MANIFEST`.
+3. Implement the task sequentially according to the plan.
+4. Perform the necessary logic, using `mcp__codegraph` tools if you need to understand boundaries.
+5. **Two-Stage Review Verification**:
+   - **Stage 1 (Spec Compliance)**: Verify the code strictly meets the functional requirements described in the task spec. (Does it pass the test?)
+   - **Stage 2 (Code Quality)**: Verify your changes independently via targeted typecheck/lint commands mapped ONLY to the files in your `FILE_MANIFEST`. Ensure clean architecture and zero layer violations.
 
 ## Impact Radius Bug Quarantine Phase (MANDATORY)
 
@@ -67,7 +70,9 @@ Per task:
 ```
 ## Task N: [name]
 - **Status**: DONE | BLOCKED | NEEDS_CONTEXT
-- **Spec compliance**: ✅
+- **TDD Compliance**: ✅
+- **Stage 1 (Spec Compliance)**: ✅
+- **Stage 2 (Code Quality)**: ✅
 - **Files changed**: list
 - **Verification**: [targeted commands and results]
 - **Bugs within Impact Radius**: [fixed]

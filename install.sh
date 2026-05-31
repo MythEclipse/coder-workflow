@@ -314,6 +314,8 @@ fi
 # Install plugin.json so Claude Code recognizes this as a plugin
 if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]] && ! $PROJECT; then
   install_item "$PLUGIN_SRC/.claude-plugin/plugin.json" "$DEST/.claude-plugin/plugin.json"
+  install_item "$PLUGIN_SRC/.cursor-plugin/plugin.json" "$DEST/.cursor-plugin/plugin.json"
+  install_item "$PLUGIN_SRC/gemini-extension.json" "$DEST/gemini-extension.json"
   # Also copy .mcp.json for reference
   install_item "$PLUGIN_SRC/.mcp.json" "$DEST/.mcp.json"
 fi
