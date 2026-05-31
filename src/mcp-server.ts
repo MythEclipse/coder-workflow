@@ -21,20 +21,20 @@ import { summarizeGraphForBudget } from "./graph/summarize.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { searchCodebase } from "./search.js";
 import { loadSettings } from "./settings.js";
-import { openGraphUi } from "./ui.js";
 import type { CodeGraph } from "./types.js";
+import { openGraphUi } from "./ui.js";
 
 let _cachedGraph: CodeGraph | null = null;
 let _cachedGraphMtime = 0;
 
-function getCachedGraph(root: string): CodeGraph {
+async function getCachedGraph(root: string): Promise<CodeGraph> {
   const dbPath = join(root, ".codegraph", "graph.db");
   try {
     const mtime = statSync(dbPath).mtimeMs;
     if (_cachedGraph && _cachedGraphMtime === mtime) {
       return _cachedGraph;
     }
-    _cachedGraph = readGraph(root);
+    _cachedGraph = await readGraph(root);
     _cachedGraphMtime = mtime;
     return _cachedGraph;
   } catch {
@@ -75,9 +75,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         "Query before normal search/grep for definitions, references, callers, callees, imports, exports, dependencies, routes, handlers, components, file/symbol relationships.",
       inputSchema: {
         type: "object",
-        properties: { 
+        properties: {
           query: { type: "string" },
-          maxResults: { type: "number", description: "Maximum number of nodes to return" }
+          maxResults: { type: "number", description: "Maximum number of nodes to return" },
         },
         required: ["query"],
       },
@@ -115,9 +115,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         "Analyze upstream/downstream impact before broad search for refactors, PR review, dependency risk, change planning, affected files/symbols.",
       inputSchema: {
         type: "object",
-        properties: { 
+        properties: {
           target: { type: "string" },
-          direction: { type: "string", enum: ["upstream", "downstream", "both"], description: "Direction to traverse the graph." }
+          direction: {
+            type: "string",
+            enum: ["upstream", "downstream", "both"],
+            description: "Direction to traverse the graph.",
+          },
         },
         required: ["target"],
       },
@@ -219,7 +223,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   switch (request.params.name) {
     case "scan_codebase": {
       const graph = await scanCodebase(root, settings);
-      writeGraph(root, graph);
+      await writeGraph(root, graph);
       return text({
         graph: ".codegraph/graph.db",
         nodes: graph.nodes.length,
@@ -229,7 +233,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "query_graph": {
       const query = stringArg(args?.query, "query");
-      return text(queryGraph(getCachedGraph(root), query, numberArg(args?.maxResults)));
+      return text(queryGraph(await getCachedGraph(root), query, numberArg(args?.maxResults)));
     }
     case "search_code":
       return text(
@@ -248,26 +252,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text({
         written: exportGraph(
           root,
-          getCachedGraph(root),
+          await getCachedGraph(root),
           (args?.formats as string[] | undefined) ?? settings.exports,
         ),
       });
     case "analyze_impact": {
       const target = stringArg(args?.target, "target");
       const directionStr = typeof args?.direction === "string" ? args.direction : "both";
-      const direction = ["upstream", "downstream", "both"].includes(directionStr) ? (directionStr as "upstream" | "downstream" | "both") : "both";
-      return text(analyzeImpact(getCachedGraph(root), target, settings.maxDepth, direction));
+      const direction = ["upstream", "downstream", "both"].includes(directionStr)
+        ? (directionStr as "upstream" | "downstream" | "both")
+        : "both";
+      return text(analyzeImpact(await getCachedGraph(root), target, settings.maxDepth, direction));
     }
     case "open_graph_ui":
       return text({ url: await openGraphUi(root, settings) });
     case "find_cycles":
-      return text(findCycles(getCachedGraph(root)));
+      return text(findCycles(await getCachedGraph(root)));
     case "find_orphans":
-      return text(findOrphans(getCachedGraph(root)));
+      return text(findOrphans(await getCachedGraph(root)));
     case "summarize_architecture":
-      return text(summarizeArchitecture(getCachedGraph(root)));
+      return text(summarizeArchitecture(await getCachedGraph(root)));
     case "analyze_quality": {
-      const report = analyzeGraphQuality(getCachedGraph(root), root);
+      const report = analyzeGraphQuality(await getCachedGraph(root), root);
       const threshold = readThreshold(args?.failOn);
       if (!threshold) return text(report);
       const gate = evaluateQualityGate(report.issues, threshold);
@@ -280,7 +286,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "quality_gate": {
       const threshold = readThreshold(args?.threshold);
       if (!threshold) throw new Error("Invalid threshold. Use high, medium, or low.");
-      const report = analyzeGraphQuality(getCachedGraph(root), root);
+      const report = analyzeGraphQuality(await getCachedGraph(root), root);
       const gate = evaluateQualityGate(report.issues, threshold);
       const result = { ...gate, failingIssues: failingIssuesForThreshold(report, threshold) };
       if (args?.includeReport === true) return text({ ...report, ...result });
@@ -295,8 +301,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       let graphData: { nodes: any[]; edges: any[] } | undefined;
       try {
-        if (graphExists(root)) {
-          const graph = getCachedGraph(root);
+        if (await graphExists(root)) {
+          const graph = await getCachedGraph(root);
           const searchPath = filePath.replace(/^[./\\]+/, "");
           const nodes = graph.nodes.filter((n) => n.path === searchPath || n.path === filePath);
           const nodeIds = new Set(nodes.map((n) => n.id));
@@ -312,15 +318,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
     }
     case "summarize_graph": {
-      const summary = summarizeGraphForBudget(getCachedGraph(root), {
+      const summary = summarizeGraphForBudget(await getCachedGraph(root), {
         maxNodes: numberArg(args?.maxNodes) ?? 50,
         maxEdges: numberArg(args?.maxEdges) ?? 100,
       });
-      const freshness = getGraphFreshness(root);
+      const freshness = await getGraphFreshness(root);
       return text({ ...summary, freshness });
     }
     case "check_graph_freshness":
-      return text(getGraphFreshness(root));
+      return text(await getGraphFreshness(root));
     default:
       throw new Error(`Unknown tool: ${request.params.name}`);
   }
@@ -356,9 +362,9 @@ interface GraphFreshness {
   recommendation: string;
 }
 
-function getGraphFreshness(root: string): GraphFreshness {
+async function getGraphFreshness(root: string): Promise<GraphFreshness> {
   const dbPath = join(root, ".codegraph", "graph.db");
-  if (!graphExists(root)) {
+  if (!(await graphExists(root))) {
     return {
       exists: false,
       ageMinutes: -1,

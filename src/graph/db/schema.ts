@@ -1,9 +1,9 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { DuckDBConnection } from "@duckdb/node-api";
 
-export const schemaVersion = "1";
+export const schemaVersion = "2";
 
-export function ensureSchema(db: DatabaseSync): void {
-  db.exec(`
+export async function ensureSchema(db: DuckDBConnection): Promise<void> {
+  await db.run(`
     CREATE TABLE IF NOT EXISTS metadata (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -44,21 +44,12 @@ export function ensureSchema(db: DatabaseSync): void {
       path TEXT PRIMARY KEY,
       hash TEXT NOT NULL,
       mtime REAL NOT NULL,
+      size REAL,
+      language TEXT,
+      scannerVersion TEXT,
       nodes TEXT NOT NULL,
       localEdges TEXT NOT NULL,
       importMapEntries TEXT NOT NULL
     );
   `);
-  ensureColumn(db, "scan_cache", "size", "REAL");
-  ensureColumn(db, "scan_cache", "language", "TEXT");
-  ensureColumn(db, "scan_cache", "scannerVersion", "TEXT");
-  ensureColumn(db, "edges", "confidence", "REAL");
-  ensureColumn(db, "edges", "resolution", "TEXT");
-  ensureColumn(db, "edges", "candidates", "TEXT");
-}
-
-function ensureColumn(db: DatabaseSync, table: string, name: string, definition: string): void {
-  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-  if (rows.some((row) => row.name === name)) return;
-  db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
 }

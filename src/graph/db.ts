@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DuckDBValue } from "@duckdb/node-api";
+import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 import type { CodeGraph, CodeGraphEdge, CodeGraphNode } from "../types.js";
 import { ensureSchema, schemaVersion } from "./db/schema.js";
 
@@ -59,52 +60,118 @@ interface ScanCacheRow {
   importMapEntries: string;
 }
 
+/**
+ * Singleton-ish wrapper: one DuckDB instance per database path.
+ * DuckDB Neo API is async, so all functions are async.
+ */
+class GraphDatabase {
+  private static instances = new Map<string, GraphDatabase>();
+
+  static async open(root: string): Promise<GraphDatabase> {
+    const dbPath = graphDbPath(root);
+    const existing = GraphDatabase.instances.get(dbPath);
+    if (existing) return existing;
+
+    mkdirSync(join(root, ".codegraph"), { recursive: true });
+    const gdb = new GraphDatabase(dbPath);
+    await gdb.init();
+    GraphDatabase.instances.set(dbPath, gdb);
+    return gdb;
+  }
+
+  static close(root: string): void {
+    const dbPath = graphDbPath(root);
+    const gdb = GraphDatabase.instances.get(dbPath);
+    if (gdb && gdb.conn && gdb.instance) {
+      gdb.conn.disconnectSync();
+      gdb.instance.closeSync();
+      GraphDatabase.instances.delete(dbPath);
+    }
+  }
+
+  private instance: DuckDBInstance | null = null;
+  private conn: DuckDBConnection | null = null;
+  private readonly dbPath: string;
+
+  private constructor(dbPath: string) {
+    this.dbPath = dbPath;
+  }
+
+  private async init(): Promise<void> {
+    this.instance = await DuckDBInstance.create(this.dbPath, {
+      threads: "2",
+    });
+    this.conn = await this.instance.connect();
+    await ensureSchema(this.conn);
+  }
+
+  private getConn(): DuckDBConnection {
+    return this.conn!;
+  }
+
+  async run(sql: string, ...params: DuckDBValue[]): Promise<void> {
+    const values = params.length > 0 ? params : undefined;
+    await this.getConn().run(sql, values);
+  }
+
+  async all<T>(sql: string, ...params: DuckDBValue[]): Promise<T[]> {
+    const values = params.length > 0 ? params : undefined;
+    const reader = await this.getConn().runAndReadAll(sql, values);
+    await reader.readAll();
+    return reader.getRowObjects() as T[];
+  }
+
+  async get<T>(sql: string, ...params: DuckDBValue[]): Promise<T | undefined> {
+    const rows = await this.all<T>(sql, ...params);
+    return rows.length > 0 ? rows[0] : undefined;
+  }
+
+  async exec(sql: string): Promise<void> {
+    await this.conn!.run(sql);
+  }
+
+  async close(): Promise<void> {
+    GraphDatabase.closeById(this.dbPath);
+  }
+
+  static closeById(dbPath: string): void {
+    const gdb = GraphDatabase.instances.get(dbPath);
+    if (gdb) {
+      gdb.conn?.disconnectSync();
+      gdb.instance?.closeSync();
+      GraphDatabase.instances.delete(dbPath);
+    }
+  }
+}
+
+// ---- Public API ----
+
 export function graphDbPath(root: string): string {
   return join(root, ".codegraph", "graph.db");
 }
 
-export function graphDbExists(root: string): boolean {
+export async function graphDbExists(root: string): Promise<boolean> {
   const path = graphDbPath(root);
   if (!existsSync(path)) return false;
 
   try {
-    const db = openGraphDb(root);
-    const version = readMetadata(db).get("schemaVersion");
-    db.close();
+    const db = await GraphDatabase.open(root);
+    const version = (
+      await db.get<MetadataRow>("SELECT key, value FROM metadata WHERE key = 'schemaVersion'")
+    )?.value;
     return version === schemaVersion;
   } catch {
     return false;
   }
 }
 
-export function openGraphDb(root: string): DatabaseSync {
-  mkdirSync(join(root, ".codegraph"), { recursive: true });
-  const db = new DatabaseSync(graphDbPath(root));
-  db.exec("PRAGMA journal_mode = WAL");
-  db.exec("PRAGMA synchronous = NORMAL");
-  db.exec("PRAGMA foreign_keys = ON");
-  ensureSchema(db);
-  return db;
-}
-
-export function readScanCache(root: string): ScanCacheData {
+export async function readScanCache(root: string): Promise<ScanCacheData> {
   if (!existsSync(graphDbPath(root))) return { files: {} };
 
-  const db = openGraphDb(root);
+  const db = await GraphDatabase.open(root);
   try {
-    // Check which columns exist in the scan_cache table
-    const tableInfo = db.prepare("PRAGMA table_info(scan_cache)").all() as Array<{ name: string }>;
-    const columnNames = new Set(tableInfo.map((col) => col.name));
-
-    // Build SELECT query based on available columns
-    const selectCols = ["path", "hash", "mtime", "nodes", "localEdges", "importMapEntries"];
-    if (columnNames.has("size")) selectCols.splice(3, 0, "size");
-    if (columnNames.has("language"))
-      selectCols.splice(columnNames.has("size") ? 4 : 3, 0, "language");
-    if (columnNames.has("scannerVersion")) selectCols.push("scannerVersion");
-
-    const query = `SELECT ${selectCols.join(", ")} FROM scan_cache`;
-    const rows = db.prepare(query).all() as unknown as ScanCacheRow[];
+    const query = `SELECT path, hash, mtime, size, language, scannerVersion, nodes, localEdges, importMapEntries FROM scan_cache`;
+    const rows = await db.all<ScanCacheRow>(query);
 
     const files: Record<string, ScanCacheEntry> = {};
     for (const row of rows) {
@@ -121,21 +188,19 @@ export function readScanCache(root: string): ScanCacheData {
     }
     return { files };
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-export function writeScanCache(root: string, cache: ScanCacheData): void {
-  const db = openGraphDb(root);
+export async function writeScanCache(root: string, cache: ScanCacheData): Promise<void> {
+  const db = await GraphDatabase.open(root);
   try {
-    db.exec("BEGIN");
+    await db.run("BEGIN");
     try {
-      db.prepare("DELETE FROM scan_cache").run();
-      const insert = db.prepare(
-        "INSERT INTO scan_cache (path, hash, mtime, size, language, scannerVersion, nodes, localEdges, importMapEntries) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      );
+      await db.run("DELETE FROM scan_cache");
       for (const [path, entry] of Object.entries(cache.files)) {
-        insert.run(
+        await db.run(
+          "INSERT INTO scan_cache (path, hash, mtime, size, language, scannerVersion, nodes, localEdges, importMapEntries) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
           path,
           entry.hash,
           entry.mtime,
@@ -147,33 +212,31 @@ export function writeScanCache(root: string, cache: ScanCacheData): void {
           JSON.stringify(entry.importMapEntries),
         );
       }
-      db.exec("COMMIT");
+      await db.run("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      await db.run("ROLLBACK");
       throw error;
     }
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-export function writeGraphToDb(root: string, graph: CodeGraph): void {
+export async function writeGraphToDb(root: string, graph: CodeGraph): Promise<void> {
   validateGraphIntegrity(graph);
-  const db = openGraphDb(root);
+  const db = await GraphDatabase.open(root);
   try {
-    db.exec("BEGIN");
+    await db.run("BEGIN");
     try {
-      db.prepare("DELETE FROM metadata").run();
-      db.prepare("DELETE FROM nodes").run();
-      db.prepare("DELETE FROM edges").run();
+      await db.run("DELETE FROM metadata");
+      await db.run("DELETE FROM nodes");
+      await db.run("DELETE FROM edges");
 
-      writeMetadataRows(db, graph);
+      await writeMetadataRows(db, graph);
 
-      const insertNode = db.prepare(
-        "INSERT INTO nodes (id, type, name, path, language, line, startLine, endLine, summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      );
       for (const node of graph.nodes) {
-        insertNode.run(
+        await db.run(
+          "INSERT INTO nodes (id, type, name, path, language, line, startLine, endLine, summary) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
           node.id,
           node.type,
           node.name,
@@ -186,11 +249,9 @@ export function writeGraphToDb(root: string, graph: CodeGraph): void {
         );
       }
 
-      const insertEdge = db.prepare(
-        "INSERT INTO edges (id, type, source, target, evidence, confidence, resolution, candidates) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      );
       for (const edge of graph.edges) {
-        insertEdge.run(
+        await db.run(
+          "INSERT INTO edges (id, type, source, target, evidence, confidence, resolution, candidates) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
           edge.id,
           edge.type,
           edge.source,
@@ -201,33 +262,30 @@ export function writeGraphToDb(root: string, graph: CodeGraph): void {
           edge.candidates ? JSON.stringify(edge.candidates) : null,
         );
       }
-      db.exec("COMMIT");
+      await db.run("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      await db.run("ROLLBACK");
       throw error;
     }
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-export function replaceGraphPathsInDb(
+export async function replaceGraphPathsInDb(
   root: string,
   graph: CodeGraph,
   paths: string[],
   replacementNodes: CodeGraphNode[],
   replacementEdges: CodeGraphEdge[],
-): void {
-  const db = openGraphDb(root);
+): Promise<void> {
+  const db = await GraphDatabase.open(root);
   try {
     // Read all existing nodes from DB
-    const existingNodes = (
-      db
-        .prepare(
-          "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes",
-        )
-        .all() as unknown as NodeRow[]
-    ).map(nodeFromRow);
+    const existingRows = await db.all<NodeRow>(
+      "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes",
+    );
+    const existingNodes = existingRows.map(nodeFromRow);
 
     // Build the final node set: existing nodes (excluding replaced paths) + replacement nodes
     const pathSet = new Set(paths);
@@ -245,36 +303,31 @@ export function replaceGraphPathsInDb(
       }
     }
 
-    db.exec("BEGIN");
+    await db.run("BEGIN");
     try {
       // Read current node IDs for the provided paths
       const nodeIdsToDelete: string[] = [];
-      const selectNodes = db.prepare("SELECT id FROM nodes WHERE path = ?");
       for (const path of paths) {
-        const rows = selectNodes.all(path) as Array<{ id: string }>;
+        const rows = await db.all<{ id: string }>("SELECT id FROM nodes WHERE path = $1", path);
         for (const row of rows) {
           nodeIdsToDelete.push(row.id);
         }
       }
 
       // Delete edges where source or target is one of those node IDs
-      const deleteEdges = db.prepare("DELETE FROM edges WHERE source = ? OR target = ?");
       for (const nodeId of nodeIdsToDelete) {
-        deleteEdges.run(nodeId, nodeId);
+        await db.run("DELETE FROM edges WHERE source = $1 OR target = $2", nodeId, nodeId);
       }
 
       // Delete nodes for those paths
-      const deleteNodes = db.prepare("DELETE FROM nodes WHERE path = ?");
       for (const path of paths) {
-        deleteNodes.run(path);
+        await db.run("DELETE FROM nodes WHERE path = $1", path);
       }
 
       // Insert replacement nodes
-      const insertNode = db.prepare(
-        "INSERT INTO nodes (id, type, name, path, language, line, startLine, endLine, summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      );
       for (const node of replacementNodes) {
-        insertNode.run(
+        await db.run(
+          "INSERT INTO nodes (id, type, name, path, language, line, startLine, endLine, summary) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
           node.id,
           node.type,
           node.name,
@@ -288,11 +341,9 @@ export function replaceGraphPathsInDb(
       }
 
       // Insert or replace replacement edges
-      const insertEdge = db.prepare(
-        "INSERT OR REPLACE INTO edges (id, type, source, target, evidence, confidence, resolution, candidates) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      );
       for (const edge of replacementEdges) {
-        insertEdge.run(
+        await db.run(
+          "INSERT OR REPLACE INTO edges (id, type, source, target, evidence, confidence, resolution, candidates) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
           edge.id,
           edge.type,
           edge.source,
@@ -305,36 +356,30 @@ export function replaceGraphPathsInDb(
       }
 
       // Rewrite metadata from graph.metadata
-      writeMetadataRows(db, graph);
+      await writeMetadataRows(db, graph);
 
-      db.exec("COMMIT");
+      await db.run("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      await db.run("ROLLBACK");
       throw error;
     }
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-export function readGraphFromDb(root: string): CodeGraph {
-  const db = openGraphDb(root);
+export async function readGraphFromDb(root: string): Promise<CodeGraph> {
+  const db = await GraphDatabase.open(root);
   try {
-    const metadata = readMetadata(db);
-    const nodes = (
-      db
-        .prepare(
-          "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes",
-        )
-        .all() as unknown as NodeRow[]
-    ).map(nodeFromRow);
-    const edges = (
-      db
-        .prepare(
-          "SELECT id, type, source, target, evidence, confidence, resolution, candidates FROM edges",
-        )
-        .all() as unknown as EdgeRow[]
-    ).map(edgeFromRow);
+    const metadata = await readMetadata(db);
+    const nodeRows = await db.all<NodeRow>(
+      "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes",
+    );
+    const nodes = nodeRows.map(nodeFromRow);
+    const edgeRows = await db.all<EdgeRow>(
+      "SELECT id, type, source, target, evidence, confidence, resolution, candidates FROM edges",
+    );
+    const edges = edgeRows.map(edgeFromRow);
 
     return {
       version: "0.1.0",
@@ -359,106 +404,97 @@ export function readGraphFromDb(root: string): CodeGraph {
       },
     };
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-export function queryNodeById(root: string, id: string): CodeGraphNode | undefined {
-  const db = openGraphDb(root);
+export async function queryNodeById(root: string, id: string): Promise<CodeGraphNode | undefined> {
+  const db = await GraphDatabase.open(root);
   try {
-    const row = db
-      .prepare(
-        "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes WHERE id = ?",
-      )
-      .get(id) as NodeRow | undefined;
+    const row = await db.get<NodeRow>(
+      "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes WHERE id = $1",
+      id,
+    );
     return row ? nodeFromRow(row) : undefined;
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-export function queryNodesByName(root: string, name: string): CodeGraphNode[] {
-  const db = openGraphDb(root);
+export async function queryNodesByName(root: string, name: string): Promise<CodeGraphNode[]> {
+  const db = await GraphDatabase.open(root);
   try {
-    return (
-      db
-        .prepare(
-          "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes WHERE name = ?",
-        )
-        .all(name) as unknown as NodeRow[]
-    ).map(nodeFromRow);
+    const rows = await db.all<NodeRow>(
+      "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes WHERE name = $1",
+      name,
+    );
+    return rows.map(nodeFromRow);
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-export function queryNodesByPath(root: string, path: string): CodeGraphNode[] {
-  const db = openGraphDb(root);
+export async function queryNodesByPath(root: string, path: string): Promise<CodeGraphNode[]> {
+  const db = await GraphDatabase.open(root);
   try {
-    return (
-      db
-        .prepare(
-          "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes WHERE path = ?",
-        )
-        .all(path) as unknown as NodeRow[]
-    ).map(nodeFromRow);
+    const rows = await db.all<NodeRow>(
+      "SELECT id, type, name, path, language, line, startLine, endLine, summary FROM nodes WHERE path = $1",
+      path,
+    );
+    return rows.map(nodeFromRow);
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-export function queryEdgesBySource(root: string, source: string): CodeGraphEdge[] {
-  const db = openGraphDb(root);
+export async function queryEdgesBySource(root: string, source: string): Promise<CodeGraphEdge[]> {
+  const db = await GraphDatabase.open(root);
   try {
-    return (
-      db
-        .prepare(
-          "SELECT id, type, source, target, evidence, confidence, resolution, candidates FROM edges WHERE source = ?",
-        )
-        .all(source) as unknown as EdgeRow[]
-    ).map(edgeFromRow);
+    const rows = await db.all<EdgeRow>(
+      "SELECT id, type, source, target, evidence, confidence, resolution, candidates FROM edges WHERE source = $1",
+      source,
+    );
+    return rows.map(edgeFromRow);
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-export function queryEdgesByTarget(root: string, target: string): CodeGraphEdge[] {
-  const db = openGraphDb(root);
+export async function queryEdgesByTarget(root: string, target: string): Promise<CodeGraphEdge[]> {
+  const db = await GraphDatabase.open(root);
   try {
-    return (
-      db
-        .prepare(
-          "SELECT id, type, source, target, evidence, confidence, resolution, candidates FROM edges WHERE target = ?",
-        )
-        .all(target) as unknown as EdgeRow[]
-    ).map(edgeFromRow);
+    const rows = await db.all<EdgeRow>(
+      "SELECT id, type, source, target, evidence, confidence, resolution, candidates FROM edges WHERE target = $1",
+      target,
+    );
+    return rows.map(edgeFromRow);
   } finally {
-    db.close();
+    // Keep connection alive for reuse
   }
 }
 
-function writeMetadataRows(db: DatabaseSync, graph: CodeGraph): void {
-  db.prepare("DELETE FROM metadata").run();
-  const insertMetadata = db.prepare("INSERT INTO metadata (key, value) VALUES (?, ?)");
-  insertMetadata.run("schemaVersion", schemaVersion);
-  insertMetadata.run("version", graph.version);
-  insertMetadata.run("generatedAt", graph.generatedAt);
-  insertMetadata.run("root", graph.root);
-  insertMetadata.run("languages", JSON.stringify(graph.metadata.languages));
-  insertMetadata.run("filesScanned", String(graph.metadata.filesScanned));
-  insertMetadata.run("ignoredPaths", JSON.stringify(graph.metadata.ignoredPaths));
-  insertMetadata.run("nodesCount", String(graph.metadata.nodesCount ?? graph.nodes.length));
-  insertMetadata.run("edgesCount", String(graph.metadata.edgesCount ?? graph.edges.length));
-  insertMetadata.run(
-    "nodeTypes",
-    JSON.stringify(graph.metadata.nodeTypes ?? countNodeTypes(graph.nodes)),
-  );
-  insertMetadata.run(
-    "edgeTypes",
-    JSON.stringify(graph.metadata.edgeTypes ?? countEdgeTypes(graph.edges)),
-  );
-  insertMetadata.run("relationshipCoverage", String(graph.metadata.relationshipCoverage ?? 0));
-  insertMetadata.run("qualityScore", String(graph.metadata.qualityScore ?? 0));
+// ---- Private helpers ----
+
+async function writeMetadataRows(db: GraphDatabase, graph: CodeGraph): Promise<void> {
+  await db.run("DELETE FROM metadata");
+  const pairs: [string, string][] = [
+    ["schemaVersion", schemaVersion],
+    ["version", graph.version],
+    ["generatedAt", graph.generatedAt],
+    ["root", graph.root],
+    ["languages", JSON.stringify(graph.metadata.languages)],
+    ["filesScanned", String(graph.metadata.filesScanned)],
+    ["ignoredPaths", JSON.stringify(graph.metadata.ignoredPaths)],
+    ["nodesCount", String(graph.metadata.nodesCount ?? graph.nodes.length)],
+    ["edgesCount", String(graph.metadata.edgesCount ?? graph.edges.length)],
+    ["nodeTypes", JSON.stringify(graph.metadata.nodeTypes ?? countNodeTypes(graph.nodes))],
+    ["edgeTypes", JSON.stringify(graph.metadata.edgeTypes ?? countEdgeTypes(graph.edges))],
+    ["relationshipCoverage", String(graph.metadata.relationshipCoverage ?? 0)],
+    ["qualityScore", String(graph.metadata.qualityScore ?? 0)],
+  ];
+  for (const [key, value] of pairs) {
+    await db.run("INSERT INTO metadata (key, value) VALUES ($1, $2)", key, value);
+  }
 }
 
 function validateGraphIntegrity(graph: CodeGraph): void {
@@ -485,8 +521,8 @@ function countEdgeTypes(edges: CodeGraphEdge[]): CodeGraph["metadata"]["edgeType
   return counts;
 }
 
-function readMetadata(db: DatabaseSync): Map<string, string> {
-  const rows = db.prepare("SELECT key, value FROM metadata").all() as unknown as MetadataRow[];
+async function readMetadata(db: GraphDatabase): Promise<Map<string, string>> {
+  const rows = await db.all<MetadataRow>("SELECT key, value FROM metadata");
   return new Map(rows.map((row) => [row.key, row.value]));
 }
 

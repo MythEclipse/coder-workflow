@@ -61,11 +61,11 @@ export function analyzeGraphQuality(graph: CodeGraph, root?: string): GraphQuali
     (node) => node.type !== "file" && node.type !== "module" && node.type !== "route",
   );
   const filePaths = new Set(fileNodes.map((node) => node.path));
-  
+
   // O(1) Indices
   const nodeById = new Map<string, CodeGraphNode>();
   for (const n of graph.nodes) nodeById.set(n.id, n);
-  
+
   const exportedNodeIds = new Set<string>();
   const callEdgesBySourceEvidence = new Map<string, CodeGraphEdge[]>();
   const filesWithRelationships = new Set<string>();
@@ -78,8 +78,12 @@ export function analyzeGraphQuality(graph: CodeGraph, root?: string): GraphQuali
     }
 
     // Relationship coverage tracking
-    const sourcePath = edge.source.startsWith("file:") ? edge.source.slice("file:".length) : nodeById.get(edge.source)?.path;
-    const targetPath = edge.target.startsWith("file:") ? edge.target.slice("file:".length) : nodeById.get(edge.target)?.path;
+    const sourcePath = edge.source.startsWith("file:")
+      ? edge.source.slice("file:".length)
+      : nodeById.get(edge.source)?.path;
+    const targetPath = edge.target.startsWith("file:")
+      ? edge.target.slice("file:".length)
+      : nodeById.get(edge.target)?.path;
     if (sourcePath && filePaths.has(sourcePath)) filesWithRelationships.add(sourcePath);
     if (targetPath && filePaths.has(targetPath)) filesWithRelationships.add(targetPath);
 
@@ -87,7 +91,9 @@ export function analyzeGraphQuality(graph: CodeGraph, root?: string): GraphQuali
     if (edge.type === "imports" && edge.target.startsWith("module:")) {
       const imported = edge.target.slice("module:".length);
       if (isLocalImport(imported)) {
-        const srcPath = edge.source.startsWith("file:") ? edge.source.slice("file:".length) : undefined;
+        const srcPath = edge.source.startsWith("file:")
+          ? edge.source.slice("file:".length)
+          : undefined;
         if (srcPath && !localImportMatchesAnyFile(imported, srcPath, filePaths)) {
           issues.push({
             severity: "high",

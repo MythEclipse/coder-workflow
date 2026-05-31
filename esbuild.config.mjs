@@ -8,7 +8,7 @@ const shared = {
   target: "es2022",
   sourcemap: false,
   logLevel: "info",
-  external: ["node:*", "typescript"],
+  external: ["node:*", "typescript", "@duckdb/*"],
 };
 
 await build({

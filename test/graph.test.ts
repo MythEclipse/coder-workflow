@@ -183,14 +183,14 @@ test("writes graph runtime data to database without runtime json files", async (
   });
 
   const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
-  writeGraph(root, graph);
+  await writeGraph(root, graph);
 
-  assert.equal(graphExists(root), true);
+  assert.equal(await graphExists(root), true);
   assert.equal(existsSync(join(root, ".codegraph", "graph.db")), true);
   assert.equal(existsSync(join(root, ".codegraph", "graph.json")), false);
   assert.equal(existsSync(join(root, ".codegraph", "index.json")), false);
   assert.equal(existsSync(join(root, ".codegraph", "cache", "scan-cache.json")), false);
-  assertNode(readGraph(root), "symbol:src/app.ts:realSymbol");
+  assertNode(await readGraph(root), "symbol:src/app.ts:realSymbol");
 });
 
 test("persists scan cache metadata used for unchanged fast path", async () => {
@@ -199,9 +199,9 @@ test("persists scan cache metadata used for unchanged fast path", async () => {
   });
 
   const graph = await scanCodebase(root, { ...settings, languages: ["typescript"] });
-  writeGraph(root, graph);
+  await writeGraph(root, graph);
 
-  const cache = readScanCache(root);
+  const cache = await readScanCache(root);
   const entry = cache.files["src/app.ts"];
 
   assert.equal(typeof entry.hash, "string");
@@ -1403,7 +1403,7 @@ test("path-scoped database replacement preserves unrelated graph rows", async ()
     "src/b.ts": `export function b() { return "b"; }`,
   });
   const first = await scanCodebase(root, { ...settings, languages: ["typescript"] });
-  writeGraph(root, first);
+  await writeGraph(root, first);
 
   const second = await scanCodebase(root, { ...settings, languages: ["typescript"] });
   const replacementNodes = second.nodes.filter((node) => node.path === "src/a.ts");
@@ -1411,8 +1411,8 @@ test("path-scoped database replacement preserves unrelated graph rows", async ()
     (edge) => edge.source.includes("src/a.ts") || edge.target.includes("src/a.ts"),
   );
 
-  replaceGraphPathsInDb(root, second, ["src/a.ts"], replacementNodes, replacementEdges);
-  const stored = readGraph(root);
+  await replaceGraphPathsInDb(root, second, ["src/a.ts"], replacementNodes, replacementEdges);
+  const stored = await readGraph(root);
 
   assertNode(stored, "symbol:src/a.ts:a");
   assertNode(stored, "symbol:src/b.ts:b");

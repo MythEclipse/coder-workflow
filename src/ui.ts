@@ -2,13 +2,14 @@ import { createServer } from "node:http";
 import { readGraph } from "./graph.js";
 import type { CodeGraphSettings } from "./types.js";
 
-export function openGraphUi(root: string, settings: CodeGraphSettings): Promise<string> {
+export async function openGraphUi(root: string, settings: CodeGraphSettings): Promise<string> {
   const port = settings.uiPort;
 
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     if (req.url === "/graph") {
       res.setHeader("content-type", "application/json");
-      res.end(JSON.stringify(readGraph(root)));
+      const graph = await readGraph(root);
+      res.end(JSON.stringify(graph));
       return;
     }
     res.setHeader("content-type", "text/html");
@@ -39,7 +40,7 @@ function renderUi(): string {
       --border-color: rgba(255, 255, 255, 0.08);
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
-      
+
       --color-file: #10b981;
       --color-module: #3b82f6;
       --color-class: #06b6d4;
@@ -63,7 +64,7 @@ function renderUi(): string {
     body.details-open {
       grid-template-columns: 320px 1fr 380px;
     }
-    
+
     aside {
       background: var(--bg-surface-glass);
       backdrop-filter: blur(12px);
@@ -129,7 +130,7 @@ function renderUi(): string {
       font-size: 13px;
     }
     .stat-val { font-weight: 700; font-size: 18px; color: #fff; }
-    
+
     .filter-item {
       display: flex;
       align-items: center;
@@ -149,7 +150,7 @@ function renderUi(): string {
       border-radius: 50%;
       display: inline-block;
     }
-    
+
     main {
       position: relative;
       height: 100vh;
@@ -162,7 +163,7 @@ function renderUi(): string {
       height: 100%;
       background-color: var(--bg-base);
     }
-    
+
     .detail-section {
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid var(--border-color);
@@ -179,7 +180,7 @@ function renderUi(): string {
     .detail-row:last-child { margin-bottom: 0; }
     .detail-label { color: var(--text-muted); }
     .detail-value { font-weight: 500; text-align: right; word-break: break-all; }
-    
+
     .relations-list {
       max-height: 180px;
       overflow-y: auto;
@@ -197,7 +198,7 @@ function renderUi(): string {
     .relation-item:hover {
       background: rgba(255, 255, 255, 0.05);
     }
-    
+
     .btn {
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
@@ -218,7 +219,7 @@ function renderUi(): string {
       border: none;
     }
     .btn-accent:hover { background: #2563eb; }
-    
+
     .floating-controls {
       position: absolute;
       bottom: 20px;
@@ -275,17 +276,17 @@ function renderUi(): string {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-module)"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"/><path d="M12 6V12L16 14"/></svg>
       CodeGraph Visualizer
     </h1>
-    
+
     <div class="stats-box">
       <div>Nodes <div class="stat-val" id="count-nodes">0</div></div>
       <div>Edges <div class="stat-val" id="count-edges">0</div></div>
     </div>
-    
+
     <div class="control-group">
       <h3>Search Nodes</h3>
       <input type="text" id="search-bar" class="search-input" placeholder="Name or path...">
     </div>
-    
+
     <div class="control-group">
       <h3>Filter Node Types</h3>
       <div id="type-filters"></div>
@@ -307,7 +308,7 @@ function renderUi(): string {
 
   <main>
     <div id="network-container"></div>
-    
+
     <div class="floating-controls">
       <div class="floating-btn" id="zoom-in" title="Zoom In">+</div>
       <div class="floating-btn" id="zoom-out" title="Zoom Out">-</div>
@@ -320,7 +321,7 @@ function renderUi(): string {
       <h2 style="margin:0; border:none; padding:0;">Node Details</h2>
       <span style="cursor:pointer; font-size:20px; color:var(--text-muted)" id="btn-close-details">&times;</span>
     </div>
-    
+
     <div class="detail-section">
       <div class="detail-row">
         <span class="detail-label">Name</span>
@@ -364,7 +365,7 @@ function renderUi(): string {
       <h3>Direct Callees (Outbound)</h3>
       <div class="relations-list" id="detail-outbound"></div>
     </div>
-    
+
     <button class="btn btn-accent" id="btn-focus">Focus in Graph</button>
   </aside>
 
@@ -609,7 +610,7 @@ function renderUi(): string {
       const blastRadius = calculateTransitiveRadius(nodeId);
       document.getElementById('detail-radius').textContent = blastRadius.count + ' nodes';
       document.getElementById('detail-risk').textContent = blastRadius.risk.toUpperCase();
-      document.getElementById('detail-risk').style.color = 
+      document.getElementById('detail-risk').style.color =
         blastRadius.risk === 'high' ? '#ef4444' : blastRadius.risk === 'medium' ? '#f59e0b' : '#10b981';
     }
 

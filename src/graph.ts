@@ -40,12 +40,12 @@ function getFileHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
-function loadCache(root: string): ScanCache {
+async function loadCache(root: string): Promise<ScanCache> {
   return readScanCache(root);
 }
 
-function saveCache(root: string, cache: ScanCache): void {
-  writeScanCache(root, cache);
+async function saveCache(root: string, cache: ScanCache): Promise<void> {
+  await writeScanCache(root, cache);
 }
 
 function isReusableCacheEntry(
@@ -154,7 +154,7 @@ function parseFile(
 
 export async function scanCodebase(root: string, settings: CodeGraphSettings): Promise<CodeGraph> {
   const files = listSourceFiles(root, settings);
-  const cache = loadCache(root);
+  const cache = await loadCache(root);
   const workspaceContext = loadWorkspaceResolutionContext(root);
 
   // Phase 1: Parallel I/O with bounded concurrency
@@ -224,7 +224,7 @@ export async function scanCodebase(root: string, settings: CodeGraphSettings): P
     });
   }
 
-  saveCache(root, { files: newCacheFiles });
+  await saveCache(root, { files: newCacheFiles });
 
   // Phase 3: Resolve depends-on edges
   const filePaths = new Set(nodes.filter((node) => node.type === "file").map((node) => node.path));
@@ -352,17 +352,17 @@ function buildGraphMetadata(
   };
 }
 
-export function writeGraph(root: string, graph: CodeGraph): void {
+export async function writeGraph(root: string, graph: CodeGraph): Promise<void> {
   const dir = join(root, ".codegraph");
   mkdirSync(join(dir, "exports"), { recursive: true });
   mkdirSync(join(dir, "ui"), { recursive: true });
-  writeGraphToDb(root, graph);
+  await writeGraphToDb(root, graph);
 }
 
-export function readGraph(root: string): CodeGraph {
+export async function readGraph(root: string): Promise<CodeGraph> {
   return readGraphFromDb(root);
 }
 
-export function graphExists(root: string): boolean {
+export async function graphExists(root: string): Promise<boolean> {
   return graphDbExists(root);
 }

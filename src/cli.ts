@@ -45,91 +45,140 @@ switch (command) {
   }
   case "scan":
   case "update": {
-    const graph = await scanCodebase(root, settings);
-    writeGraph(root, graph);
-    console.log(
-      JSON.stringify(
-        {
-          graph: ".codegraph/graph.db",
-          nodes: graph.nodes.length,
-          edges: graph.edges.length,
-          filesScanned: graph.metadata.filesScanned,
-        },
-        null,
-        2,
-      ),
-    );
+    try {
+      const graph = await scanCodebase(root, settings);
+      await writeGraph(root, graph);
+      console.log(
+        JSON.stringify(
+          {
+            graph: ".codegraph/graph.db",
+            nodes: graph.nodes.length,
+            edges: graph.edges.length,
+            filesScanned: graph.metadata.filesScanned,
+          },
+          null,
+          2,
+        ),
+      );
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
     break;
   }
   case "query": {
-    ensureGraph();
-    const query = args.join(" ").trim();
-    if (!query) {
-      console.error("Query string is required and must not be empty.");
+    try {
+      await ensureGraph();
+      const query = args.join(" ").trim();
+      if (!query) {
+        console.error("Query string is required and must not be empty.");
+        process.exitCode = 1;
+        break;
+      }
+      console.log(JSON.stringify(queryGraph(await readGraph(root), query), null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
       process.exitCode = 1;
-      break;
     }
-    console.log(JSON.stringify(queryGraph(readGraph(root), query), null, 2));
     break;
   }
   case "impact": {
-    ensureGraph();
-    const target = args.join(" ").trim();
-    if (!target) {
-      console.error("Target string is required and must not be empty.");
+    try {
+      await ensureGraph();
+      const target = args.join(" ").trim();
+      if (!target) {
+        console.error("Target string is required and must not be empty.");
+        process.exitCode = 1;
+        break;
+      }
+      console.log(
+        JSON.stringify(analyzeImpact(await readGraph(root), target, settings.maxDepth), null, 2),
+      );
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
       process.exitCode = 1;
-      break;
     }
-    console.log(JSON.stringify(analyzeImpact(readGraph(root), target, settings.maxDepth), null, 2));
     break;
   }
   case "cycles": {
-    ensureGraph();
-    console.log(JSON.stringify(findCycles(readGraph(root)), null, 2));
+    try {
+      await ensureGraph();
+      console.log(JSON.stringify(findCycles(await readGraph(root)), null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
     break;
   }
   case "orphans": {
-    ensureGraph();
-    console.log(JSON.stringify(findOrphans(readGraph(root)), null, 2));
+    try {
+      await ensureGraph();
+      console.log(JSON.stringify(findOrphans(await readGraph(root)), null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
     break;
   }
   case "summary": {
-    ensureGraph();
-    console.log(JSON.stringify(summarizeArchitecture(readGraph(root)), null, 2));
+    try {
+      await ensureGraph();
+      console.log(JSON.stringify(summarizeArchitecture(await readGraph(root)), null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
     break;
   }
   case "quality": {
-    ensureGraph();
-    const report = analyzeGraphQuality(readGraph(root), root);
-    const threshold = readFailOnThreshold(args);
+    try {
+      await ensureGraph();
+      const report = analyzeGraphQuality(await readGraph(root), root);
+      const threshold = readFailOnThreshold(args);
 
-    if (threshold === "invalid") {
-      console.error("Invalid --fail-on threshold. Use high, medium, or low.");
-      process.exitCode = 1;
-      break;
-    }
-
-    if (threshold) {
-      const gate = evaluateQualityGate(report.issues, threshold);
-      console.log(JSON.stringify({ ...report, ...gate }, null, 2));
-      if (gate.wouldFail) {
+      if (threshold === "invalid") {
+        console.error("Invalid --fail-on threshold. Use high, medium, or low.");
         process.exitCode = 1;
+        break;
       }
-    } else {
-      console.log(JSON.stringify(report, null, 2));
+
+      if (threshold) {
+        const gate = evaluateQualityGate(report.issues, threshold);
+        console.log(JSON.stringify({ ...report, ...gate }, null, 2));
+        if (gate.wouldFail) {
+          process.exitCode = 1;
+        }
+      } else {
+        console.log(JSON.stringify(report, null, 2));
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
     }
     break;
   }
   case "export": {
-    ensureGraph();
-    const formats = args.length ? args : settings.exports;
-    console.log(JSON.stringify({ written: exportGraph(root, readGraph(root), formats) }, null, 2));
+    try {
+      await ensureGraph();
+      const formats = args.length ? args : settings.exports;
+      console.log(
+        JSON.stringify({ written: exportGraph(root, await readGraph(root), formats) }, null, 2),
+      );
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
     break;
   }
   case "ui": {
-    ensureGraph();
-    const url = await openGraphUi(root, settings);
-    console.log(JSON.stringify({ url }, null, 2));
+    try {
+      await ensureGraph();
+      const url = await openGraphUi(root, settings);
+      console.log(JSON.stringify({ url }, null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
     break;
   }
   case "diff": {
@@ -161,8 +210,8 @@ switch (command) {
     console.log("Quick start: codegraph-mapper scan && codegraph-mapper summary");
 }
 
-function ensureGraph(): void {
-  if (!graphExists(root)) {
+async function ensureGraph(): Promise<void> {
+  if (!(await graphExists(root))) {
     throw new Error("Missing .codegraph/graph.db. Run scan first.");
   }
 }

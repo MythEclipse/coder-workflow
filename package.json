@@ -38,6 +38,7 @@
     "install:link": "./install.sh --link"
   },
   "dependencies": {
+    "@duckdb/node-api": "^1.5.3-r.2",
     "@modelcontextprotocol/sdk": "latest",
     "@types/node": "latest",
     "typescript": "latest"

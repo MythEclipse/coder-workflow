@@ -64,7 +64,7 @@ export function analyzeImpact(
 
   const directUpstream = graph.edges.filter((edge) => matchIds.has(edge.target));
   const directDownstream = graph.edges.filter((edge) => matchIds.has(edge.source));
-  
+
   const upstreamAffected = Math.max(0, upstream.visited.size - matchIds.size);
   const downstreamAffected = Math.max(0, downstream.visited.size - matchIds.size);
   const affectedNodeCount = upstreamAffected + downstreamAffected;
@@ -108,7 +108,7 @@ function traverseImpact(
   const edges = new Map<string, CodeGraphEdge>();
   const visited = new Map<string, number>();
   const queue: { id: string; depth: number }[] = [];
-  
+
   for (const id of roots) {
     visited.set(id, 0);
     queue.push({ id, depth: 0 });

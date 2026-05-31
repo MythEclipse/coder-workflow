@@ -116,13 +116,13 @@ fi
 # Determine recommendation
 if [ "$COMPLEXITY_SCORE" -ge 5 ]; then
   COMPLEXITY_LEVEL="COMPLEX"
-  DELEGATION_ADVICE="delegate to a fresh subagent via the Agent tool"
+  DELEGATION_ADVICE="MANDATORY: spawn multiple parallel subagents to handle different files/domains simultaneously"
 elif [ "$COMPLEXITY_SCORE" -ge 3 ]; then
   COMPLEXITY_LEVEL="MODERATE"
-  DELEGATION_ADVICE="consider delegating to a subagent if it involves 3+ files; otherwise execute directly"
+  DELEGATION_ADVICE="spawn at least 2 parallel subagents (e.g., implementer and test-writer)"
 else
   COMPLEXITY_LEVEL="SIMPLE"
-  DELEGATION_ADVICE="execute directly in the current thread"
+  DELEGATION_ADVICE="even simple tasks should be parallelized if they touch more than 1 concern; otherwise execute directly"
 fi
 
 CONTEXT="[DELEGATION RULE]
@@ -133,8 +133,7 @@ Complexity assessment: $COMPLEXITY_LEVEL (score: $COMPLEXITY_SCORE/8)
 - File references: $FILE_MENTIONS
 - Recommendation: $DELEGATION_ADVICE
 
-For Complex tasks (5+ files, architectural change, new file type for project): delegate to a fresh subagent via the Agent tool.
-For Simple/Standard tasks (1-4 files, clear spec, known pattern): execute directly in the current thread.
+CORE DIRECTIVE: Parallel Subagents — Always On. Token cost is not a constraint. Speed and parallelism are the priority. Whenever a task can be split into independent units of work, spawn multiple subagents in parallel using the Task tool. Do NOT work sequentially unless tasks have hard dependencies on each other.
 
 MANDATORY before spawning any subagent:
 1. Set CW_AGENT_DEPTH=1 in the subagent environment

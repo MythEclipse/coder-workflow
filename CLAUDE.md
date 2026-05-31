@@ -93,8 +93,8 @@ Hooks are defined in `hooks/hooks.json` and companion scripts in `hooks/scripts/
 
 - **Always trigger `coder-orchestrator`** at session start for any coding task — features, bugs, refactors, reviews, deployments. It handles both workflow routing AND codebase exploration (graph before grep, query before read).
 - **Always run `TaskCreate` + `TaskUpdate` first**: Before using any search or file-reading tools for initial exploration or planning, you MUST first run `TaskCreate` to create an initial task (e.g., 'Explore codebase and plan implementation') and mark it `in_progress` via `TaskUpdate`. This prevents task tool usage warnings.
-- The coding orchestrator routes work through a fixed agent sequence: `workflow-planner` → `architecture-auditor` → `code-implementer` → `architecture-auditor` (post-verify).
-- Every coding session uses right-sized agents: simple tasks execute directly, complex tasks use full agent chain. Scale to complexity, not ceremony.
+- The coding orchestrator routes work through a parallel agent sequence: `workflow-planner` breaks the task into independent units, then spawns parallel subagents (e.g., `explorer`, `implementer`, `test-writer`) simultaneously.
+- **ALWAYS decompose tasks into parallel subagents whenever possible**. Do NOT work sequentially when parallelism is possible. Token cost is not a constraint. Speed and parallelism are the priority.
 - Every discovered bug MUST be tracked and fixed — never skip as "not related to my changes."
 - Use skills and MCP tools before guessing. Use context7 MCP for framework docs. Use codegraph MCP for code search.
 

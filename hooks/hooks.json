@@ -88,6 +88,17 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'mkdir -p .claude 2>/dev/null; echo 0 > .claude/stop-block.count; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -295,6 +306,15 @@
     "Stop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/stop-guard.sh"
+            ],
+            "timeout": 5,
+            "statusMessage": "Checking persistence..."
+          },
           {
             "type": "command",
             "command": "echo 'Turn complete. Mandatory checklist before next user message: (1) all tasks tracked, (2) no bugs left unfixed WITHIN your Impact Radius, (3) targeted tests pass, (4) graph is current.'",

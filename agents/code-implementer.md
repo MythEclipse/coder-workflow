@@ -36,12 +36,12 @@ Track your state using a simple, deterministically updatable checklist file (e.g
 
 ### 3. Execution Phase
 
-1. **Test-Driven Development (MANDATORY)**: Invoke the `test-driven-development` skill BEFORE writing any implementation code. You must write a failing test first. Code written without a failing test will be rejected.
+1. **Strict TDD (MANDATORY BLOCKER)**: You MUST invoke the `test-driven-development` skill BEFORE writing any implementation code. You MUST write a failing test first and observe it fail. Code written without a prior failing test is strictly prohibited and will be rejected.
 2. Read the `FILE_MANIFEST` files.
 3. Implement the task sequentially according to the plan.
 4. Perform the necessary logic, using `mcp__codegraph` tools if you need to understand boundaries.
 5. **Two-Stage Review Verification**:
-   - **Stage 1 (Spec Compliance)**: Verify the code strictly meets the functional requirements described in the task spec. (Does it pass the test?)
+   - **Stage 1 (Spec Compliance)**: Invoke the `requesting-code-review` skill to ensure the code strictly meets the functional requirements and passes the tests. Address feedback using the `receiving-code-review` skill.
    - **Stage 2 (Code Quality)**: Verify your changes independently via targeted typecheck/lint commands mapped ONLY to the files in your `FILE_MANIFEST`. Ensure clean architecture and zero layer violations.
 
 ## Impact Radius Bug Quarantine Phase (MANDATORY)
@@ -50,7 +50,7 @@ You operate under an **Impact Radius Protocol** with unified triage rules.
 
 1. **Bug Discovery**: If you encounter errors, type issues, or lint warnings during execution, identify them.
 2. **Boundary Check**: Does this error originate from a file listed in your `FILE_MANIFEST` or is it a direct regression caused by your changes?
-   - **YES (Category A — Inside Impact Radius)**: You MUST fix it. It is your responsibility. No deferral.
+   - **YES (Category A — Inside Impact Radius)**: You MUST fix it. It is your responsibility. No deferral. You MUST invoke the `systematic-debugging` skill to perform a 4-phase root-cause analysis before attempting any fixes.
    - **NO (Category B — Outside Impact Radius)**: Apply triage — do NOT fix immediately. Record as a tracked task. The session's bug fix budget (up to 5 Category B High/Medium bugs) applies. Document with file:line, severity, and description. See `coder` skill for full triage rules.
 3. **Targeted Verification**: Run tests, typechecks, and linters scoped ONLY to the files you modified. Do not run a global `npm run typecheck` if the codebase is already known to contain hundreds of unrelated errors.
 

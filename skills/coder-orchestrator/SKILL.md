@@ -43,19 +43,26 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
 | "Work on this" / "kerjakan" | Any vague coding request |
 | Explore | Codebase exploration, start of session |
 
-## Agent Coordination (Single-Agent Continual Flow)
+## Agent Coordination (Parallel Subagents — Always On)
 
-Avoid extreme context fragmentation. The orchestrator routes work and retains context for the primary execution. Use sub-agents **only** for strictly isolated verification or auditing tasks, never for the core sequential implementation.
+Token cost is not a constraint. Speed and parallelism are the priority. Instruct Claude Code to ALWAYS decompose tasks into parallel subagents whenever possible. Do NOT work sequentially unless tasks have hard data dependencies on each other.
+
+### When to Parallelize (default: always)
+Split into parallel subagents for ANY of these patterns:
+- **Multiple files to read/edit**: Refactor auth, api, db modules
+- **Research + implementation**: Explore codebase while writing plan
+- **Code + tests + docs**: Implement feature, write tests, update docs — all at once
+- **Multi-directory exploration**: Explore frontend/, backend/, infra/ simultaneously
+- **Review + fix**: Code review agent + fix agent run together
+- **Multiple competitors / items**: Research 5 libs in parallel, one agent each
 
 ### Workflow Sequence
 
 1. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
-2. **Plan & Decompose**: Extract tasks via `workflow-planner` (Feature-Slice Decomposition).
-3. **State Isolation**: Invoke the `git-branching` skill to checkout an isolated branch before modifying any code.
-4. **Sequential Implementation**: You (the orchestrator/main agent) execute the implementation directly using the `code-implementer` protocol to maintain continuity of context.
-5. **Targeted Verification**: Run typechecks and linters **scoped ONLY to the modified files**.
-6. **Impact Radius Quarantine**: Fix bugs strictly within the files you changed.
-7. **Auditing (Optional)**: Dispatch `architecture-auditor` or `test-engineer` sub-agents if structural review or test generation is explicitly requested.
+2. **Plan & Decompose**: Extract tasks via `workflow-planner` (Feature-Slice Decomposition) designed for parallel agents.
+3. **Parallel Implementation**: Spawn multiple subagents simultaneously using the Task tool (e.g., `explorer`, `implementer`, `test-writer`, `docs-updater`).
+4. **Synthesis & Verification**: Merge results, run targeted typechecks/linters scoped only to modified files, and fix bugs within the Impact Radius.
+5. **Auditing (Optional)**: Dispatch `architecture-auditor` sub-agents if structural review is explicitly requested.
 
 ### Status Handling
 
@@ -92,12 +99,10 @@ When resuming a session after a disconnect or token limit:
 
 When this orchestrator is invoked, state:
 
-```
 Using coder-orchestrator to route: [one-sentence goal]
 Skills invoked: [list]
 Architecture pattern: [MVC | Event-Driven | Library | etc.]
-Execution Flow: Single-Agent Continual Flow
-```
+Execution Flow: Parallel Subagents - Always On
 
 Keep answers graph-backed for exploration queries. Example:
 ```
