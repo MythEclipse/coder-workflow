@@ -7,24 +7,21 @@ allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(npm:*), Bash(node:*), Bash(np
 
 Perform a read-only audit of code structure, layering, refactor risk, and verification readiness. Produce actionable findings with file paths and line numbers. If the user requests code modifications, instruct them to switch to a developer implementation skill.
 
+This skill is the entry point — it delegates the full audit process to the `architecture-auditor` agent, which owns all scope management, violation definitions, severity levels, and output format. Do not duplicate or override those rules here.
+
 ## Audit workflow
 
 1. **Define scope**
    - Use the user-provided path, module, PR, or feature as the audit boundary.
    - If no scope is provided, inspect project entry points, route registration, module folders, and recent git changes.
-   - If the discovered scope exceeds 10 files or output context limits, halt the audit and ask the user to narrow the target path or focus on a specific module.
+   - Pass the scope to the `architecture-auditor` agent — do not apply arbitrary file count caps here. The agent manages iterative decomposition for large codebases.
 
-2. **Map architecture**
-   - Identify the most likely audit boundary first from the user prompt, then inspect only the smallest relevant slice of the codebase.
-   - Identify routes, controllers, services, repositories, schemas, shared infrastructure, and tests that are directly connected to that slice.
-   - Note whether the project is feature-first (`modules/user/...`) or layer-first (`controllers/`, `services/`, `repositories/`).
-   - Detect framework conventions before judging structure.
-   - Map the architecture and list paths first.
-   - If the discovered scope exceeds 10 files or output context limits, halt the audit and ask the user to narrow the target path or focus on a specific module.
-   - Stop after the map and ask the user to confirm the scope before any detailed violation scanning.
-   - Do not proceed to violation scanning until the scope is confirmed.
+2. **Delegate to architecture-auditor agent**
+   - Invoke the `architecture-auditor` agent with the identified scope.
+   - Provide: scope path(s), framework detected, any specific violation types the user asked about.
+   - The agent will map architecture, scan violations, assess refactor risk, and produce findings with file:line evidence.
 
-3. **Find violations**
+3. **Find violations** *(reference — agent executes these, not this skill)*
    - Controller performs ORM/SQL/database calls.
    - Controller contains business decisions, hashing, pricing, authorization decisions, or heavy branching.
    - Service imports HTTP request/response types or accesses `req`/`res`.
@@ -32,10 +29,10 @@ Perform a read-only audit of code structure, layering, refactor risk, and verifi
    - Repository contains business decisions or HTTP concerns.
    - Validation schema is inline inside handlers instead of boundary schema/middleware.
    - Shared infrastructure imports feature modules.
-   - Feature modules import another module’s repository/controller directly.
+   - Feature modules import another module's repository/controller directly.
    - Circular dependencies or high-coupling modules increase migration risk.
 
-4. **Assess workflow quality**
+4. **Assess workflow quality** *(reference — agent executes these)*
    - Check whether package scripts expose typecheck, lint, test, and app run commands.
    - Identify missing verification for changed areas.
    - Flag risky edits that require plan mode before implementation.
@@ -48,7 +45,7 @@ Perform a read-only audit of code structure, layering, refactor risk, and verifi
 
 ## Output format
 
-Return:
+Return (produced by architecture-auditor agent):
 
 1. **Scope audited**: paths and assumptions.
 2. **Architecture map**: layer/file overview.
@@ -70,6 +67,5 @@ Return:
 
 ## Execution guardrail
 
-- Keep the first pass limited to architecture mapping and scope confirmation.
-- Do not attempt detailed violation scanning until the scope is confirmed.
-- If scope remains broad or ambiguous, pause and request a narrower path instead of expanding analysis.
+- Do not attempt detailed violation scanning in this skill — delegate to `architecture-auditor` agent.
+- If scope is unclear after initial prompt analysis, pass it to the agent with a note — let the agent decide whether to clarify or proceed with conservative scope.

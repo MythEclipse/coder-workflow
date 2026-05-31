@@ -10,7 +10,7 @@ Coder Workflow is a Claude Code plugin that orchestrates all coding work through
 
 **`coder-orchestrator`** is the single entry point for ALL coding work — workflow routing (plan, implement, verify, fix bugs, run agents). Invoke it for every coding request.
 
-Codebase exploration and MCP tool usage rules (graph-first, Explore ban, Context7-first, etc.) are enforced by **hooks** (`PreToolUse`/`PostToolUse`) — no need to repeat in skills or commands.
+Codebase exploration and MCP tool usage rules (graph-first, Explore codegraph-first, Context7-first, etc.) are enforced by **hooks** (`PreToolUse`/`PostToolUse`) — no need to repeat in skills or commands.
 
 ## Plugin Discovery
 
@@ -155,5 +155,5 @@ claude --plugin-dir /mnt/code/djnaidwhbwda/coder-workflow
 
 1. **Tasks before tools** — Before running ANY other tools (such as Grep, ViewFile, run_command, or CodeGraph MCP tools) at the start of a session or when receiving a new task, you MUST first run `TaskCreate` to initialize workflow tracking. Create an initial task (e.g., 'Explore and research codebase' or 'Plan implementation and explore files') and set it to `in_progress` immediately using `TaskUpdate`. This prevents warnings about task tools not being used.
 2. **Skills before guesses** — always route to appropriate skill
-3. **Hooks enforce tool rules** — MCP-before-grep, Explore ban, Context7-first, and graph-first rules are enforced by PreToolUse/PostToolUse hooks automatically
+3. **Hooks enforce tool rules** — MCP-before-grep, Explore codegraph-first, Context7-first, and graph-first rules are enforced by PreToolUse/PostToolUse hooks automatically
 4. **Fix every discovered bug** — no exceptions, no "not related to my changes"

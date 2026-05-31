@@ -13,11 +13,53 @@ bukan berdasarkan layer global.
 
 Sebelum mulai refactor, verifikasi:
 1. Codebase dalam git state bersih: `git status` harus clean atau user konfirmasi uncommitted changes.
-2. Semua test suite passing: `npm run test` atau ekuivalen harus hijau.
-3. Typecheck clean: `npm run typecheck` atau `tsc --noEmit` tanpa error.
+2. Semua test suite passing (gunakan ecosystem-detected command, lihat seksi Ecosystem Detection di bawah).
+3. Typecheck clean (ecosystem-detected command).
 4. CodeGraph graph fresh: `.codegraph/graph.db` ada dan tidak stale.
 
 Jika ada prasyarat gagal, stop dan laporkan blocker. Jangan lanjut sampai user resolve.
+
+## Ecosystem Detection (Wajib, Sebelum Fase 1)
+
+Deteksi ekosistem project sebelum menjalankan command apapun. Baca file-file ini untuk menentukan toolchain:
+
+```
+Prioritas deteksi (cek keberadaan file):
+1. package.json hadir → Node.js/TypeScript
+   - Baca field "scripts" → gunakan perintah dari sana
+   - ECOSYSTEM.test    = npm run test (atau yarn/pnpm/bun sesuai lockfile)
+   - ECOSYSTEM.lint    = npm run lint (atau biome check / eslint)
+   - ECOSYSTEM.typecheck = npm run typecheck (atau tsc --noEmit)
+
+2. pyproject.toml / pytest.ini / setup.cfg hadir → Python
+   - ECOSYSTEM.test    = pytest (atau python -m pytest)
+   - ECOSYSTEM.lint    = ruff check . (atau flake8)
+   - ECOSYSTEM.typecheck = mypy . (jika pyproject.toml punya [tool.mypy])
+
+3. go.mod hadir → Go
+   - ECOSYSTEM.test    = go test ./...
+   - ECOSYSTEM.lint    = go vet ./...
+   - ECOSYSTEM.typecheck = go build ./...
+
+4. Cargo.toml hadir → Rust
+   - ECOSYSTEM.test    = cargo test
+   - ECOSYSTEM.lint    = cargo clippy
+   - ECOSYSTEM.typecheck = cargo check
+
+5. pom.xml hadir → Java/Maven
+   - ECOSYSTEM.test    = mvn test
+   - ECOSYSTEM.lint    = mvn checkstyle:check
+   - ECOSYSTEM.typecheck = mvn compile
+
+6. build.gradle / build.gradle.kts hadir → Java/Kotlin/Gradle
+   - ECOSYSTEM.test    = ./gradlew test
+   - ECOSYSTEM.lint    = ./gradlew ktlintCheck (jika ada) atau checkstyleMain
+   - ECOSYSTEM.typecheck = ./gradlew classes
+```
+
+Jika tidak ada yang cocok: tanya user sebelum lanjut. Jangan assume npm.
+
+Semua gerbang verifikasi di fase berikutnya menggunakan `{ECOSYSTEM.test}`, `{ECOSYSTEM.typecheck}`, dan `{ECOSYSTEM.lint}` — bukan perintah hardcoded.
 
 ## Fase 1: Recon & Deteksi
 
@@ -98,10 +140,10 @@ Untuk setiap fitur (user, auth, product, order, payment, dst.), ikuti urutan lay
 
 Setelah setiap modul selesai, jalankan verifikasi penuh:
 
-1. Typecheck: `npm run typecheck` atau `tsc --noEmit` — harus clean.
-2. Lint: `npm run lint` atau `biome check` — harus clean.
-3. Test modul terpengaruh: `npm run test -- --grep <module-name>` atau ekuivalen.
-4. Test full suite: `npm run test` — harus passing.
+1. Typecheck: `{ECOSYSTEM.typecheck}` — harus clean.
+2. Lint: `{ECOSYSTEM.lint}` — harus clean.
+3. Test modul terpengaruh: gunakan `{ECOSYSTEM.test}` dengan filter nama modul jika didukung runner.
+4. Test full suite: `{ECOSYSTEM.test}` — harus passing.
 5. Impact check: codegraph MCP untuk verifikasi tidak ada caller tak terduga yang rusak.
 
 Jika ada failure baru → stop, perbaiki dulu, baru lanjut ke modul berikutnya.

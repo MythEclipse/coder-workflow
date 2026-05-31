@@ -73,9 +73,13 @@ In plan mode, inspect the relevant code, identify the target files, define the i
    - After all primary tasks complete, list all discovered bugs (severity, file:line, description)
    - Fix each in order: Blocker → High → Medium
    - Verify each fix independently
-   - Session is NOT complete until all High and Medium discovered bugs are fixed
-   - Report any remaining Low bugs with exact file:line references and reason for deferral
+   - **Triage rule**: bugs split into two categories:
+     - **Category A — bugs in files I touched**: Fix ALL, regardless of count. No deferral.
+     - **Category B — bugs in files I did NOT touch** (pre-existing in unrelated code): Budget-capped at **5 per session**. Beyond 5, auto-defer with documentation. Session completes without user interruption.
+   - Session is NOT complete until all Category A bugs AND up to 5 Category B bugs (High/Medium) are fixed
+   - Report any remaining deferred bugs with: file:line, severity, category, reason for deferral
    - **Deferred bug protocol:** If the user says "defer" or "fix later" for a discovered bug, mark the task as `pending` (not deleted) and note the deferral reason. The bug stays tracked but does NOT block session completion. Deferred bugs appear in the final report.
+   - **Auto-defer protocol:** If Category B bug count exceeds 5, write all remaining bugs to `.claude/deferred-bugs.json` for the next session. Never silently drop.
    - **Forbidden phrases:** "not related to my changes", "pre-existing, skipping", "let me focus on my task and ignore these"
 
 7. **Report**

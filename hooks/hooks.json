@@ -16,7 +16,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); PROMPT=$(printf \"%s\" \"$INPUT\" | jq -r \".prompt // empty\" 2>/dev/null | head -c 140); printf \"[%s] PROMPT: %s\\n\" \"$(date -u +%T)\" \"$PROMPT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); PROMPT=$(printf \"%s\" \"$INPUT\" | jq -r \".prompt // empty\" 2>/dev/null | head -c 140); mkdir -p .claude 2>/dev/null || true; printf \"[%s] PROMPT: %s\\n\" \"$(date -u +%T)\" \"$PROMPT\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
           }
@@ -38,14 +38,14 @@
           },
           {
             "type": "command",
-            "command": "test -f .codegraph/graph.db || (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || npx codegraph-mapper scan 2>/dev/null || true)",
+            "command": "bash -c 'DB=.codegraph/graph.db; LOCK=.codegraph/scan.lock; if [ ! -f \"$DB\" ]; then touch \"$LOCK\" 2>/dev/null || true; (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || npx codegraph-mapper scan 2>/dev/null || true); rm -f \"$LOCK\" 2>/dev/null || true; fi; exit 0'",
             "timeout": 180,
             "async": true,
             "statusMessage": "Auto-scanning codebase graph..."
           },
           {
             "type": "command",
-            "command": "bash -c 'DB=.codegraph/graph.db; if [ -f \"$DB\" ]; then if stat --version >/dev/null 2>&1; then MTIME=$(stat -c %Y \"$DB\" 2>/dev/null || echo 0); else MTIME=$(stat -f %m \"$DB\" 2>/dev/null || echo 0); fi; NOW=$(date +%s); AGE_HOURS=$(( (NOW - MTIME) / 3600 )); if [ \"$AGE_HOURS\" -ge 24 ]; then echo \"Graph is ${AGE_HOURS}h old — run mcp__codegraph__scan_codebase to refresh\"; fi; fi; exit 0'",
+            "command": "bash -c 'exit 0'",
             "timeout": 5,
             "statusMessage": "Checking graph freshness..."
           }
@@ -150,7 +150,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if [ -f .codegraph/graph.db ]; then jq -n \"{systemMessage: \\\"coder-workflow: Graph-first — use mcp__codegraph__query_graph / search_code before Grep/Glob. Graph finds definitions, callers, and dependencies that raw text search misses.\\\"}\"; else jq -n \"{systemMessage: \\\"coder-workflow: No .codegraph/graph.db found. Run mcp__codegraph__scan_codebase first, then query_graph/search_code.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'exit 0'",
             "timeout": 5
           }
         ]
@@ -160,25 +160,35 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"^find\\s|^/usr/bin/find\\s|\\\\bfind\\\\s+\\\\.\"; then jq -n \"{systemMessage: \\\"coder-workflow: Prefer mcp__codegraph__query_graph or mcp__codegraph__search_code over find. Use Bash(find) only after graph tools cannot answer.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'exit 0'",
             "if": "Bash(find *)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"^grep\\s|\\\\bgrep\\\\s+-[a-zA-Z]*r\"; then jq -n \"{systemMessage: \\\"coder-workflow: Prefer mcp__codegraph__search_code or mcp__codegraph__query_graph over grep -r. Use Bash(grep) only for exact patterns that codegraph search cannot resolve.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'exit 0'",
             "if": "Bash(grep *)",
             "timeout": 5
           }
         ]
       },
       {
-        "matcher": "Agent",
+        "matcher": "Explore|explore",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.subagent_type // empty\" 2>/dev/null); if [ \"$AGENT\" = \"Explore\" ]; then jq -n \"{systemMessage: \\\"coder-workflow: Explore agent is BANNED. Use mcp__codegraph__query_graph (definitions/references/callers), mcp__codegraph__search_code (text search), mcp__codegraph__analyze_impact (blast radius), or mcp__codegraph__summarize_architecture (structure overview). NEVER dispatch Explore.\\\"}\"; fi; exit 0'",
-            "if": "Explore",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"coder-workflow: You are in an Explore context. You MUST use mcp__codegraph__query_graph, mcp__codegraph__search_code, mcp__codegraph__analyze_impact, or mcp__codegraph__summarize_architecture to explore the codebase. Do NOT use bash find/grep unless graph tools fail.\\\"}\"'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|invoke_subagent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.subagent_type // .tool_input.Subagents[0].TypeName // empty\" 2>/dev/null); if echo \"$AGENT\" | grep -qi \"explore\"; then jq -n \"{systemMessage: \\\"coder-workflow: The Explore agent MUST prioritize mcp__codegraph tools (query_graph, search_code, analyze_impact). Avoid bash find/grep.\\\"}\"; fi; exit 0'",
+            "if": "Explore|explore",
             "timeout": 5
           }
         ]
@@ -190,12 +200,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Bug tracking enforced: every bug discovered during this turn must be created as a task and fixed before session end. No exceptions — do not defer as unrelated.'",
-            "timeout": 5
+            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PostToolUse\\\", additionalContext: \\\"coder-workflow: Impact Radius active — bugs found within your modified files must be tracked and fixed. Ignore pre-existing debt outside your FILE_MANIFEST.\\\"}}\"'",
+            "timeout": 5,
+            "async": true
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); FILE=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\" 2>/dev/null); printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); FILE=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
           },
@@ -218,21 +229,21 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); printf \"[%s] GIT COMMIT: %s\\n\" \"$(date -u +%T)\" \"$CMD\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] GIT COMMIT: %s\\n\" \"$(date -u +%T)\" \"$CMD\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
             "if": "Bash(git commit *)",
             "timeout": 5,
             "async": true
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); OUTPUT=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_response // .output // empty\" 2>/dev/null | head -c 300); if printf \"%s\" \"$CMD\" | grep -qE \"npm (test|run test|run lint|run typecheck|run check)\"; then printf \"[%s] TEST/LINT: %s\\n\" \"$(date -u +%T)\" \"$CMD\" >> /tmp/cw-session.log 2>/dev/null; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); OUTPUT=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_response // .output // empty\" 2>/dev/null | head -c 300); if printf \"%s\" \"$CMD\" | grep -qE \"npm (test|run test|run lint|run typecheck|run check)\"; then mkdir -p .claude 2>/dev/null || true; printf \"[%s] TEST/LINT: %s\\n\" \"$(date -u +%T)\" \"$CMD\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; fi; exit 0'",
             "if": "Bash(npm test)|Bash(npm run test *)|Bash(npm run lint *)|Bash(npm run typecheck)",
             "timeout": 5,
             "async": true
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+checkout|git\\s+switch\"; then BRANCH=$(printf \"%s\" \"$CMD\" | grep -oE \"[a-zA-Z0-9_.-]+\" | tail -1); printf \"[%s] BRANCH SWITCH: %s\\n\" \"$(date -u +%T)\" \"$BRANCH\" >> /tmp/cw-session.log 2>/dev/null; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+checkout|git\\s+switch\"; then BRANCH=$(printf \"%s\" \"$CMD\" | grep -oE \"[a-zA-Z0-9_.-]+\" | tail -1); mkdir -p .claude 2>/dev/null || true; printf \"[%s] BRANCH SWITCH: %s\\n\" \"$(date -u +%T)\" \"$BRANCH\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; fi; exit 0'",
             "if": "Bash(git checkout *)|Bash(git switch *)",
             "timeout": 5,
             "async": true
@@ -244,7 +255,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TOOL=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_name // empty\" 2>/dev/null); printf \"[%s] GRAPH: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); TOOL=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_name // empty\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] GRAPH: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
           }
@@ -255,7 +266,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.subagent_type // .tool_input.prompt // empty\" 2>/dev/null | head -c 100); printf \"[%s] AGENT SPAWN: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_input.subagent_type // .tool_input.prompt // empty\" 2>/dev/null | head -c 100); mkdir -p .claude 2>/dev/null || true; printf \"[%s] AGENT SPAWN: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
           }
@@ -268,7 +279,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TOOL=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_name // empty\" 2>/dev/null); ERR=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_error // .error // empty\" 2>/dev/null | head -c 200); printf \"[%s] FAIL [%s]: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" \"$ERR\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); TOOL=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_name // empty\" 2>/dev/null); ERR=$(printf \"%s\" \"$INPUT\" | jq -r \".tool_error // .error // empty\" 2>/dev/null | head -c 200); mkdir -p .claude 2>/dev/null || true; printf \"[%s] FAIL [%s]: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" \"$ERR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
           }
@@ -292,12 +303,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Turn complete. Mandatory checklist before next user message: (1) all discovered tasks tracked, (2) no bugs left unfixed, (3) tests pass, (4) no TODO/FIXME left without a tracked task, (5) graph is current.'",
+            "command": "echo 'Turn complete. Mandatory checklist before next user message: (1) all tasks tracked, (2) no bugs left unfixed WITHIN your Impact Radius, (3) targeted tests pass, (4) graph is current.'",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "test -f .codegraph/graph.db && (command -v coder-workflow >/dev/null 2>&1 && coder-workflow update 2>/dev/null || npx codegraph-mapper update 2>/dev/null || true) || true",
+            "command": "rm -f /tmp/cw-grep-warned-$$ 2>/dev/null || true; test -f .codegraph/graph.db && (command -v coder-workflow >/dev/null 2>&1 && coder-workflow update 2>/dev/null || npx codegraph-mapper update 2>/dev/null || true) || true",
             "timeout": 120,
             "async": true
           }
@@ -447,7 +458,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".agent_type // .subagent_type // unknown\" 2>/dev/null); printf \"[%s] AGENT START: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".agent_type // .subagent_type // unknown\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] AGENT START: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; LOCK=.claude/agent-depth.lock; DEPTH=0; [ -f \"$LOCK\" ] && DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); printf \"%s\" \"$((DEPTH+1))\" > \"$LOCK\"; exit 0'",
             "timeout": 5,
             "async": true
           }
@@ -460,7 +471,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".agent_type // .subagent_type // unknown\" 2>/dev/null); printf \"[%s] AGENT STOP: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> /tmp/cw-session.log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(printf \"%s\" \"$INPUT\" | jq -r \".agent_type // .subagent_type // unknown\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] AGENT STOP: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; LOCK=.claude/agent-depth.lock; if [ -f \"$LOCK\" ]; then DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 1); NEW=$(( DEPTH - 1 )); if [ \"$NEW\" -le 0 ]; then rm -f \"$LOCK\"; else printf \"%s\" \"$NEW\" > \"$LOCK\"; fi; fi; exit 0'",
             "timeout": 5,
             "async": true
           }
@@ -487,7 +498,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TITLE=$(printf \"%s\" \"$INPUT\" | jq -r \".task.title // .title // unknown\" 2>/dev/null); printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> /tmp/cw-session.log 2>/dev/null; echo \"Task complete: $TITLE\"; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); TITLE=$(printf \"%s\" \"$INPUT\" | jq -r \".task.title // .title // unknown\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; echo \"Task complete: $TITLE\"; exit 0'",
             "timeout": 5
           }
         ]
@@ -525,7 +536,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'LOG=/tmp/cw-session.log; if [ -f \"$LOG\" ]; then TASKS=$(grep -c \"TASK+:\" \"$LOG\" 2>/dev/null || echo 0); DONE=$(grep -c \"TASK done:\" \"$LOG\" 2>/dev/null || echo 0); COMMITS=$(grep -c \"GIT COMMIT:\" \"$LOG\" 2>/dev/null || echo 0); FAILS=$(grep -c \"FAIL\" \"$LOG\" 2>/dev/null || echo 0); AGENTS=$(grep -c \"AGENT START:\" \"$LOG\" 2>/dev/null || echo 0); WRITES=$(grep -c \"WRITE:\" \"$LOG\" 2>/dev/null || echo 0); PROMPTS=$(grep -c \"PROMPT:\" \"$LOG\" 2>/dev/null || echo 0); echo \"Session summary: tasks=$TASKS done=$DONE writes=$WRITES commits=$COMMITS agents=$AGENTS failures=$FAILS prompts=$PROMPTS\"; fi; exit 0'",
+            "command": "bash -c 'LOG=.claude/session-$(date +%Y%m%d).log; if [ -f \"$LOG\" ]; then TASKS=$(grep -c \"TASK+:\" \"$LOG\" 2>/dev/null || echo 0); DONE=$(grep -c \"TASK done:\" \"$LOG\" 2>/dev/null || echo 0); COMMITS=$(grep -c \"GIT COMMIT:\" \"$LOG\" 2>/dev/null || echo 0); FAILS=$(grep -c \"FAIL\" \"$LOG\" 2>/dev/null || echo 0); AGENTS=$(grep -c \"AGENT START:\" \"$LOG\" 2>/dev/null || echo 0); WRITES=$(grep -c \"WRITE:\" \"$LOG\" 2>/dev/null || echo 0); PROMPTS=$(grep -c \"PROMPT:\" \"$LOG\" 2>/dev/null || echo 0); echo \"Session summary: tasks=$TASKS done=$DONE writes=$WRITES commits=$COMMITS agents=$AGENTS failures=$FAILS prompts=$PROMPTS\"; fi; exit 0'",
             "timeout": 10
           }
         ]

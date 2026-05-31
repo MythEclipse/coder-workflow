@@ -1,6 +1,6 @@
 ---
 name: coder-orchestrator
-description: Use when starting any coding conversation — establishes how to find and use coding skills, requiring Skill tool invocation before ANY response including clarifying questions. Always invoke for: implement, fix, refactor, audit, test, deploy, debug, review, or any request that touches source code.
+description: Use when starting any coding conversation — establishes how to find and use coding skills, requiring Skill tool invocation before ANY response. Always invoke for: implement, fix, refactor, audit, test, deploy, debug, review, or any request that touches source code.
 ---
 
 <SUBAGENT-STOP>
@@ -10,7 +10,6 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 <EXTREMELY-IMPORTANT>
 If you think there is even a 1% chance a skill might apply to what you are doing, you ABSOLUTELY MUST invoke the skill.
 IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
-This is not negotiable. This is not optional.
 </EXTREMELY-IMPORTANT>
 
 ## Instruction Priority
@@ -23,122 +22,52 @@ This is not negotiable. This is not optional.
 
 ## The Rule
 
-**Invoke relevant skills BEFORE any response or action.** Even a 1% chance a skill might apply means that you MUST invoke the skill to check. If an invoked skill turns out to be wrong for the situation, you don't need to use it — but you MUST check first.
+**Invoke relevant skills BEFORE any response or action.** Even a 1% chance a skill might apply means that you MUST invoke the skill to check.
 
 ```
 User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
              → Check: might any other skill apply? → YES → Invoke Skill tool
-                                                       → Announce: "Using [skill] to [purpose]"
                                                        → Follow skill exactly
-                                                       → NO → Respond (including clarifications)
 ```
 
 ## What Triggers This Orchestrator
 
 | Request Type | Trigger |
 |---|---|
-| Implement / build / create / add | Any feature, function, endpoint, UI element |
-| Fix / debug / resolve | Any bug, error, crash, warning, deprecation |
-| Refactor / reorganize / restructure | Any code movement, layer extraction, module split |
-| Audit / review / check | Any architecture, layer, coupling, quality question |
-| Test / verify / validate | Any testwriting, test running, coverage question |
-| Deploy / setup / configure | Any CI/CD, Docker, VPS, Traefik, environment |
-| "Work on this" / "kerjakan" / "buat" | Any vague coding request |
-| Understand repo / search code / architecture / impact / flow | Codebase exploration, start of session, first repo exploration |
+| Implement / build / create | Any feature, function, endpoint, UI element |
+| Fix / debug / resolve | Any bug, error, crash, warning |
+| Refactor / reorganize | Any code movement, layer extraction |
+| Audit / review | Any architecture, layer, quality question |
+| Test / verify | Any test writing, test running |
+| Deploy / setup | Any CI/CD, Docker, VPS |
+| "Work on this" / "kerjakan" | Any vague coding request |
+| Explore | Codebase exploration, start of session |
 
-**Trigger even without explicit codegraph mention.** This orchestrator routes BOTH coding work AND codebase search.
+## Agent Coordination (Single-Agent Continual Flow)
 
-## Skill Routing Matrix
+Avoid extreme context fragmentation. The orchestrator routes work and retains context for the primary execution. Use sub-agents **only** for strictly isolated verification or auditing tasks, never for the core sequential implementation.
 
-After the orchestrator is invoked, check which sub-skill applies:
+### Workflow Sequence
 
-| Request | Route to skill |
-|---------|---------------|
-| Implement feature, fix bug, write tests, work on code | `coder` |
-| Audit architecture, layer violations, fat controllers | `auditor` |
-| Refactor to Modular MVC + Service + Repository | `refraktor` |
-| Setup Docker, CI/CD, VPS deploy, Traefik | `deploy-docker` |
-
-**If multiple skills apply — invoke ALL of them in dependency order.**
-
-Codebase exploration (graph, search, architecture analysis) is handled automatically by hooks — no skill invocation needed. Use codegraph MCP tools directly via hooks guidance.
-
-## Agent Coordination (Right-Sized Subagent Pattern)
-
-After skills are invoked, use sub-agents following the **Right-Sized Subagent** pattern:
-
-**Core principle: Scale agent chain to task complexity.** Simple tasks execute directly. Complex tasks get full SDD chain.
-
-### Complexity Triage
-
-| Complexity | Criteria | Workflow |
-|---|---|---|
-| **Simple** | 1-2 files, clear spec, typo fix, config change | Direct implement -> self-verify -> complete |
-| **Standard** | 3-5 files, moderate coordination | Implement -> lightweight spec review -> complete |
-| **Complex** | 5+ files, architectural change, new patterns | Full SDD: implementer -> spec review -> quality review -> loop |
-
-### The Dispatch Sequence (Complex Tasks Only)
-
-```
-controller (YOU)
-├── Extract ALL tasks from workflow-planner output
-├── FOR EACH task (in dependency order):
-│   ├── Simple? → implement directly → self-verify → next
-│   ├── Standard? → implement → light spec review → next
-│   └── Complex? → Full SDD chain:
-│   │   ├── Dispatch FRESH implementer sub-agent
-│   │   ├── Handle status: DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT
-│   │   ├── Dispatch FRESH spec review sub-agent
-│   │   ├── Handle: ✅ approved → proceed | ❌ issues → fix → re-review
-│   │   └── Dispatch FRESH code quality sub-agent
-│   └── Track ALL discovered bugs as TaskCreate
-├── Bug Fix Phase: fix all High/Medium bugs
-└── Final code review + mark session complete
-```
+1. **Plan & Decompose**: Extract tasks via `workflow-planner` (Feature-Slice Decomposition).
+2. **Sequential Implementation**: You (the orchestrator/main agent) execute the implementation directly using the `code-implementer` protocol to maintain continuity of context.
+3. **Targeted Verification**: Run typechecks and linters **scoped ONLY to the modified files**.
+4. **Impact Radius Quarantine**: Fix bugs strictly within the files you changed.
+5. **Auditing (Optional)**: Dispatch `architecture-auditor` or `test-engineer` sub-agents if structural review or test generation is explicitly requested.
 
 ### Status Handling
 
-| Agent reports | Controller action |
-|---------------|------------------|
-| DONE | Proceed to spec compliance review |
-| DONE_WITH_CONCERNS | Read concerns → address if correctness/scope → proceed to review |
-| NEEDS_CONTEXT | Provide missing context → re-dispatch same task same agent |
-| BLOCKED | Assess: context problem → re-dispatch; too large → split; plan wrong → re-plan |
+- Track your progress using a checklist (e.g., `task.md`).
+- If blocked, do not delegate away the problem. Research via `context7` MCP or `mcp__codegraph` tools, then adjust the plan.
 
-### Model Selection
+## Impact Radius Bug Discovery Mandate
 
-| Task Complexity | Model | Description |
-|----------------|-------|-------------|
-| Mechanical (1-2 files, clear spec) | haiku | Fast, low token cost for simple file modifications, typos, tests, and formatting |
-| Integration (multi-file, coordination) | inherit (default) | High capability (inherits active Sonnet session) for complex editing |
-| Review (architecture, quality, spec) | haiku | Efficient auditing and conformity checking against defined criteria |
+**You operate under an Impact Radius Protocol.**
 
-### Rules
-
-- **NEVER** reuse sub-agents for Complex tasks — FRESH agent per task
-- **NEVER** skip reviews for Complex tasks — spec compliance THEN code quality, in that order
-- **NEVER** dispatch multiple implementers in parallel for overlapping files — check file overlap first
-- **NEVER** make sub-agent read plan file — provide FULL task text directly
-- **Parallel execution**: tasks with disjoint file sets MAY run in parallel with worktree isolation. See code-implementer agent for parallel decision algorithm.
-
-## Core Mandates
-
-## Bug Discovery Mandate
-
-**Every bug discovered during implementation MUST be tracked and fixed.** This includes:
-
-- Browser API deprecation warnings
-- Console errors or warnings unrelated to current changes
-- Type errors in files you didn't edit
-- Lint violations in untouched files
-- Broken tests that pre-date your changes
-
-**Required behavior:**
-1. Create `TaskCreate` with severity and description for every bug found
-2. Continue primary work — do NOT context-switch mid-implementation
-3. After ALL primary tasks complete: enter Bug Fix Phase
-4. Fix each bug in order: Blocker → High → Medium
-5. Session is NOT complete until all High and Medium bugs are fixed
+1. **Declare Scope**: Define the files you intend to modify upfront (`FILE_MANIFEST`).
+2. **Quarantine Zone**: If you encounter errors, type issues, or lint warnings during your work, you MUST fix them **IF AND ONLY IF** they are located within your declared `FILE_MANIFEST` or were directly introduced by your changes.
+3. **Pre-existing Debt**: If a global typecheck reveals 100 errors in untouch modules, **IGNORE THEM**. Document them as pre-existing technical debt. Do not attempt a global fix unless explicitly instructed by the user. Trying to fix the entire world leads to infinite loops.
+4. **Targeted Checks**: Always run verification commands tailored to your specific files (e.g., `npx eslint path/to/changed/file.ts` rather than `npm run lint`).
 
 ## Output Contract
 
@@ -147,40 +76,18 @@ When this orchestrator is invoked, state:
 ```
 Using coder-orchestrator to route: [one-sentence goal]
 Skills invoked: [list]
-Agents invoked: [list]
-Tasks created: [count]
-Architecture pattern: [MVC | GraphQL | CLI | Event-Driven | Functional | Library]
-Complexity mix: Simple [N] | Standard [N] | Complex [N]
+Architecture pattern: [MVC | Event-Driven | Library | etc.]
+Execution Flow: Single-Agent Continual Flow
 ```
 
-For codebase exploration queries, keep answers graph-backed: file paths, symbols, nodes, edges, uncertainty noted. Example:
-
+Keep answers graph-backed for exploration queries. Example:
 ```
-Request: "Who calls the auth middleware?"
+Request: "Who calls auth middleware?"
 Answer:
 - src/routes/auth.ts:authMiddleware called by:
   1. src/server.ts:setupRoutes (line 42)
-  2. src/routes/admin.ts:adminRoutes (line 15)
 ```
 
 ## Session Metrics (Optional)
 
-At session end, save metrics to `.claude/session-metrics.json`:
-
-```json
-{
-  "sessionDate": "ISO-8601",
-  "tasksCreated": N,
-  "tasksCompleted": N,
-  "bugsDiscovered": N,
-  "bugsFixed": N,
-  "agentInvocations": {"workflow-planner": N, "architecture-auditor": N, "code-implementer": N, "test-engineer": N},
-  "complexityMix": {"simple": N, "standard": N, "complex": N},
-  "reviewPassRate": "X%",
-  "parallelBatches": N,
-  "checkpointsUsed": N,
-  "architecturePattern": "MVC"
-}
-```
-
-These metrics enable trend tracking: is bug discovery rate decreasing? Is review pass rate improving? Are we right-sizing complexity appropriately?
+At session end, save metrics to `.claude/session-metrics.json`.

@@ -32,7 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `hooks/hooks.json` — SessionStart, PostToolUse, Stop hooks
 - Bug Fix Phase mandate — all discovered bugs must be tracked and fixed
 - Subagent-Driven Development pattern with two-stage review
-- Explore agent ban — all exploration must use codegraph MCP tools
+- Explore agent codegraph-first rule — all exploration must prioritize codegraph MCP tools
 
 ## [0.1.0] — 2026-05-19
 

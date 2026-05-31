@@ -1,37 +1,85 @@
 #!/usr/bin/env bash
-# task-force-subagent.sh — TaskCreated hook to force subagent execution via additionalContext injection.
+# task-force-subagent.sh — TaskCreated hook: enforce subagent delegation depth
+#
+# Guard logic (hard block):
+#   If CW_AGENT_DEPTH is set and >= 1 (env var), OR the atomic depth counter
+#   file (.claude/agent-depth.lock) records depth >= 1, we are already inside
+#   a subagent. Output decision:block to HARD-STOP further delegation.
+#
+#   decision:block is processed before LLM sees the context, making it
+#   non-bypassable — unlike additionalContext which is advisory only.
+#
+#   Depth counter file is written by SubagentStart hook and deleted by
+#   SubagentStop hook, providing independent tracking beyond env vars.
 set -euo pipefail
 
-# Baca JSON input dari stdin
 INPUT=$(cat)
 
-# Ambil detail task secara robust
-TASK_ID=$(echo "$INPUT" | jq -r '.task.id // .task_id // .id // "unknown"')
-TASK_TITLE=$(echo "$INPUT" | jq -r '.task.title // .title // "unknown"')
-TASK_DESCRIPTION=$(echo "$INPUT" | jq -r '.task.description // .description // ""')
+TASK_ID=$(printf '%s' "$INPUT" | jq -r '.task.id // .task_id // .id // .payload.id // .payload.task.id // "unknown"')
+TASK_TITLE=$(printf '%s' "$INPUT" | jq -r '.task.title // .title // .payload.title // .payload.task.title // "unknown"')
+TASK_DESCRIPTION=$(printf '%s' "$INPUT" | jq -r '.task.description // .description // .payload.description // .payload.task.description // ""')
 
-# Catat log ke file session
-printf "[%s] TASK+: %s\n" "$(date -u +%T)" "$TASK_TITLE" >> /tmp/cw-session.log 2>/dev/null || true
+# Project-scoped log (consistent with hooks.json session log path)
+LOG_DIR=".claude"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+LOG="$LOG_DIR/session-$(date +%Y%m%d).log"
+printf "[%s] TASK+: %s\n" "$(date -u +%T)" "$TASK_TITLE" >> "$LOG" 2>/dev/null || true
 
-# Bangun instruksi tambahan untuk Claude
-CONTEXT="[MANDATORY EXECUTION RULE]
+# ============================================================
+# Depth guard: two-layer detection
+# Layer 1: CW_AGENT_DEPTH env var (set by orchestrator before spawn)
+# Layer 2: .claude/agent-depth.lock file (atomic, not env-dependent)
+# Both layers are checked — either triggers the hard block.
+# ============================================================
+ENV_DEPTH="${CW_AGENT_DEPTH:-0}"
+LOCK_FILE=".claude/agent-depth.lock"
+FILE_DEPTH=0
+if [ -f "$LOCK_FILE" ]; then
+  FILE_DEPTH=$(cat "$LOCK_FILE" 2>/dev/null || echo 0)
+  # Sanitize: ensure it's a non-negative integer
+  FILE_DEPTH=$(printf '%s' "$FILE_DEPTH" | grep -E '^[0-9]+$' || echo 0)
+fi
+
+CURRENT_DEPTH=$(( ENV_DEPTH > FILE_DEPTH ? ENV_DEPTH : FILE_DEPTH ))
+
+if [ "$CURRENT_DEPTH" -ge 1 ]; then
+  # HARD BLOCK — not advisory. decision:block prevents LLM execution path.
+  REASON="Recursive subagent delegation blocked (depth=${CURRENT_DEPTH}). Task \"${TASK_TITLE}\" must be executed DIRECTLY by the current agent. CW_AGENT_DEPTH=${ENV_DEPTH}, lock_file_depth=${FILE_DEPTH}."
+  jq -n \
+    --arg reason "$REASON" \
+    --arg title "$TASK_TITLE" \
+    --arg desc "$TASK_DESCRIPTION" \
+    '{
+      decision: "block",
+      reason: $reason,
+      hookSpecificOutput: {
+        hookEventName: "TaskCreated",
+        additionalContext: ("SUBAGENT DEPTH EXCEEDED: Execute task directly.\nTitle: " + $title + "\nDescription: " + $desc)
+      }
+    }'
+  exit 0
+fi
+
+# ============================================================
+# Depth == 0: Main orchestrator thread — encourage right-sized delegation
+# ============================================================
+CONTEXT="[DELEGATION RULE]
 Task \"$TASK_TITLE\" (ID: $TASK_ID) has been created.
 
-MANDATORY: You MUST execute this task using a separate subagent by calling the Agent tool (invoke_subagent / define_subagent).
-DO NOT execute this task directly in the main thread.
+For Complex tasks (5+ files, architectural change, new file type for project): delegate to a fresh subagent via the Agent tool.
+For Simple/Standard tasks (1-4 files, clear spec, known pattern): execute directly in the current thread.
 
-Correct workflow:
-1. Call the Agent tool with a prompt containing the details of this task.
-2. Wait for the subagent to complete the task.
-3. Report the subagent's results back to the user.
+MANDATORY before spawning any subagent:
+1. Set CW_AGENT_DEPTH=1 in the subagent environment
+2. Write depth=1 to .claude/agent-depth.lock
 
-Task details to pass to the subagent:
+MANDATORY after subagent completes:
+1. Delete or zero-out .claude/agent-depth.lock
+
+Task details:
 - Title: $TASK_TITLE
-- Description: $TASK_DESCRIPTION
+- Description: $TASK_DESCRIPTION"
 
-Violating this rule is strictly prohibited."
-
-# Output JSON dengan additionalContext
 jq -n \
   --arg context "$CONTEXT" \
   '{
