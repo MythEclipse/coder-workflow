@@ -309,10 +309,21 @@ function buildGraphMetadata(
 
   const filePaths = new Set(nodes.filter((node) => node.type === "file").map((node) => node.path));
   const relatedFiles = new Set<string>();
+
+  const nodePaths = new Map<string, string>();
+  for (const node of nodes) {
+    if (node.path) nodePaths.set(node.id, node.path);
+  }
+
+  const getPath = (id: string) => {
+    if (id.startsWith("file:")) return id.slice("file:".length);
+    return nodePaths.get(id);
+  };
+
   for (const edgeItem of edges) {
     if (edgeItem.type === "exports") continue;
-    const sourcePath = nodePath(edgeItem.source, nodes);
-    const targetPath = nodePath(edgeItem.target, nodes);
+    const sourcePath = getPath(edgeItem.source);
+    const targetPath = getPath(edgeItem.target);
     if (sourcePath && filePaths.has(sourcePath)) relatedFiles.add(sourcePath);
     if (targetPath && filePaths.has(targetPath)) relatedFiles.add(targetPath);
   }
@@ -339,11 +350,6 @@ function buildGraphMetadata(
     relationshipCoverage,
     qualityScore,
   };
-}
-
-function nodePath(id: string, nodes: CodeGraphNode[]): string | undefined {
-  if (id.startsWith("file:")) return id.slice("file:".length);
-  return nodes.find((node) => node.id === id)?.path;
 }
 
 export function writeGraph(root: string, graph: CodeGraph): void {

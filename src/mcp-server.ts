@@ -22,6 +22,25 @@ import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { searchCodebase } from "./search.js";
 import { loadSettings } from "./settings.js";
 import { openGraphUi } from "./ui.js";
+import type { CodeGraph } from "./types.js";
+
+let _cachedGraph: CodeGraph | null = null;
+let _cachedGraphMtime = 0;
+
+function getCachedGraph(root: string): CodeGraph {
+  const dbPath = join(root, ".codegraph", "graph.db");
+  try {
+    const mtime = statSync(dbPath).mtimeMs;
+    if (_cachedGraph && _cachedGraphMtime === mtime) {
+      return _cachedGraph;
+    }
+    _cachedGraph = readGraph(root);
+    _cachedGraphMtime = mtime;
+    return _cachedGraph;
+  } catch {
+    return readGraph(root);
+  }
+}
 
 const server = new Server(
   { name: "codegraph-mapper", version: "0.1.0" },
@@ -210,7 +229,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "query_graph": {
       const query = stringArg(args?.query, "query");
-      return text(queryGraph(readGraph(root), query, numberArg(args?.maxResults)));
+      return text(queryGraph(getCachedGraph(root), query, numberArg(args?.maxResults)));
     }
     case "search_code":
       return text(
@@ -229,7 +248,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text({
         written: exportGraph(
           root,
-          readGraph(root),
+          getCachedGraph(root),
           (args?.formats as string[] | undefined) ?? settings.exports,
         ),
       });
@@ -237,18 +256,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const target = stringArg(args?.target, "target");
       const directionStr = typeof args?.direction === "string" ? args.direction : "both";
       const direction = ["upstream", "downstream", "both"].includes(directionStr) ? (directionStr as "upstream" | "downstream" | "both") : "both";
-      return text(analyzeImpact(readGraph(root), target, settings.maxDepth, direction));
+      return text(analyzeImpact(getCachedGraph(root), target, settings.maxDepth, direction));
     }
     case "open_graph_ui":
       return text({ url: await openGraphUi(root, settings) });
     case "find_cycles":
-      return text(findCycles(readGraph(root)));
+      return text(findCycles(getCachedGraph(root)));
     case "find_orphans":
-      return text(findOrphans(readGraph(root)));
+      return text(findOrphans(getCachedGraph(root)));
     case "summarize_architecture":
-      return text(summarizeArchitecture(readGraph(root)));
+      return text(summarizeArchitecture(getCachedGraph(root)));
     case "analyze_quality": {
-      const report = analyzeGraphQuality(readGraph(root), root);
+      const report = analyzeGraphQuality(getCachedGraph(root), root);
       const threshold = readThreshold(args?.failOn);
       if (!threshold) return text(report);
       const gate = evaluateQualityGate(report.issues, threshold);
@@ -261,7 +280,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "quality_gate": {
       const threshold = readThreshold(args?.threshold);
       if (!threshold) throw new Error("Invalid threshold. Use high, medium, or low.");
-      const report = analyzeGraphQuality(readGraph(root), root);
+      const report = analyzeGraphQuality(getCachedGraph(root), root);
       const gate = evaluateQualityGate(report.issues, threshold);
       const result = { ...gate, failingIssues: failingIssuesForThreshold(report, threshold) };
       if (args?.includeReport === true) return text({ ...report, ...result });
@@ -277,7 +296,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       let graphData: { nodes: any[]; edges: any[] } | undefined;
       try {
         if (graphExists(root)) {
-          const graph = readGraph(root);
+          const graph = getCachedGraph(root);
           const searchPath = filePath.replace(/^[./\\]+/, "");
           const nodes = graph.nodes.filter((n) => n.path === searchPath || n.path === filePath);
           const nodeIds = new Set(nodes.map((n) => n.id));
@@ -293,7 +312,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
     }
     case "summarize_graph": {
-      const summary = summarizeGraphForBudget(readGraph(root), {
+      const summary = summarizeGraphForBudget(getCachedGraph(root), {
         maxNodes: numberArg(args?.maxNodes) ?? 50,
         maxEdges: numberArg(args?.maxEdges) ?? 100,
       });
