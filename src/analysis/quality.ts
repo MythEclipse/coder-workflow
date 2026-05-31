@@ -61,35 +61,77 @@ export function analyzeGraphQuality(graph: CodeGraph, root?: string): GraphQuali
     (node) => node.type !== "file" && node.type !== "module" && node.type !== "route",
   );
   const filePaths = new Set(fileNodes.map((node) => node.path));
+  
+  // O(1) Indices
+  const nodeById = new Map<string, CodeGraphNode>();
+  for (const n of graph.nodes) nodeById.set(n.id, n);
+  
+  const exportedNodeIds = new Set<string>();
+  const callEdgesBySourceEvidence = new Map<string, CodeGraphEdge[]>();
+  const filesWithRelationships = new Set<string>();
 
-  for (const edge of graph.edges.filter(
-    (edge) => edge.type === "imports" && edge.target.startsWith("module:"),
-  )) {
-    const imported = edge.target.slice("module:".length);
-    if (!isLocalImport(imported)) continue;
-    const sourcePath = edge.source.startsWith("file:")
-      ? edge.source.slice("file:".length)
-      : undefined;
-    if (!sourcePath) continue;
-    if (!localImportMatchesAnyFile(imported, sourcePath, filePaths)) {
-      issues.push({
-        severity: "high",
-        category: "unresolved-import",
-        message: `Local import ${imported} from ${sourcePath} does not match a scanned file`,
-        nodes: [edge.source, edge.target],
-        evidence: imported,
-      });
+  // Single pass over all edges
+  for (const edge of graph.edges) {
+    if (edge.type === "exports") {
+      exportedNodeIds.add(edge.target);
+      continue;
+    }
+
+    // Relationship coverage tracking
+    const sourcePath = edge.source.startsWith("file:") ? edge.source.slice("file:".length) : nodeById.get(edge.source)?.path;
+    const targetPath = edge.target.startsWith("file:") ? edge.target.slice("file:".length) : nodeById.get(edge.target)?.path;
+    if (sourcePath && filePaths.has(sourcePath)) filesWithRelationships.add(sourcePath);
+    if (targetPath && filePaths.has(targetPath)) filesWithRelationships.add(targetPath);
+
+    // Unresolved imports
+    if (edge.type === "imports" && edge.target.startsWith("module:")) {
+      const imported = edge.target.slice("module:".length);
+      if (isLocalImport(imported)) {
+        const srcPath = edge.source.startsWith("file:") ? edge.source.slice("file:".length) : undefined;
+        if (srcPath && !localImportMatchesAnyFile(imported, srcPath, filePaths)) {
+          issues.push({
+            severity: "high",
+            category: "unresolved-import",
+            message: `Local import ${imported} from ${srcPath} does not match a scanned file`,
+            nodes: [edge.source, edge.target],
+            evidence: imported,
+          });
+        }
+      }
+    }
+
+    // Ambiguous and Unresolved calls
+    if (edge.type === "calls") {
+      if (typeof edge.confidence === "number" && edge.confidence < 0.5) {
+        issues.push({
+          severity: "medium",
+          category: "ambiguous-call",
+          message: `Ambiguous call edge ${edge.source} -> ${edge.target}`,
+          nodes: [edge.source, edge.target],
+          evidence: edge.evidence,
+        });
+      }
+      const key = `${edge.source}:${edge.evidence ?? ""}`;
+      const existing = callEdgesBySourceEvidence.get(key);
+      if (existing) existing.push(edge);
+      else callEdgesBySourceEvidence.set(key, [edge]);
     }
   }
 
+  // Duplicate Symbols
   const symbolsByName = new Map<string, CodeGraphNode[]>();
   for (const node of symbolNodes) {
-    symbolsByName.set(node.name, [...(symbolsByName.get(node.name) ?? []), node]);
+    const list = symbolsByName.get(node.name);
+    if (list) list.push(node);
+    else symbolsByName.set(node.name, [node]);
   }
+
   for (const [name, nodes] of symbolsByName) {
     const productionNodes = nodes.filter(
       (node) =>
-        !isTestPath(node.path) && isExportedNode(node, graph) && !isNestedSymbol(node, symbolNodes),
+        !isTestPath(node.path) &&
+        exportedNodeIds.has(node.id) &&
+        !isNestedSymbol(node, symbolNodes),
     );
     const paths = new Set(productionNodes.map((node) => node.path));
     if (productionNodes.length > 1 && paths.size > 1) {
@@ -103,22 +145,7 @@ export function analyzeGraphQuality(graph: CodeGraph, root?: string): GraphQuali
     }
   }
 
-  const callEdgesBySourceEvidence = new Map<string, CodeGraphEdge[]>();
-  for (const edge of graph.edges.filter((edge) => edge.type === "calls")) {
-    if (typeof edge.confidence === "number" && edge.confidence < 0.5) {
-      issues.push({
-        severity: "medium",
-        category: "ambiguous-call",
-        message: `Ambiguous call edge ${edge.source} -> ${edge.target}`,
-        nodes: [edge.source, edge.target],
-        evidence: edge.evidence,
-      });
-    }
-
-    const key = `${edge.source}:${edge.evidence ?? ""}`;
-    callEdgesBySourceEvidence.set(key, [...(callEdgesBySourceEvidence.get(key) ?? []), edge]);
-  }
-
+  // Unresolved Call checks
   for (const targets of callEdgesBySourceEvidence.values()) {
     if (targets.length > 5) {
       const edge = targets[0];
@@ -132,6 +159,7 @@ export function analyzeGraphQuality(graph: CodeGraph, root?: string): GraphQuali
     }
   }
 
+  // Stale Graph Check
   const graphTime = Date.parse(graph.generatedAt);
   if (root && Number.isFinite(graphTime)) {
     for (const file of fileNodes) {
@@ -150,14 +178,7 @@ export function analyzeGraphQuality(graph: CodeGraph, root?: string): GraphQuali
     }
   }
 
-  const filesWithRelationships = new Set<string>();
-  for (const edge of graph.edges) {
-    if (edge.type === "exports") continue;
-    const sourcePath = pathFromNodeId(edge.source, graph.nodes);
-    const targetPath = pathFromNodeId(edge.target, graph.nodes);
-    if (sourcePath && filePaths.has(sourcePath)) filesWithRelationships.add(sourcePath);
-    if (targetPath && filePaths.has(targetPath)) filesWithRelationships.add(targetPath);
-  }
+  // Coverage
   if (fileNodes.length >= 3) {
     const coverage = filesWithRelationships.size / fileNodes.length;
     if (coverage < 0.5) {

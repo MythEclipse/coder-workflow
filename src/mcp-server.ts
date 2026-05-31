@@ -16,7 +16,7 @@ import {
   summarizeArchitecture,
 } from "./analysis.js";
 import { exportGraph } from "./exporters.js";
-import { getDirectoryTree, readFileContent } from "./fs-tools.js";
+import { getDirectoryTree } from "./fs-tools.js";
 import { summarizeGraphForBudget } from "./graph/summarize.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { searchCodebase } from "./search.js";
@@ -56,7 +56,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         "Query before normal search/grep for definitions, references, callers, callees, imports, exports, dependencies, routes, handlers, components, file/symbol relationships.",
       inputSchema: {
         type: "object",
-        properties: { query: { type: "string" } },
+        properties: { 
+          query: { type: "string" },
+          maxResults: { type: "number", description: "Maximum number of nodes to return" }
+        },
         required: ["query"],
       },
     },
@@ -93,7 +96,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         "Analyze upstream/downstream impact before broad search for refactors, PR review, dependency risk, change planning, affected files/symbols.",
       inputSchema: {
         type: "object",
-        properties: { target: { type: "string" } },
+        properties: { 
+          target: { type: "string" },
+          direction: { type: "string", enum: ["upstream", "downstream", "both"], description: "Direction to traverse the graph." }
+        },
         required: ["target"],
       },
     },
@@ -204,7 +210,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "query_graph": {
       const query = stringArg(args?.query, "query");
-      return text(queryGraph(readGraph(root), query));
+      return text(queryGraph(readGraph(root), query, numberArg(args?.maxResults)));
     }
     case "search_code":
       return text(
@@ -227,8 +233,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           (args?.formats as string[] | undefined) ?? settings.exports,
         ),
       });
-    case "analyze_impact":
-      return text(analyzeImpact(readGraph(root), String(args?.target ?? ""), settings.maxDepth));
+    case "analyze_impact": {
+      const target = stringArg(args?.target, "target");
+      const directionStr = typeof args?.direction === "string" ? args.direction : "both";
+      const direction = ["upstream", "downstream", "both"].includes(directionStr) ? (directionStr as "upstream" | "downstream" | "both") : "both";
+      return text(analyzeImpact(readGraph(root), target, settings.maxDepth, direction));
+    }
     case "open_graph_ui":
       return text({ url: await openGraphUi(root, settings) });
     case "find_cycles":
@@ -261,15 +271,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text(
         getDirectoryTree(root, String(args?.path ?? "."), { maxDepth: numberArg(args?.maxDepth) }),
       );
-    case "read_file":
-      return text(
-        readFileContent(
-          root,
-          stringArg(args?.filePath, "filePath"),
-          numberArg(args?.startLine),
-          numberArg(args?.endLine),
-        ),
-      );
+    case "read_file": {
+      const filePath = stringArg(args?.filePath, "filePath");
+
+      let graphData: { nodes: any[]; edges: any[] } | undefined;
+      try {
+        if (graphExists(root)) {
+          const graph = readGraph(root);
+          const searchPath = filePath.replace(/^[./\\]+/, "");
+          const nodes = graph.nodes.filter((n) => n.path === searchPath || n.path === filePath);
+          const nodeIds = new Set(nodes.map((n) => n.id));
+          const edges = graph.edges.filter((e) => nodeIds.has(e.source) || nodeIds.has(e.target));
+          graphData = { nodes, edges };
+        }
+      } catch (err) {
+        // Ignore if graph cannot be read
+      }
+
+      return text({
+        graph: graphData,
+      });
+    }
     case "summarize_graph": {
       const summary = summarizeGraphForBudget(readGraph(root), {
         maxNodes: numberArg(args?.maxNodes) ?? 50,
