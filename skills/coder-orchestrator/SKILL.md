@@ -66,8 +66,9 @@ Avoid extreme context fragmentation. The orchestrator routes work and retains co
 
 1. **Declare Scope**: Define the files you intend to modify upfront (`FILE_MANIFEST`).
 2. **Quarantine Zone**: If you encounter errors, type issues, or lint warnings during your work, you MUST fix them **IF AND ONLY IF** they are located within your declared `FILE_MANIFEST` or were directly introduced by your changes.
-3. **Pre-existing Debt**: If a global typecheck reveals 100 errors in untouch modules, **IGNORE THEM**. Document them as pre-existing technical debt. Do not attempt a global fix unless explicitly instructed by the user. Trying to fix the entire world leads to infinite loops.
-4. **Targeted Checks**: Always run verification commands tailored to your specific files (e.g., `npx eslint path/to/changed/file.ts` rather than `npm run lint`).
+3. **External Dependencies Escaping**: If fixing a bug within your `FILE_MANIFEST` absolutely requires modifying a closely coupled external file (e.g., updating an interface), you are permitted to add that file to your `FILE_MANIFEST` and fix it. However, if the fix requires widespread architectural changes outside your scope, REVERT your breaking change and document it as a blocker instead of entering an infinite loop.
+4. **Pre-existing Debt**: If a global typecheck reveals errors in untouched modules, **IGNORE THEM**. Document them as pre-existing technical debt. Do not attempt a global fix unless explicitly instructed by the user. Trying to fix the entire world leads to infinite loops.
+5. **Targeted Checks**: Always run verification commands tailored to your specific files (e.g., `npx eslint path/to/changed/file.ts` rather than `npm run lint`).
 
 ## Output Contract
 

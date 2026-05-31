@@ -19,13 +19,13 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-PROMPT=$(printf '%s' "$INPUT" | jq -r '
+PROMPT=$(jq -r '
   .prompt
   // .message
   // .userPrompt
   // .transcript[-1].content
   // empty
-' 2>/dev/null || true)
+' <<< "$INPUT" 2>/dev/null || true)
 
 [ -z "${PROMPT:-}" ] && exit 0
 

@@ -15,9 +15,9 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-TASK_ID=$(printf '%s' "$INPUT" | jq -r '.task.id // .task_id // .id // .payload.id // .payload.task.id // "unknown"')
-TASK_TITLE=$(printf '%s' "$INPUT" | jq -r '.task.title // .title // .payload.title // .payload.task.title // "unknown"')
-TASK_DESCRIPTION=$(printf '%s' "$INPUT" | jq -r '.task.description // .description // .payload.description // .payload.task.description // ""')
+TASK_ID=$(jq -r '.task.id // .task_id // .id // .payload.id // .payload.task.id // "unknown"' <<< "$INPUT" 2>/dev/null)
+TASK_TITLE=$(jq -r '.task.title // .title // .payload.title // .payload.task.title // "unknown"' <<< "$INPUT" 2>/dev/null)
+TASK_DESCRIPTION=$(jq -r '.task.description // .description // .payload.description // .payload.task.description // ""' <<< "$INPUT" 2>/dev/null)
 
 # Project-scoped log (consistent with hooks.json session log path)
 LOG_DIR=".claude"
@@ -35,7 +35,8 @@ ENV_DEPTH="${CW_AGENT_DEPTH:-0}"
 LOCK_FILE=".claude/agent-depth.lock"
 FILE_DEPTH=0
 if [ -f "$LOCK_FILE" ]; then
-  FILE_DEPTH=$(cat "$LOCK_FILE" 2>/dev/null || echo 0)
+  # Use flock to atomically read the lock file
+  FILE_DEPTH=$( ( flock -s 200; cat "$LOCK_FILE" 2>/dev/null || echo 0 ) 200> "${LOCK_FILE}.flock" )
   # Sanitize: ensure it's a non-negative integer
   FILE_DEPTH=$(printf '%s' "$FILE_DEPTH" | grep -E '^[0-9]+$' || echo 0)
 fi
