@@ -36,9 +36,9 @@ While speed is important, preventing race conditions and massive token overhead 
 4. **Runtime/Implicit Dependency Check**: Run text searches for indirect couplings.
 5. Check what skills/MCP tools apply to this request.
 
-### Step 2: Parallel Task Decomposition
+### Step 2: Task Decomposition
 
-Break the work into parallel tasks. Use predefined Agent Roles for each unit:
+Break the work into independent tasks. Use predefined Agent Roles for each unit:
 - **explorer**: reads and maps codebase structure, finds relevant files
 - **implementer**: writes or edits code (can have multiple implementers for different domains)
 - **test-writer**: writes unit/integration tests for changed code

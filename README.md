@@ -6,9 +6,9 @@ Orchestrator-driven Claude Code plugin for disciplined software engineering: agg
 
 - **`coder-orchestrator`** — single orchestrator for coding work AND codebase exploration (graph before grep, query before read)
 - **Mandatory sub-agent sequence** — workflow-planner → architecture-auditor → code-implementer → architecture-auditor (post-verify)
-- **Bug Discovery Mandate** — every bug found MUST be tracked and fixed, never skipped as "not related to my changes"
+- **Bug Discovery Mandate** — every bug found must be tracked as a low-priority task and fixed at the end of the session, preventing feature starvation
 - **Research-first** — context7 MCP for docs, codegraph MCP for code search, never guess API behavior
-- **Task tracking** — TaskCreate/TaskUpdate for every unit of work, 10+ tasks minimum for non-trivial work
+- **Task tracking** — TaskCreate/TaskUpdate for every unit of work, right-sized task decomposition to prevent context exhaustion
 - `coder` skill for general implementation workflow
 - `refraktor` skill for Modular MVC + Service + Repository transformations
 - `auditor` skill for read-only architecture audits
@@ -34,7 +34,7 @@ Orchestrator-driven Claude Code plugin for disciplined software engineering: agg
 
 | Agent | Purpose | When invoked |
 | --- | --- | --- |
-| `workflow-planner` | Aggressive task decomposition — 10+ subtasks minimum | ALWAYS, first agent in sequence |
+| `workflow-planner` | Right-sized task decomposition | ALWAYS, first agent in sequence |
 | `architecture-auditor` | Pre/post architecture review, violation detection | ALWAYS, before AND after implementation |
 | `code-implementer` | Scoped code execution after plan approval | ALWAYS, after pre-audit |
 
@@ -153,7 +153,7 @@ See `docs/design/workflow-architecture.md` for the full design philosophy, agent
 - Use `./install.sh --link` only during local plugin development.
 - Keep audits read-only unless the user explicitly asks to implement fixes.
 - Use Claude Code built-in plan mode before significant edits.
-- **Every discovered bug gets tracked and fixed** — no exceptions.
+- **Every discovered bug gets tracked as a low-priority task** and fixed at the end of the session.
 - **Always use sub-agents** — orchestrator routes, agents do the work.
 - **Research before guessing** — context7 MCP for docs, codegraph MCP for code search.
 

@@ -188,7 +188,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"coder-workflow: You are in an Explore context. You MUST use mcp__codegraph__query_graph, mcp__codegraph__search_code, mcp__codegraph__analyze_impact, or mcp__codegraph__summarize_architecture to explore the codebase. Do NOT use bash find/grep unless graph tools fail.\\\"}\"'",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"coder-workflow: You are in an Explore context. You should prioritize mcp__codegraph__query_graph, mcp__codegraph__search_code, mcp__codegraph__analyze_impact, or mcp__codegraph__summarize_architecture to explore the codebase. Fallback to bash find/grep gracefully if graph tools fail or timeout.\\\"}\"'",
             "timeout": 5
           }
         ]
@@ -198,7 +198,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); AGENT=$(jq -r \".tool_input.subagent_type // .tool_input.Subagents[0].TypeName // empty\" <<< \"$INPUT\" 2>/dev/null); if echo \"$AGENT\" | grep -qi \"explore\"; then jq -n \"{systemMessage: \\\"coder-workflow: The Explore agent MUST prioritize mcp__codegraph tools (query_graph, search_code, analyze_impact). Avoid bash find/grep.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(jq -r \".tool_input.subagent_type // .tool_input.Subagents[0].TypeName // empty\" <<< \"$INPUT\" 2>/dev/null); if echo \"$AGENT\" | grep -qi \"explore\"; then jq -n \"{systemMessage: \\\"coder-workflow: The Explore agent should prioritize mcp__codegraph tools (query_graph, search_code, analyze_impact). Fallback to bash find/grep if graph tools fail.\\\"}\"; fi; exit 0'",
             "if": "Explore|explore",
             "timeout": 5
           }
@@ -211,7 +211,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PostToolUse\\\", additionalContext: \\\"coder-workflow: Impact Radius active — bugs found within your modified files must be tracked and fixed. Ignore pre-existing debt outside your FILE_MANIFEST.\\\"}}\"'",
+            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PostToolUse\\\", additionalContext: \\\"coder-workflow: Impact Radius active — bugs found within your modified files must be tracked as low-priority tasks to be fixed at the end of the session, preventing feature starvation. Ignore pre-existing debt outside your FILE_MANIFEST.\\\"}}\"'",
             "timeout": 5
           },
           {
@@ -331,7 +331,7 @@
           },
           {
             "type": "command",
-            "command": "echo 'Turn complete. Mandatory checklist before next user message: (1) all tasks tracked, (2) no bugs left unfixed WITHIN your Impact Radius, (3) targeted tests pass, (4) graph is current.'",
+            "command": "echo 'Turn complete. Mandatory checklist before next user message: (1) all tasks tracked, (2) all discovered bugs tracked for later fixing, (3) targeted tests pass, (4) graph is current.'",
             "timeout": 5
           },
           {

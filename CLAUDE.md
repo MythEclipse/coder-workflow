@@ -91,11 +91,11 @@ Hooks are defined in `hooks/hooks.json` and companion scripts in `hooks/scripts/
 
 ## Orchestrator Usage (Required)
 
-- **Always trigger `coder-orchestrator`** at session start for any coding task — features, bugs, refactors, reviews, deployments. It handles both workflow routing AND codebase exploration (graph before grep, query before read).
-- **Always run `TaskCreate` + `TaskUpdate` first**: Before using any search or file-reading tools for initial exploration or planning, you MUST first run `TaskCreate` to create an initial task (e.g., 'Explore codebase and plan implementation') and mark it `in_progress` via `TaskUpdate`. This prevents task tool usage warnings.
-- The coding orchestrator routes work through a parallel agent sequence: the `workflow-planner` agent (invoked via the `Agent` tool, not the `Skill` tool) breaks the task into independent units, then spawns parallel subagents (e.g., `explorer`, `implementer`, `test-writer`) simultaneously.
-- **ALWAYS decompose tasks into parallel subagents whenever possible**. Do NOT work sequentially when parallelism is possible. Token cost is not a constraint. Speed and parallelism are the priority.
-- Every discovered bug MUST be tracked and fixed — never skip as "not related to my changes."
+- **Always trigger `coder-orchestrator`** at session start for any coding task. It handles both workflow routing and codebase exploration (prioritize graph over grep, query over read).
+- **Tasks tracking is recommended**: While it is good practice to run `TaskCreate` early, initial codebase exploration using read-only tools is permitted before task creation.
+- The coding orchestrator routes work through an agent sequence: the `workflow-planner` agent breaks the task into units.
+- **Prefer sequential execution when modifying shared state** (e.g., config files, core modules) to avoid merge conflicts and race conditions. Use parallel subagents only for strictly independent tasks.
+- **Every discovered bug MUST be tracked as a low-priority task** to be fixed at the end of the session, preventing feature starvation.
 - Use skills and MCP tools before guessing. Use context7 MCP for framework docs. Use codegraph MCP for code search.
 
 ## MCP Server
@@ -153,7 +153,7 @@ claude --plugin-dir /mnt/code/djnaidwhbwda/coder-workflow
 
 ## Workflow Philosophy
 
-1. **Tasks before tools** — Before running ANY other tools (such as Grep, ViewFile, run_command, or CodeGraph MCP tools) at the start of a session or when receiving a new task, you MUST first run `TaskCreate` to initialize workflow tracking. Create an initial task (e.g., 'Explore and research codebase' or 'Plan implementation and explore files') and set it to `in_progress` immediately using `TaskUpdate`. This prevents warnings about task tools not being used.
+1. **Tasks tracking** — It is recommended to use `TaskCreate` to organize work, but initial codebase exploration using read-only tools is permitted before task creation.
 2. **Skills before guesses** — always route to appropriate skill
-3. **Hooks enforce tool rules** — MCP-before-grep, Explore codegraph-first, Context7-first, and graph-first rules are enforced by PreToolUse/PostToolUse hooks automatically
-4. **Fix every discovered bug** — no exceptions, no "not related to my changes"
+3. **Hooks encourage tool rules** — Prioritize MCP-before-grep, Explore codegraph-first, Context7-first. Fallback to raw tools gracefully if services fail.
+4. **Track every discovered bug** — Track bugs as low-priority tasks and fix them at the end of the session, preventing feature starvation.

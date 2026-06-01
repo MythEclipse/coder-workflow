@@ -47,7 +47,7 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
 
 Speed and parallelism are important, but preventing race conditions and massive token overhead is the priority. Instruct Claude Code to decompose tasks into parallel subagents ONLY when domains are strictly isolated. Work sequentially if modifying agents risk overlapping writes or logical merge conflicts.
 
-### When to Parallelize (default: always)
+### When to Parallelize (default: sequential for writes)
 Split into parallel subagents for ANY of these patterns:
 - **Multiple files to read/edit**: Refactor auth, api, db modules
 - **Research + implementation**: Explore codebase while writing plan
@@ -85,7 +85,7 @@ When resuming a session after a disconnect or token limit:
 **You operate under an Impact Radius Protocol with a unified triage system.**
 
 1. **Declare Scope**: Define the files you intend to modify upfront (`FILE_MANIFEST`).
-2. **Category A — Bugs Within Impact Radius**: If you encounter errors, type issues, or lint warnings **within your declared `FILE_MANIFEST`** or directly introduced by your changes, you **MUST fix them**, with one exception: **Technical Debt Timeout**. If fixing the bug uncovers a massive chain of legacy debt that blocks feature delivery, you may defer it by writing a detailed justification to `.claude/deferred-bugs.json`. Otherwise, invoke the `systematic-debugging` skill to perform root-cause analysis before attempting any fixes. Symptom fixing is strictly prohibited.
+2. **Category A — Bugs Within Impact Radius**: If you encounter errors, type issues, or lint warnings **within your declared `FILE_MANIFEST`** or directly introduced by your changes, you must track them as low-priority tasks to be fixed at the end of the session to prevent feature starvation. You may defer them by writing a detailed justification to `.claude/deferred-bugs.json` if fixing uncovers massive legacy debt.
 3. **Category B — Pre-existing Bugs Outside Impact Radius**: If a global typecheck reveals errors in untouched modules, apply a **budget-capped triage**:
    - Fix up to **5 High/Medium severity** Category B bugs per session.
    - Beyond 5, defer by writing to `.claude/deferred-bugs.json` with file:line, severity, and deferral reason.

@@ -4,12 +4,12 @@
 
 Coder Workflow is built on six core principles:
 
-1. **Tasks before tools** — Run `TaskCreate` + `TaskUpdate` to create an initial task (e.g. 'Explore codebase') before running any other tools.
+1. **Tasks tracking** — It is recommended to use `TaskCreate` early, but initial codebase exploration using read-only tools is permitted before task creation.
 2. **Skills before guesses** — Always route to the appropriate skill, never implement ad-hoc
-3. **MCP before grep** — Use codegraph/context7 MCP tools before raw search
+3. **MCP before grep** — Prioritize codegraph/context7 MCP tools. Fallback to raw grep gracefully if services fail.
 4. **Context7 before assumptions** — Never guess framework/API behavior, query docs first
 5. **Never give up** — If stuck, decompose further, research more, ask clarifying questions
-6. **Fix every discovered bug** — No exceptions, no "not related to my changes"
+6. **Track every discovered bug** — Track bugs as low-priority tasks and fix them at the end of the session to prevent feature starvation.
 
 ## Architecture
 
@@ -38,11 +38,11 @@ Hooks:
 
 ## Agent Coordination Pattern
 
-The orchestrator uses a fixed 4-agent sequence:
+The orchestrator uses an adaptable agent sequence:
 
 ```
-workflow-planner → architecture-auditor → code-implementer → architecture-auditor
-     (plan)              (pre-audit)          (execute)           (post-verify)
+workflow-planner → [architecture-auditor] → code-implementer → [architecture-auditor]
+     (plan)           (optional pre-audit)      (execute)      (optional post-verify)
 ```
 
 This ensures:
@@ -54,14 +54,14 @@ This ensures:
 
 ## Bug Discovery Mandate
 
-The key differentiator from other workflows: **every bug discovered during work MUST be tracked and fixed.**
+The key differentiator from other workflows: **every bug discovered during work MUST be tracked.**
 
-This prevents the common pattern where AI agents say "pre-existing warning, not related to my changes" and leave the codebase worse than they found it.
+This prevents the common pattern where AI agents say "pre-existing warning, not related to my changes". To prevent feature starvation and scope creep, bugs must be tracked as low-priority tasks and fixed at the end of the session.
 
 Severity classification:
-- **Blocker**: crashes, data loss, security → fix immediately
-- **High**: broken functionality, failed tests → fix before session ends
-- **Medium**: deprecation warnings, console errors → fix before session ends
+- **Blocker**: crashes, data loss, security → track and fix as soon as possible
+- **High**: broken functionality, failed tests → track and fix at the end of the session
+- **Medium**: deprecation warnings, console errors → track and fix at the end of the session
 - **Low**: cosmetic issues → track, fix if time permits
 
 ## Learning Protocol

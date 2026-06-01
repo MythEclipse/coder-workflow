@@ -43,8 +43,8 @@ export async function ensureSchema(db: DuckDBConnection): Promise<void> {
     CREATE TABLE IF NOT EXISTS scan_cache (
       path TEXT PRIMARY KEY,
       hash TEXT NOT NULL,
-      mtime REAL NOT NULL,
-      size REAL,
+      mtime DOUBLE NOT NULL,
+      size DOUBLE,
       language TEXT,
       scannerVersion TEXT,
       nodes TEXT NOT NULL,
