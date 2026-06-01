@@ -212,8 +212,7 @@
           {
             "type": "command",
             "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PostToolUse\\\", additionalContext: \\\"coder-workflow: Impact Radius active — bugs found within your modified files must be tracked and fixed. Ignore pre-existing debt outside your FILE_MANIFEST.\\\"}}\"'",
-            "timeout": 5,
-            "async": true
+            "timeout": 5
           },
           {
             "type": "command",
