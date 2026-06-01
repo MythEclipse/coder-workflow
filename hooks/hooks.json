@@ -38,7 +38,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'DB=.codegraph/graph.db; LOCK=.codegraph/scan.lock; if [ ! -f \"$DB\" ]; then touch \"$LOCK\" 2>/dev/null || true; (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || npx codegraph-mapper scan 2>/dev/null || true); rm -f \"$LOCK\" 2>/dev/null || true; fi; exit 0'",
+            "command": "bash -c 'DB=.codegraph/graph.db; LOCK=.codegraph/scan.lock; if [ ! -f \"$DB\" ]; then touch \"$LOCK\" 2>/dev/null || true; (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || true); rm -f \"$LOCK\" 2>/dev/null || true; fi; exit 0'",
             "timeout": 180,
             "async": true,
             "statusMessage": "Auto-scanning codebase graph..."
@@ -322,7 +322,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c '\nrm -f /tmp/cw-grep-warned-$$ 2>/dev/null || true\nLOG=.claude/session-$(date +%Y%m%d).log\nmkdir -p .claude 2>/dev/null || true\nif test -f .codegraph/graph.db; then\n  UPDATE_OUTPUT=$(command -v coder-workflow >/dev/null 2>&1 && coder-workflow update 2>&1 || npx codegraph-mapper update 2>&1 || true)\n  if echo \"$UPDATE_OUTPUT\" | grep -qiE \"error|fail|exception\"; then\n    printf \"[%s] GRAPH UPDATE FAILED: %s\\n\" \"$(date -u +%T)\" \"$UPDATE_OUTPUT\" >> \"$LOG\" 2>/dev/null || true\n  fi\nfi\nexit 0'\n            ",
+            "command": "bash -c '\nrm -f /tmp/cw-grep-warned-$$ 2>/dev/null || true\nLOG=.claude/session-$(date +%Y%m%d).log\nmkdir -p .claude 2>/dev/null || true\nif test -f .codegraph/graph.db; then\n  UPDATE_OUTPUT=$(command -v coder-workflow >/dev/null 2>&1 && coder-workflow update 2>&1 || true)\n  if echo \"$UPDATE_OUTPUT\" | grep -qiE \"error|fail|exception\"; then\n    printf \"[%s] GRAPH UPDATE FAILED: %s\\n\" \"$(date -u +%T)\" \"$UPDATE_OUTPUT\" >> \"$LOG\" 2>/dev/null || true\n  fi\nfi\nexit 0'\n            ",
             "timeout": 120,
             "async": true
           }

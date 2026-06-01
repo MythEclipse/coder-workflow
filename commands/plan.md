@@ -5,7 +5,7 @@ allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph
 model: sonnet
 ---
 
-Invoke the `workflow-planner` agent to aggressively decompose the given coding request.
+Invoke the `workflow-planner` agent (using the `Agent` or `Subagent` tool, DO NOT use the `Skill` tool) to aggressively decompose the given coding request.
 
 The `workflow-planner` agent is the single source of truth for decomposition rules, task thresholds, dependency ordering, skill assignment, and verification gates. Do not duplicate those rules here — invoke the agent and let it run its full process.
 

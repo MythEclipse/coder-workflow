@@ -188,7 +188,7 @@ export async function readScanCache(root: string): Promise<ScanCacheData> {
     }
     return { files };
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 
@@ -218,7 +218,7 @@ export async function writeScanCache(root: string, cache: ScanCacheData): Promis
       throw error;
     }
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 
@@ -268,7 +268,7 @@ export async function writeGraphToDb(root: string, graph: CodeGraph): Promise<vo
       throw error;
     }
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 
@@ -364,7 +364,7 @@ export async function replaceGraphPathsInDb(
       throw error;
     }
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 
@@ -404,7 +404,7 @@ export async function readGraphFromDb(root: string): Promise<CodeGraph> {
       },
     };
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 
@@ -417,7 +417,7 @@ export async function queryNodeById(root: string, id: string): Promise<CodeGraph
     );
     return row ? nodeFromRow(row) : undefined;
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 
@@ -430,7 +430,7 @@ export async function queryNodesByName(root: string, name: string): Promise<Code
     );
     return rows.map(nodeFromRow);
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 
@@ -443,7 +443,7 @@ export async function queryNodesByPath(root: string, path: string): Promise<Code
     );
     return rows.map(nodeFromRow);
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 
@@ -456,7 +456,7 @@ export async function queryEdgesBySource(root: string, source: string): Promise<
     );
     return rows.map(edgeFromRow);
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 
@@ -469,7 +469,7 @@ export async function queryEdgesByTarget(root: string, target: string): Promise<
     );
     return rows.map(edgeFromRow);
   } finally {
-    // Keep connection alive for reuse
+    await db.close();
   }
 }
 

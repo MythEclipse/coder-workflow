@@ -59,7 +59,7 @@ Split into parallel subagents for ANY of these patterns:
 ### Workflow Sequence
 
 1. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
-2. **Plan & Decompose**: Extract tasks via `workflow-planner` (Feature-Slice Decomposition) designed for parallel agents.
+2. **Plan & Decompose**: Extract tasks via the `workflow-planner` agent (using the `Agent` tool, NOT the `Skill` tool) using Feature-Slice Decomposition designed for parallel agents.
 3. **Parallel Implementation**: Spawn multiple subagents simultaneously using the Task tool (e.g., `explorer`, `implementer`, `test-writer`, `docs-updater`).
 4. **Synthesis & Verification**: Merge results, run targeted typechecks/linters scoped only to modified files, and fix bugs within the Impact Radius.
 5. **Auditing (Optional)**: Dispatch `architecture-auditor` sub-agents if structural review is explicitly requested.

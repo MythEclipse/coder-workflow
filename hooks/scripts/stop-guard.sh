@@ -27,10 +27,7 @@ if [ -f "$LOG" ]; then
         '{
           decision: "block",
           reason: $reason,
-          hookSpecificOutput: {
-            hookEventName: "Stop",
-            additionalContext: ("coder-workflow: " + $reason)
-          }
+          systemMessage: ("coder-workflow: " + $reason)
         }'
       exit 0
     else
