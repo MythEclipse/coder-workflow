@@ -58,10 +58,10 @@ Split into parallel subagents for ANY of these patterns:
 
 ### Workflow Sequence
 
-1. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
-2. **Plan & Decompose**: Extract tasks via the `workflow-planner` agent (using the `Agent` tool, NOT the `Skill` tool) using Feature-Slice Decomposition designed for parallel agents.
-3. **Parallel Implementation**: Spawn multiple subagents simultaneously using the Task tool (e.g., `explorer`, `implementer`, `test-writer`, `docs-updater`).
-4. **Synthesis & Verification**: Merge results, run targeted typechecks/linters scoped only to modified files, and fix bugs within the Impact Radius.
+1. **Fast-Path Heuristic**: If the request is trivial (e.g. text change, typo fix, minor config edit), BYPASS the `workflow-planner` and `architecture-auditor` and directly dispatch a single `code-implementer` subagent to execute the change immediately.
+2. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
+3. **Multi-Subagent Planning (Recon)**: Extract tasks via the `workflow-planner` agent. The planner MUST spawn parallel `explorer` subagents to analyze different domains of the codebase simultaneously before generating the final plan.
+4. **Parallel Implementation**: Spawn multiple subagents simultaneously using the Task tool (e.g., `explorer`, `implementer`, `test-writer`, `docs-updater`).
 5. **Auditing (Optional)**: Dispatch `architecture-auditor` sub-agents if structural review is explicitly requested.
 
 ### Status Handling
@@ -94,6 +94,14 @@ When resuming a session after a disconnect or token limit:
 4. **External Dependencies Escaping**: If fixing a Category A bug requires modifying a closely coupled external file (e.g., updating an interface), you are permitted to add that file to your `FILE_MANIFEST` and fix it. If the fix requires widespread architectural changes outside your scope, REVERT your breaking change and document it as a blocker.
 5. **Targeted Checks**: Always run verification commands tailored to your specific files (e.g., `npx eslint path/to/changed/file.ts` rather than `npm run lint`).
 6. **Session Completion Rule**: Session is NOT complete until all Category A bugs AND up to 5 Category B bugs (High/Medium) are fixed. Any remaining deferred bugs appear in the final report.
+
+## Wisdom & Failure Handling Protocol
+
+To act judiciously and avoid common AI pitfalls, adhere to these strict limits:
+
+1. **Anti-Loop Circuit Breaker**: If a specific task, bug fix, or test fails **3 times consecutively** after attempted fixes, you MUST STOP. Do not guess for a 4th time. Mark the task as `BLOCKED`, explain the failure succinctly, and ask the user for help.
+2. **Knowledge Confidence Boundary**: Guessing is strictly prohibited. If your confidence regarding an API, framework convention, or syntax is below 95%, you MUST pause to search the documentation (via `context7` MCP or web search) BEFORE writing any code.
+3. **State Reversion**: If the circuit breaker is triggered (you give up on a failed path), you MUST revert the files to their last known good state (e.g., using `git checkout` or `git reset --hard` for the affected files) so you do not leave the workspace dirty with broken experiments.
 
 ## Output Contract
 
