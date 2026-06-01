@@ -77,7 +77,7 @@ In plan mode, inspect the relevant code, identify the target files, define the i
    - Fix each in order: Blocker → High → Medium
    - Verify each fix independently
    - **Triage rule**: bugs split into two categories:
-     - **Category A — bugs in files I touched**: Fix ALL, regardless of count. No deferral. You MUST invoke the `systematic-debugging` skill to perform a 4-phase root-cause analysis before attempting any fixes.
+     - **Category A — bugs in files I touched**: Fix ALL, regardless of count, with one exception: **Technical Debt Timeout**. If fixing the bug uncovers a massive chain of legacy debt that blocks feature delivery, you may defer it by writing a detailed justification to `.claude/deferred-bugs.json`. Otherwise, you MUST invoke the `systematic-debugging` skill to perform a 4-phase root-cause analysis before attempting any fixes.
      - **Category B — bugs in files I did NOT touch** (pre-existing in unrelated code): Budget-capped at **5 per session**. Beyond 5, auto-defer with documentation. Session completes without user interruption.
    - Session is NOT complete until all Category A bugs AND up to 5 Category B bugs (High/Medium) are fixed
    - Report any remaining deferred bugs with: file:line, severity, category, reason for deferral

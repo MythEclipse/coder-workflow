@@ -219,6 +219,13 @@
             "command": "bash -c 'INPUT=$(cat); FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if test -f .codegraph/graph.db; then command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; fi; exit 0'",
+            "timeout": 30,
+            "async": true,
+            "statusMessage": "Updating CodeGraph..."
           }
         ]
       },
@@ -251,6 +258,14 @@
             "if": "Bash(git checkout *)|Bash(git switch *)",
             "timeout": 5,
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if test -f .codegraph/graph.db; then command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; fi; exit 0'",
+            "if": "Bash(git checkout *)|Bash(git switch *)|Bash(git merge *)|Bash(git pull)|Bash(git rebase *)",
+            "timeout": 30,
+            "async": true,
+            "statusMessage": "Updating CodeGraph after Git operation..."
           }
         ]
       },

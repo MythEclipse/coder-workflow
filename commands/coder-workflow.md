@@ -8,12 +8,13 @@ model: sonnet
 Trigger the coder-orchestrator skill. Every coding request flows through:
 
 0. **Brainstorming** → Invoke `brainstorming` skill if the request is underspecified before planning.
-1. **Decompose** → `workflow-planner` agent breaks work into independent tasks for parallel execution.
-2. **Pre-audit** → `architecture-auditor` agent reviews current state and violations (skip for simple tasks)
-3. **Parallel Implement** → Spawn multiple subagents simultaneously using the Task tool (e.g., `explorer`, `implementer`, `test-writer`, `docs-updater`).
-4. **Synthesis** → Merge results from parallel subagents, resolve conflicts, and present a unified result.
-5. **Post-verify** → `architecture-auditor` agent confirms no new violations (complex tasks only)
-6. **Bug Fix Phase** → ALL discovered bugs are fixed before session ends
+1. **Trivial Task Fast-Path** → If the request is a trivial fix (e.g., typo, 1-2 line change), SKIP planning and auditing, and execute directly.
+2. **Decompose** → For complex tasks, `workflow-planner` agent breaks work into independent tasks.
+3. **Pre-audit** → `architecture-auditor` agent reviews current state and violations (skip for simple tasks).
+4. **Parallel Implement** → Spawn multiple subagents carefully using the Task tool, ensuring modifying agents don't overlap.
+5. **Synthesis** → Merge results from subagents, resolve conflicts, and present a unified result.
+6. **Post-verify** → `architecture-auditor` agent confirms no new violations (complex tasks only).
+7. **Bug Fix Phase** → Fix discovered bugs using the Impact Radius Protocol (with Technical Debt deferrals if needed).
 
 **Core rules:**
 - Tasks before tools — Run `TaskCreate` + `TaskUpdate` to create an initial task (e.g. 'Explore codebase') before running any other tools.

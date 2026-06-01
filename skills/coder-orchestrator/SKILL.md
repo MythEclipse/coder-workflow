@@ -43,9 +43,9 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
 | "Work on this" / "kerjakan" | Any vague coding request |
 | Explore | Codebase exploration, start of session |
 
-## Agent Coordination (Parallel Subagents — Always On)
+## Agent Coordination (Judicious Parallelism)
 
-Token cost is not a constraint. Speed and parallelism are the priority. Instruct Claude Code to ALWAYS decompose tasks into parallel subagents whenever possible. Do NOT work sequentially unless tasks have hard data dependencies on each other.
+Speed and parallelism are important, but preventing race conditions and massive token overhead is the priority. Instruct Claude Code to decompose tasks into parallel subagents ONLY when domains are strictly isolated. Work sequentially if modifying agents risk overlapping writes or logical merge conflicts.
 
 ### When to Parallelize (default: always)
 Split into parallel subagents for ANY of these patterns:
@@ -85,7 +85,7 @@ When resuming a session after a disconnect or token limit:
 **You operate under an Impact Radius Protocol with a unified triage system.**
 
 1. **Declare Scope**: Define the files you intend to modify upfront (`FILE_MANIFEST`).
-2. **Category A — Bugs Within Impact Radius**: If you encounter errors, type issues, or lint warnings **within your declared `FILE_MANIFEST`** or directly introduced by your changes, you **MUST fix them**. No deferral, no exceptions. You MUST invoke the `systematic-debugging` skill to perform root-cause analysis before attempting any fixes. Symptom fixing is strictly prohibited.
+2. **Category A — Bugs Within Impact Radius**: If you encounter errors, type issues, or lint warnings **within your declared `FILE_MANIFEST`** or directly introduced by your changes, you **MUST fix them**, with one exception: **Technical Debt Timeout**. If fixing the bug uncovers a massive chain of legacy debt that blocks feature delivery, you may defer it by writing a detailed justification to `.claude/deferred-bugs.json`. Otherwise, invoke the `systematic-debugging` skill to perform root-cause analysis before attempting any fixes. Symptom fixing is strictly prohibited.
 3. **Category B — Pre-existing Bugs Outside Impact Radius**: If a global typecheck reveals errors in untouched modules, apply a **budget-capped triage**:
    - Fix up to **5 High/Medium severity** Category B bugs per session.
    - Beyond 5, defer by writing to `.claude/deferred-bugs.json` with file:line, severity, and deferral reason.

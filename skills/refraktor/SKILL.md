@@ -51,6 +51,7 @@ Detect the project's architectural pattern and adapt layer names accordingly. **
 | Pattern | Detection Signals | Layer Names | Folder Structure |
 |---|---|---|---|
 | **MVC (Web/API)** | HTTP routes, controllers, request/response objects | Route → Controller → Service → Repository → Schema | `modules/{feature}/` |
+| **Modern Colocated (Next.js/SvelteKit/FSD)** | Server Actions, Loaders, `page.tsx`, `+page.server.ts` | Page/Route → Server Action/Loader → DB Access (Colocated) | `app/`, `routes/`, `features/` |
 | **GraphQL Resolver** | GraphQL schema files, `Resolver` classes, `Query/Mutation` types | Schema → Resolver → Service → Repository → Input Validator | `modules/{feature}/` |
 | **CLI Tool** | `main` entry, `Command` classes, `ArgParser`, no HTTP | Entry → Command → Handler → Repository → Config | `commands/`, `handlers/` |
 | **Event-Driven** | Event emitters, message handlers, `on(event)`, queues, pub/sub | Event → Handler → Service → Repository → Schema | `events/`, `handlers/` |
@@ -58,6 +59,7 @@ Detect the project's architectural pattern and adapt layer names accordingly. **
 | **Library/SDK** | No entry point, exported APIs, public interfaces | Public API → Internal Service → Core → Utils | `src/`, `lib/` |
 
 Detection logic:
+- **Has Next.js App Router (`page.tsx`, `actions.ts`), SvelteKit (`+page.ts`), or FSD layout** → Modern Colocated pattern
 - **Has HTTP routes/controllers** → MVC pattern (default)
 - **Has GraphQL schema + Resolvers** → GraphQL Resolver pattern
 - **Has CLI commands, no HTTP server** → CLI Command/Handler pattern
@@ -102,6 +104,7 @@ Entry → PureFunctions → DataAccess → Types
 ```
 
 Layer responsibilities adapt per pattern. The universal rule: **each layer has one responsibility, dependencies flow inward, shared never imports from modules.**
+For Modern Colocated patterns, prioritize **Feature Cohesion** over technical layer separation (e.g., it is acceptable for a Server Action to directly query the database if the logic is isolated to a single feature).
 
 ### MVC folder structure (most common)
 
