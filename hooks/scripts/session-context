@@ -302,7 +302,7 @@ printf '%s' "$LOWER" | grep -qE '(kerjakan|implementasi|perbaiki|buat|tambah|apa
 PRIMARY_INTENT=$(printf '%s' "$INTENT_STR" | cut -d',' -f1)
 [ -z "$PRIMARY_INTENT" ] || [ "$PRIMARY_INTENT" = "none" ] && PRIMARY_INTENT="${PRIMARY:-unknown}"
 
-context_msg="coder-workflow: skills=[${SKILL_STR}], intents=[${INTENT_STR}], primary=${PRIMARY_INTENT} (confidence=${CONFIDENCE}%), complexity=${COMPLEXITY}, lang=${LANG}, words=${WORD_COUNT}."
+context_msg="coder-workflow: skills=[${SKILL_STR}], intents=[${INTENT_STR}], primary=${PRIMARY_INTENT} (confidence=${CONFIDENCE}%), complexity=${COMPLEXITY}, lang=${LANG}, words=${WORD_COUNT}. CRITICAL RULE: You MUST use TaskCreate and TaskUpdate immediately to track all work. Never ignore task tools."
 
 if [ -n "$WARNING_STR" ]; then
   context_msg="${context_msg} SECURITY[${SEVERITY}]: ${WARNING_STR}"
