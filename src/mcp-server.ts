@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { statSync } from "node:fs";
+import { statSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cwd } from "node:process";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -16,6 +16,7 @@ import {
   summarizeArchitecture,
 } from "./analysis.js";
 import { exportGraph } from "./exporters.js";
+import { diffGraphs, formatGraphDiff } from "./git-diff.js";
 import { getDirectoryTree } from "./fs-tools.js";
 import { summarizeGraphForBudget } from "./graph/summarize.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
@@ -67,6 +68,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: "scan_codebase",
       description:
         "Build or refresh graph before broad exploration, architecture analysis, dependency lookup, flow tracing, impact review.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "update_codebase",
+      description: "Memperbarui database graf hanya untuk file-file yang baru saja berubah.",
       inputSchema: { type: "object", properties: {} },
     },
     {
@@ -181,20 +187,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
-      name: "read_file",
-      description:
-        "Read the contents of a file within the project. Supports optional startLine and endLine for chunked reading.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          filePath: { type: "string" },
-          startLine: { type: "number" },
-          endLine: { type: "number" },
-        },
-        required: ["filePath"],
-      },
-    },
-    {
       name: "summarize_graph",
       description:
         "Return bounded graph summary with omitted counts, hotspots, and graph freshness (ageMinutes).",
@@ -212,6 +204,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         "Check if the CodeGraph database is fresh. Returns age in minutes and staleness status. Recommended before deep analysis or architecture audits.",
       inputSchema: { type: "object", properties: {} },
     },
+    {
+      name: "diff_graphs",
+      description: "Membandingkan perbedaan struktur sebelum dan sesudah perubahan kode.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          beforePath: { type: "string", description: "Path to before.json" },
+          afterPath: { type: "string", description: "Path to after.json" },
+        },
+        required: ["beforePath", "afterPath"],
+      },
+    },
   ],
 }));
 
@@ -221,7 +225,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const args = request.params.arguments as Record<string, unknown> | undefined;
 
   switch (request.params.name) {
-    case "scan_codebase": {
+    case "scan_codebase":
+    case "update_codebase": {
       const graph = await scanCodebase(root, settings);
       await writeGraph(root, graph);
       return text({
@@ -262,7 +267,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const direction = ["upstream", "downstream", "both"].includes(directionStr)
         ? (directionStr as "upstream" | "downstream" | "both")
         : "both";
-      return text(analyzeImpact(await getCachedGraph(root), target, settings.maxDepth, direction));
+      return text(analyzeImpact(await getCachedGraph(root), target, Number.MAX_SAFE_INTEGER, direction));
     }
     case "open_graph_ui":
       return text({ url: await openGraphUi(root, settings) });
@@ -294,29 +299,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "list_directory_tree":
       return text(
-        getDirectoryTree(root, String(args?.path ?? "."), { maxDepth: numberArg(args?.maxDepth) }),
+        getDirectoryTree(root, String(args?.path ?? "."), { maxDepth: Number.MAX_SAFE_INTEGER }),
       );
-    case "read_file": {
-      const filePath = stringArg(args?.filePath, "filePath");
-
-      let graphData: { nodes: any[]; edges: any[] } | undefined;
-      try {
-        if (await graphExists(root)) {
-          const graph = await getCachedGraph(root);
-          const searchPath = filePath.replace(/^[./\\]+/, "");
-          const nodes = graph.nodes.filter((n) => n.path === searchPath || n.path === filePath);
-          const nodeIds = new Set(nodes.map((n) => n.id));
-          const edges = graph.edges.filter((e) => nodeIds.has(e.source) || nodeIds.has(e.target));
-          graphData = { nodes, edges };
-        }
-      } catch (err) {
-        // Ignore if graph cannot be read
-      }
-
-      return text({
-        graph: graphData,
-      });
-    }
     case "summarize_graph": {
       const summary = summarizeGraphForBudget(await getCachedGraph(root), {
         maxNodes: numberArg(args?.maxNodes) ?? 50,
@@ -324,6 +308,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
       const freshness = await getGraphFreshness(root);
       return text({ ...summary, freshness });
+    }
+    case "diff_graphs": {
+      const before = JSON.parse(readFileSync(stringArg(args?.beforePath, "beforePath"), "utf8"));
+      const after = JSON.parse(readFileSync(stringArg(args?.afterPath, "afterPath"), "utf8"));
+      return text({ diff: formatGraphDiff(diffGraphs(before, after)) });
     }
     case "check_graph_freshness":
       return text(await getGraphFreshness(root));

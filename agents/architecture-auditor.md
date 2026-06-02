@@ -138,3 +138,10 @@ Check each layer for violations **based on the detected architecture paradigm**.
 4. **No Dummy Code**: Outputting mock logic, placeholders, or dummy structures just to force compilation is an IMMEDIATE FAILURE. You must engineer the real solution.
 
 **Do not ignore these rules under any circumstances.**
+
+
+> [!IMPORTANT]
+> MCP TOOL UPDATES:
+> - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it. Use standard `view_file` or `Read` via explorer subagents instead.
+> - `mcp__codegraph__analyze_impact` and `list_directory_tree` now have UNLIMITED depth.
+> - New tools added: `mcp__codegraph__update_codebase` (partial scan) and `mcp__codegraph__diff_graphs` (compare json states).

@@ -173,31 +173,11 @@
         ]
       },
       {
-        "matcher": "mcp__codegraph__.*|mcp__code-review-graph__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'if [ ! -f .claude/agent-depth.lock ]; then jq -n \"{systemMessage: \\\"coder-workflow CRITICAL BLOCK: The main orchestrator is FORBIDDEN from using graph tools directly to save tokens. You MUST invoke an explorer subagent.\\\"}\"; else exit 0; fi'",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Read|view_file",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'if [ ! -f .claude/agent-depth.lock ]; then INPUT=$(cat); FILE=$(jq -r \".tool_input.file_path // .tool_input.path // .tool_input.AbsolutePath // empty\" <<< \"$INPUT\" 2>/dev/null); if ! echo \"$FILE\" | grep -qiE \"(task\\.md|package\\.json|package-lock\\.json|CLAUDE\\.md|\\.claude/|hooks\\.json|\\.mcp\\.json)\"; then jq -n \"{systemMessage: \\\"coder-workflow CRITICAL BLOCK: The main orchestrator is FORBIDDEN from reading source code files directly to save tokens. You MUST invoke an explorer subagent. Only metadata files can be read directly.\\\"}\"; else exit 0; fi; else exit 0; fi'",
-            "timeout": 5
-          }
-        ]
-      },
-      {
         "matcher": "Grep|Glob",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if [ ! -f .claude/agent-depth.lock ]; then jq -n \"{systemMessage: \\\"coder-workflow CRITICAL BLOCK: The main orchestrator is FORBIDDEN from using Grep or Glob directly to save tokens. You MUST invoke an explorer subagent.\\\"}\"; else exit 0; fi'",
+            "command": "bash -c 'exit 0'",
             "timeout": 5
           }
         ]
@@ -358,7 +338,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Turn complete. Mandatory checklist before next user message: (1) all tasks tracked, (2) all discovered bugs tracked for later fixing, (3) targeted tests pass, (4) graph is current.'",
+            "command": "bash -c 'git add . 2>/dev/null; git commit -m \"chore: session auto-commit\" 2>/dev/null || true; echo \"Turn complete. Mandatory checklist before next user message: (1) all tasks tracked, (2) all discovered bugs tracked for later fixing, (3) targeted tests pass, (4) graph is current. (Changes have been auto-committed).\"'",
             "timeout": 5
           },
           {
@@ -553,7 +533,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // unknown\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; jq -n \"{systemMessage: \\\"coder-workflow notice: Task complete. MANDATORY: (1) Did you over-engineer the solution? Zero dummy code allowed! (2) You must execute git commit for your changes now before proceeding to the next task.\\\"}\"; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // unknown\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; git add . 2>/dev/null; git commit -m \"chore: auto-commit task - $TITLE\" 2>/dev/null || true; jq -n \"{systemMessage: \\\"coder-workflow notice: Task complete. MANDATORY: Did you over-engineer the solution? Zero dummy code allowed! (Note: Changes were automatically committed to git, you do not need to ask the user).\\\"}\"; exit 0'",
             "timeout": 5
           }
         ]
