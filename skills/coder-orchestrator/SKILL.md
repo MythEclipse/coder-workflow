@@ -48,7 +48,7 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
 
 **MANDATORY: YOU MUST PRIORITIZE SUBAGENTS OVER DOING WORK YOURSELF.** You are the orchestrator, not the worker. If there is a subagent that fits the task, you MUST use `invoke_subagent`. Do not write code or perform deep research yourself.
 
-**Context Token Efficiency Mandate:** NEVER read large files, search extensively, or edit code directly in the main orchestrator session. Doing so wastes context tokens and degrades performance. **ALWAYS dispatch subagents** (e.g., `explorer` for reading/searching, `code-implementer` for editing) to keep the main context clean and efficient.
+**Context Token Efficiency Mandate:** NEVER read large files, search extensively, or edit code directly in the main orchestrator session. Doing so wastes context tokens and degrades performance. **ALWAYS dispatch subagents** (e.g., `research` for reading/searching, `code-implementer` for editing) to keep the main context clean and efficient.
 
 Speed and parallelism are important, but preventing race conditions and massive token overhead is the priority. Instruct the AI CLI to decompose tasks into parallel subagents ONLY when domains are strictly isolated. Work sequentially if modifying agents risk overlapping writes or logical merge conflicts.
 
@@ -71,9 +71,9 @@ Split into parallel subagents for ANY of these patterns:
 2. **Consult Memory Bank**: If this is a complex feature or recurring bug, explicitly invoke the `memory-librarian` to check `.coder-memory/` for past lessons, rules, or architectural decisions before proceeding.
 3. **Multi-Repo Topology Check**: If the task involves multiple microservices or a frontend/backend contract change, invoke the `multi-repo-orchestrator` to manage the cross-boundary synchronization.
 4. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
-5. **Multi-Subagent Planning (Recon)**: Extract tasks via the `workflow-planner` agent. The planner MUST spawn parallel `explorer` subagents to analyze different domains of the codebase simultaneously before generating the final plan.
-4. **Parallel Implementation**: Spawn multiple subagents simultaneously using the Task tool (e.g., `explorer`, `code-implementer`, `test-engineer`, `docs-engineer`).
-5. **Auditing & Review**: Dispatch `architecture-auditor` or `code-reviewer` sub-agents if structural or security review is explicitly requested.
+5. **Multi-Subagent Planning (Recon)**: Extract tasks via the `workflow-planner` agent. The planner MUST spawn parallel `research` subagents to analyze different domains of the codebase simultaneously before generating the final plan.
+6. **Parallel Implementation**: Spawn multiple subagents simultaneously using the Task tool (e.g., `research`, `code-implementer`, `test-engineer`, `docs-engineer`).
+7. **Auditing & Review**: Dispatch `architecture-auditor` or `code-reviewer` sub-agents if structural or security review is explicitly requested.
 
 ### Status Handling
 
