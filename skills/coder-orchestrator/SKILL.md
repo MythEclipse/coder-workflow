@@ -42,6 +42,7 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
 | Deploy / setup | Any CI/CD, Docker, VPS |
 | "Work on this" / "kerjakan" | Any vague coding request |
 | Explore | Codebase exploration, start of session |
+| Cross-Repo Sync | Any change affecting multiple workspaces/microservices |
 
 ## Agent Coordination (Judicious Parallelism & Context Token Efficiency)
 
@@ -68,8 +69,9 @@ Split into parallel subagents for ANY of these patterns:
 
 1. **Fast-Path Heuristic**: If the request is trivial (e.g. text change, typo fix, minor config edit), BYPASS the `workflow-planner` and `architecture-auditor` and directly dispatch a single `code-implementer` subagent to execute the change immediately.
 2. **Consult Memory Bank**: If this is a complex feature or recurring bug, explicitly invoke the `memory-librarian` to check `.coder-memory/` for past lessons, rules, or architectural decisions before proceeding.
-3. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
-3. **Multi-Subagent Planning (Recon)**: Extract tasks via the `workflow-planner` agent. The planner MUST spawn parallel `explorer` subagents to analyze different domains of the codebase simultaneously before generating the final plan.
+3. **Multi-Repo Topology Check**: If the task involves multiple microservices or a frontend/backend contract change, invoke the `multi-repo-orchestrator` to manage the cross-boundary synchronization.
+4. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
+5. **Multi-Subagent Planning (Recon)**: Extract tasks via the `workflow-planner` agent. The planner MUST spawn parallel `explorer` subagents to analyze different domains of the codebase simultaneously before generating the final plan.
 4. **Parallel Implementation**: Spawn multiple subagents simultaneously using the Task tool (e.g., `explorer`, `code-implementer`, `test-engineer`, `docs-engineer`).
 5. **Auditing & Review**: Dispatch `architecture-auditor` or `code-reviewer` sub-agents if structural or security review is explicitly requested.
 
