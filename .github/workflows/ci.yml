@@ -28,9 +28,13 @@ jobs:
         run: node -e "const h=require('./hooks/hooks.json'); ['SessionStart','PostToolUse','Stop'].forEach(k => { if (!h.hooks[k]) throw new Error(k + ' hook missing') }); console.log('✓ All hooks present')"
 
   build:
-    name: Build + Typecheck + Lint
-    runs-on: ubuntu-latest
+    name: Build + Typecheck (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     needs: [validate]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,6 +48,8 @@ jobs:
         run: npm run typecheck
       - name: Lint
         run: npm run lint
+      - name: Verify CLI help
+        run: node dist/cli.js help
 
   test:
     name: Unit Tests

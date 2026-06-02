@@ -47,20 +47,38 @@ switch (command) {
   case "scan":
   case "update": {
     try {
+      const dryRun = args.includes("--dry-run");
       const graph = await scanCodebase(root, settings);
-      await writeGraph(root, graph);
-      console.log(
-        JSON.stringify(
-          {
-            graph: ".codegraph/graph.db",
-            nodes: graph.nodes.length,
-            edges: graph.edges.length,
-            filesScanned: graph.metadata.filesScanned,
-          },
-          null,
-          2,
-        ),
-      );
+      if (dryRun) {
+        console.log(
+          JSON.stringify(
+            {
+              dryRun: true,
+              wouldWrite: ".codegraph/graph.db",
+              nodes: graph.nodes.length,
+              edges: graph.edges.length,
+              filesScanned: graph.metadata.filesScanned,
+              languages: graph.metadata.languages,
+            },
+            null,
+            2,
+          ),
+        );
+      } else {
+        await writeGraph(root, graph);
+        console.log(
+          JSON.stringify(
+            {
+              graph: ".codegraph/graph.db",
+              nodes: graph.nodes.length,
+              edges: graph.edges.length,
+              filesScanned: graph.metadata.filesScanned,
+            },
+            null,
+            2,
+          ),
+        );
+      }
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
       process.exitCode = 1;

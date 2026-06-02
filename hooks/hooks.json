@@ -45,9 +45,9 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'exit 0'",
+            "command": "bash -c '\n# Plugin conflict detection: warn if both global + project-local installs exist\nGLOBAL=\"$HOME/.claude/skills/coder-workflow/skills\"\nLOCAL=\".claude/skills/coder-workflow\"\nif [ -d \"$GLOBAL\" ] && [ -d \"$LOCAL\" ]; then\n  echo \"coder-workflow: Dual install detected. Project-local (.claude/) takes precedence.\"\n  echo \"  Remove one to avoid conflicts:\"\n  echo \"    rm -rf ~/.claude/skills/coder-workflow  # global\"\n  echo \"    rm -rf .claude/skills/coder-workflow     # project-local\"\nfi\nexit 0'",
             "timeout": 5,
-            "statusMessage": "Checking graph freshness..."
+            "statusMessage": "Checking plugin conflicts..."
           }
         ]
       },
@@ -238,7 +238,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null); LOG=.claude/session-$(date +%Y%m%d).log; mkdir -p .claude 2>/dev/null || true; [ -f \"$LOG\" ] && SIZE=$(stat -c%s \"$LOG\" 2>/dev/null || echo 0) && [ \"$SIZE\" -gt 10485760 ] && tail -n +500 \"$LOG\" > \"$LOG.tmp\" && mv \"$LOG.tmp\" \"$LOG\"; printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> \"$LOG\" 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
           },

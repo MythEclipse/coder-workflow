@@ -143,6 +143,23 @@ const _serverStartTime = Date.now();
 let _toolCallCount = 0;
 let _lastToolCallTime = 0;
 
+// ─── Tool timeout (prevents stalled scan requests from blocking the server) ───
+const SCAN_TIMEOUT_MS = 5 * 60_000; // 5 minutes for full scan
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, toolName: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`Tool "${toolName}" timed out after ${ms}ms`));
+    }, ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function readThreshold(value: unknown): QualityGateThreshold | undefined {
   if (value === "high" || value === "medium" || value === "low") return value;
   if (value === undefined) return undefined;
@@ -353,7 +370,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "update_codebase": {
       await acquireWrite(_graphLock);
       try {
-        const graph = await scanCodebase(root, settings);
+        const graph = await withTimeout(
+          scanCodebase(root, settings),
+          SCAN_TIMEOUT_MS,
+          request.params.name,
+        );
         await writeGraph(root, graph);
         // Invalidate cache after write so next read gets fresh data
         _cachedGraph = null;
