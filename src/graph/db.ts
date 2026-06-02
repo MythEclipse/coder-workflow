@@ -93,7 +93,7 @@ class GraphDatabase {
       clearTimeout(this.idleTimer);
     }
     this.idleTimer = setTimeout((): void => {
-      this.close().catch(console.error);
+      Promise.resolve(this.close()).catch(console.error);
     }, 3000);
   }
 
@@ -151,7 +151,7 @@ class GraphDatabase {
     if (gdb) {
       if (gdb.idleTimer) clearTimeout(gdb.idleTimer);
       if (gdb.client) {
-        void gdb.client.close().catch(console.error);
+        Promise.resolve(gdb.client.close()).catch(console.error);
       }
       GraphDatabase.instances.delete(dbPath);
     }
