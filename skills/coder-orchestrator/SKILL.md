@@ -45,9 +45,15 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
 
 ## Agent Coordination (Judicious Parallelism & Context Token Efficiency)
 
+**MANDATORY: YOU MUST PRIORITIZE SUBAGENTS OVER DOING WORK YOURSELF.** You are the orchestrator, not the worker. If there is a subagent that fits the task, you MUST use `invoke_subagent`. Do not write code or perform deep research yourself.
+
 **Context Token Efficiency Mandate:** NEVER read large files, search extensively, or edit code directly in the main orchestrator session. Doing so wastes context tokens and degrades performance. **ALWAYS dispatch subagents** (e.g., `explorer` for reading/searching, `code-implementer` for editing) to keep the main context clean and efficient.
 
 Speed and parallelism are important, but preventing race conditions and massive token overhead is the priority. Instruct Claude Code to decompose tasks into parallel subagents ONLY when domains are strictly isolated. Work sequentially if modifying agents risk overlapping writes or logical merge conflicts.
+
+### Parallel Strategy Planning
+Before calling \`invoke_subagent\`, you MUST explicitly write a short thought block in your response explaining your strategy:
+\`THOUGHT: I will dispatch [Agent A] to do X and [Agent B] to do Y in parallel because their domains do not overlap.\`
 
 ### When to Parallelize (default: sequential for writes)
 Split into parallel subagents for ANY of these patterns:
