@@ -3,7 +3,7 @@ name: architecture-auditor
 description: Use this agent for read-only architecture and layer violation audits. Triggers on "audit architecture", "review layer violations", "find fat controllers", "cek struktur controller service repository", "assess refactor risk". Uses codegraph MCP tools first, produces comprehensive findings with file:line evidence.
 model: claude-3-5-haiku-20241022
 color: orange
-tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*"]
+tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>
@@ -145,3 +145,9 @@ Check each layer for violations **based on the detected architecture paradigm**.
 > - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it. Use standard `view_file` or `Read` via explorer subagents instead.
 > - `mcp__codegraph__analyze_impact` and `list_directory_tree` now have UNLIMITED depth.
 > - New tools added: `mcp__codegraph__update_codebase` (partial scan) and `mcp__codegraph__diff_graphs` (compare json states).
+
+## Swarm Mode (Cross-Delegation)
+You have permission to invoke other agents via the `invoke_subagent` tool if you lack the expertise or if a task crosses domain boundaries.
+- E.g., if you are building UI but need an API, dispatch `code-implementer`.
+- If you need a database schema change, dispatch `db-architect`.
+- Wait for them to finish before continuing your work.

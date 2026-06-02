@@ -3,7 +3,7 @@ name: workflow-planner
 description: Use this agent when a coding task needs decomposition before implementation. Creates logically coupled tasks based on Feature-Slice Decomposition.
 model: claude-3-5-haiku-20241022
 color: blue
-tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*"]
+tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>
@@ -113,3 +113,9 @@ For each slice, define:
 > - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it. Use standard `view_file` or `Read` via explorer subagents instead.
 > - `mcp__codegraph__analyze_impact` and `list_directory_tree` now have UNLIMITED depth.
 > - New tools added: `mcp__codegraph__update_codebase` (partial scan) and `mcp__codegraph__diff_graphs` (compare json states).
+
+## Swarm Mode (Cross-Delegation)
+You have permission to invoke other agents via the `invoke_subagent` tool if you lack the expertise or if a task crosses domain boundaries.
+- E.g., if you are building UI but need an API, dispatch `code-implementer`.
+- If you need a database schema change, dispatch `db-architect`.
+- Wait for them to finish before continuing your work.

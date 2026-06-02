@@ -30,6 +30,7 @@
     "start:mcp": "node dist/mcp-server.js",
     "scan": "node dist/cli.js scan",
     "ui": "node dist/cli.js ui",
+    "dashboard": "node dist/cli.js dashboard",
     "lint": "biome check src test package.json tsconfig.json biome.json esbuild.config.mjs",
     "format": "biome format --write src test package.json tsconfig.json biome.json esbuild.config.mjs",
     "check": "biome check --write src test package.json tsconfig.json biome.json esbuild.config.mjs",
@@ -41,10 +42,12 @@
     "@duckdb/node-api": "^1.5.3-r.2",
     "@modelcontextprotocol/sdk": "latest",
     "@types/node": "latest",
+    "blessed": "^0.1.81",
     "typescript": "latest"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
+    "@types/blessed": "^0.1.27",
     "esbuild": "^0.28.0"
   },
   "description": "Orchestrator-driven coding workflow with graph-first codebase understanding — task decomposition, skill routing, architecture audit, Docker deploy, and CodeGraph MCP server.",

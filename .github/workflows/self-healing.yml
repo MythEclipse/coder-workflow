@@ -1,0 +1,48 @@
+name: Self-Healing CI/CD
+
+on:
+  workflow_dispatch:
+  # Can be triggered via repository_dispatch or other means
+  # push:
+  #   branches: [ "master" ]
+
+jobs:
+  test-and-heal:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        id: run_tests
+        run: npm run test > test_output.log 2>&1
+        continue-on-error: true
+
+      - name: Invoke Claude AI Self-Healing (If Failed)
+        if: steps.run_tests.outcome == 'failure'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "Tests failed. Invoking Self-Healing pipeline..."
+          npm i -g @anthropic-ai/claude-code
+          
+          # Pass the failure log to the debugging-engineer via claude CLI
+          claude -p "Tests failed. Please review the following error log, fix the code, and ensure it passes. Use the debugging-engineer subagent." --setting-sources user --no-session-persistence < test_output.log
+          
+          # Commit and push the fix
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m "fix: auto-heal failing tests via AI"
+          git push
