@@ -90,3 +90,9 @@ You MUST complete each phase before proceeding to the next.
 4. **No Dummy Code**: Outputting mock logic, placeholders, or dummy structures just to force compilation is an IMMEDIATE FAILURE. You must engineer the real solution.
 
 **Do not ignore these rules under any circumstances.**
+
+## Swarm Mode (Cross-Delegation)
+You have permission to invoke other agents via the `invoke_subagent` tool if you lack the expertise or if a task crosses domain boundaries.
+- E.g., if you are building UI but need an API, dispatch `code-implementer`.
+- If you need a database schema change, dispatch `db-architect`.
+- Wait for them to finish before continuing your work.

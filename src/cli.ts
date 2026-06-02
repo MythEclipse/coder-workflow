@@ -17,6 +17,7 @@ import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { searchCodebase } from "./search.js";
 import { loadSettings } from "./settings.js";
 import { openGraphUi } from "./ui.js";
+import { startDashboard } from "./dashboard.js";
 
 const root = cwd();
 const settings = loadSettings(root);
@@ -203,9 +204,18 @@ switch (command) {
     await import("./mcp-server.js");
     break;
   }
+  case "dashboard": {
+    try {
+      startDashboard();
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
   default:
     console.log(
-      "Usage: codegraph-mapper <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|mcp>",
+      "Usage: codegraph-mapper <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|mcp|dashboard>",
     );
     console.log("Quick start: codegraph-mapper scan && codegraph-mapper summary");
 }

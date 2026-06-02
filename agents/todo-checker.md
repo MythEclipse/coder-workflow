@@ -3,7 +3,7 @@ name: todo-checker
 description: Use this agent to scan the codebase for leftover TODOs, FIXME comments, or dummy/mock code. It helps ensure code quality before finalizing a task, without polluting the main session context.
 model: claude-3-5-haiku-20241022
 color: yellow
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob", "Bash", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>
@@ -56,3 +56,9 @@ Return a concise summary of your findings to the main orchestrator:
 4. **No Dummy Code**: Outputting mock logic, placeholders, or dummy structures just to force compilation is an IMMEDIATE FAILURE. You must engineer the real solution.
 
 **Do not ignore these rules under any circumstances.**
+
+## Swarm Mode (Cross-Delegation)
+You have permission to invoke other agents via the `invoke_subagent` tool if you lack the expertise or if a task crosses domain boundaries.
+- E.g., if you are building UI but need an API, dispatch `code-implementer`.
+- If you need a database schema change, dispatch `db-architect`.
+- Wait for them to finish before continuing your work.
