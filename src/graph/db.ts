@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { createClient, type Client, type InValue } from "@libsql/client";
+import { type Client, createClient, type InValue } from "@libsql/client";
 import type { CodeGraph, CodeGraphEdge, CodeGraphNode } from "../types.js";
 import { ensureSchema, schemaVersion } from "./db/schema.js";
 
@@ -131,7 +131,10 @@ class GraphDatabase {
     return (result.rows ?? []) as unknown as T[];
   }
 
-  async get<T>(sql: string, ...params: (string | number | null | undefined)[]): Promise<T | undefined> {
+  async get<T>(
+    sql: string,
+    ...params: (string | number | null | undefined)[]
+  ): Promise<T | undefined> {
     const rows = await this.all<T>(sql, ...params);
     this.refreshIdleTimer();
     return rows.length > 0 ? rows[0] : undefined;
@@ -176,13 +179,14 @@ async function prepareDatabaseFile(root: string): Promise<void> {
       url: `file:${dbPath}`,
     });
     const result = await testClient.execute(
-      "SELECT value FROM metadata WHERE key = 'schemaVersion'"
+      "SELECT value FROM metadata WHERE key = 'schemaVersion'",
     );
     await testClient.close();
 
     if (result.rows && result.rows.length > 0) {
       const row = result.rows[0];
-      const version = typeof row === "object" && row !== null ? (row as Record<string, unknown>).value : null;
+      const version =
+        typeof row === "object" && row !== null ? (row as Record<string, unknown>).value : null;
       if (version === schemaVersion) {
         // Compatible database, use as-is
         return;
@@ -216,11 +220,10 @@ async function prepareDatabaseFile(root: string): Promise<void> {
   } catch (error) {
     console.warn(
       `Failed to backup old database at ${dbPath}. You may need to manually remove it before rescanning.`,
-      error
+      error,
     );
   }
 }
-
 
 // ---- Public API ----
 

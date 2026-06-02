@@ -11,13 +11,13 @@ import {
   queryGraph,
   summarizeArchitecture,
 } from "./analysis.js";
+import { startDashboard } from "./dashboard.js";
 import { exportGraph } from "./exporters.js";
 import { diffGraphs, formatGraphDiff } from "./git-diff.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { searchCodebase } from "./search.js";
 import { loadSettings } from "./settings.js";
 import { openGraphUi } from "./ui.js";
-import { startDashboard } from "./dashboard.js";
 
 const root = cwd();
 const settings = loadSettings(root);

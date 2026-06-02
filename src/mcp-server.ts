@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { statSync, readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { cwd } from "node:process";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -16,8 +16,8 @@ import {
   summarizeArchitecture,
 } from "./analysis.js";
 import { exportGraph } from "./exporters.js";
-import { diffGraphs, formatGraphDiff } from "./git-diff.js";
 import { getDirectoryTree } from "./fs-tools.js";
+import { diffGraphs, formatGraphDiff } from "./git-diff.js";
 import { summarizeGraphForBudget } from "./graph/summarize.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { searchCodebase } from "./search.js";
@@ -290,7 +290,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const direction = ["upstream", "downstream", "both"].includes(directionStr)
         ? (directionStr as "upstream" | "downstream" | "both")
         : "both";
-      return text(analyzeImpact(await getCachedGraph(root), target, Number.MAX_SAFE_INTEGER, direction));
+      return text(
+        analyzeImpact(await getCachedGraph(root), target, Number.MAX_SAFE_INTEGER, direction),
+      );
     }
     case "open_graph_ui":
       return text({ url: await openGraphUi(root, settings) });
