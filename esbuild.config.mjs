@@ -1,4 +1,7 @@
 import { chmod } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { extname, join } from "node:path";
 import { build } from "esbuild";
 
 const shared = {
@@ -46,3 +49,30 @@ await build({
 
 await chmod("dist/cli.js", 0o755);
 await chmod("dist/mcp-server.js", 0o755);
+
+// ── Build manifest with SHA-256 checksums ──
+function collectFiles(dir) {
+  const results = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectFiles(full));
+    } else if (entry.isFile() && extname(entry.name) === ".js") {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+const distFiles = collectFiles("dist");
+const manifest = {};
+for (const file of distFiles) {
+  const content = readFileSync(file);
+  manifest[file] = createHash("sha256").update(content).digest("hex");
+}
+
+writeFileSync(
+  "dist/MANIFEST.json",
+  JSON.stringify({ generatedAt: new Date().toISOString(), files: manifest }, null, 2),
+);
+console.log(`  dist/MANIFEST.json — ${Object.keys(manifest).length} files checksummed`);

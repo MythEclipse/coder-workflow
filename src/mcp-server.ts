@@ -184,7 +184,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "update_codebase",
-      description: "Memperbarui database graf hanya untuk file-file yang baru saja berubah.",
+      description: "Update the graph database for only the files that have changed since the last scan.",
       inputSchema: { type: "object", properties: {} },
     },
     {
@@ -323,7 +323,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "diff_graphs",
-      description: "Membandingkan perbedaan struktur sebelum dan sesudah perubahan kode.",
+      description: "Compare structural differences before and after a code change.",
       inputSchema: {
         type: "object",
         properties: {

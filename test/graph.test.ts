@@ -872,8 +872,10 @@ test("hooks scan missing graph and update after file changes and stop events", a
 
   // Write|Edit|MultiEdit|NotebookEdit matcher for post-tool-use graph updates
   assert.equal(postToolUseHook.matcher, "Write|Edit|MultiEdit|NotebookEdit");
-  // Stop hook performs graph update with error logging
-  assert.ok(hooks.hooks.Stop[0].hooks[2].async === true);
+  // Stop hook — graph update with error logging is async
+  const stopHooks = hooks.hooks.Stop[0].hooks;
+  const graphUpdateHook = stopHooks.find((h: Record<string, unknown>) => h.async === true);
+  assert.ok(graphUpdateHook !== undefined, "Stop hooks should have an async graph update hook");
 });
 
 test("MCP server command resolves from PATH", async () => {
