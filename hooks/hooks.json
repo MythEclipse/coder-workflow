@@ -244,10 +244,10 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'if test -f .codegraph/graph.db; then command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; fi; exit 0'",
+            "command": "bash -c '\n# Debounce: allow update at most once every 5 seconds.\n# Multiple rapid writes share one update — flock serializes + timestamp check.\nDEBOUNCE_FILE=.codegraph/.update-debounce\nLOCK_FILE=.codegraph/.update-debounce.lock\n(\n  flock -x 200\n  NOW=$(date +%s)\n  LAST=0\n  if [ -f \"$DEBOUNCE_FILE\" ]; then\n    LAST=$(cat \"$DEBOUNCE_FILE\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0)\n  fi\n  ELAPSED=$((NOW - LAST))\n  if [ \"$ELAPSED\" -ge 5 ]; then\n    mkdir -p .codegraph 2>/dev/null || true\n    printf \"%s\" \"$NOW\" > \"$DEBOUNCE_FILE\"\n    if test -f .codegraph/graph.db; then\n      command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true\n    fi\n  fi\n) 200>\"$LOCK_FILE\"\nexit 0'",
             "timeout": 30,
             "async": true,
-            "statusMessage": "Updating CodeGraph..."
+            "statusMessage": "Updating CodeGraph (debounced)..."
           }
         ]
       },
