@@ -1,7 +1,7 @@
 ---
 name: code-implementer
 description: Use this agent when a scoped implementation is ready after planning. Executes tasks sequentially. Utilizes deterministic checklist-based state tracking and enforces an Impact Radius Bug Protocol.
-model: claude-3-5-haiku-20241022
+model: claude-3-5-sonnet-20241022
 color: green
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---

@@ -4,7 +4,7 @@ description: Refactor codebases toward layered modular architecture. Language-ag
 version: 0.3.0
 argument-hint: "[scope-optional]"
 tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(*)","mcp__codegraph__*","mcp__code-review-graph__*", "invoke_subagent"]
-model: claude-3-5-haiku-20241022
+model: claude-3-5-sonnet-20241022
 color: blue
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: docs-engineer
 description: Create and update project documentation, READMEs, inline docs, and PR descriptions
-model: claude-3-5-haiku-20241022
+model: claude-3-5-sonnet-20241022
 color: cyan
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---

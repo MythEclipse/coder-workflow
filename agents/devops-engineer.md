@@ -3,7 +3,7 @@ name: devops-engineer
 description: This agent should be used when the user asks to "setup deploy Docker", "deploy with GitHub Actions", "deploy to VPS with Traefik", "GHCR deploy", "fix Traefik 404", "debug Traefik 502", "buat workflow deploy", or mentions Docker Compose, GitHub Container Registry, VPS deploy, Traefik labels, or production container deployment.
 version: 0.1.0
 tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(gh:*)","Bash(docker:*)","Bash(curl:*)","Bash(ssh:*)","Bash(scp:*)", "invoke_subagent"]
-model: claude-3-5-haiku-20241022
+model: claude-3-5-sonnet-20241022
 color: blue
 ---
 
