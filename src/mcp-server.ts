@@ -28,6 +28,71 @@ import { openGraphUi } from "./ui.js";
 let _cachedGraph: CodeGraph | null = null;
 let _cachedGraphMtime = 0;
 
+// ─── RW Lock (prevents cache serving while scan/update is in-flight) ───
+// Mutating tools (scan_codebase, update_codebase) acquire the write lock.
+// Reading tools wait for any active writer before accessing the cached graph.
+// This prevents concurrent async hook updates from racing with MCP reads.
+
+interface RWLock {
+  readers: number;
+  writer: boolean;
+  pending: Array<() => void>;
+}
+
+function createRWLock(): RWLock {
+  return { readers: 0, writer: false, pending: [] };
+}
+
+function acquireRead(lock: RWLock): Promise<void> {
+  return new Promise((resolve) => {
+    if (!lock.writer && lock.pending.length === 0) {
+      lock.readers++;
+      resolve();
+    } else {
+      lock.pending.push(() => {
+        lock.readers++;
+        resolve();
+      });
+    }
+  });
+}
+
+function releaseRead(lock: RWLock): void {
+  lock.readers--;
+  drainPending(lock);
+}
+
+function acquireWrite(lock: RWLock): Promise<void> {
+  return new Promise((resolve) => {
+    if (lock.readers === 0 && !lock.writer) {
+      lock.writer = true;
+      resolve();
+    } else {
+      lock.pending.push(() => {
+        lock.writer = true;
+        resolve();
+      });
+    }
+  });
+}
+
+function releaseWrite(lock: RWLock): void {
+  lock.writer = false;
+  drainPending(lock);
+}
+
+function drainPending(lock: RWLock): void {
+  while (lock.pending.length > 0) {
+    if (lock.writer || lock.readers > 0) break;
+    const next = lock.pending.shift()!;
+    next();
+    // if the first waiter was a writer it stops further draining until released
+    if (lock.writer) break;
+  }
+}
+
+const _graphLock = createRWLock();
+
 /**
  * Get max mtime across main DB and WAL sidecar files.
  * WAL mode writes to graph.db-wal before checkpointing into graph.db.
@@ -49,17 +114,22 @@ function getDbMaxMtime(dbPath: string): number {
 }
 
 async function getCachedGraph(root: string): Promise<CodeGraph> {
-  const dbPath = join(root, ".codegraph", "graph.db");
+  await acquireRead(_graphLock);
   try {
-    const mtime = getDbMaxMtime(dbPath);
-    if (_cachedGraph && _cachedGraphMtime === mtime) {
+    const dbPath = join(root, ".codegraph", "graph.db");
+    try {
+      const mtime = getDbMaxMtime(dbPath);
+      if (_cachedGraph && _cachedGraphMtime === mtime) {
+        return _cachedGraph;
+      }
+      _cachedGraph = await readGraph(root);
+      _cachedGraphMtime = mtime;
       return _cachedGraph;
+    } catch {
+      return readGraph(root);
     }
-    _cachedGraph = await readGraph(root);
-    _cachedGraphMtime = mtime;
-    return _cachedGraph;
-  } catch {
-    return readGraph(root);
+  } finally {
+    releaseRead(_graphLock);
   }
 }
 
@@ -247,17 +317,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   switch (request.params.name) {
     case "scan_codebase":
     case "update_codebase": {
-      const graph = await scanCodebase(root, settings);
-      await writeGraph(root, graph);
-      // Invalidate cache after write so next read gets fresh data
-      _cachedGraph = null;
-      _cachedGraphMtime = 0;
-      return text({
-        graph: ".codegraph/graph.db",
-        nodes: graph.nodes.length,
-        edges: graph.edges.length,
-        filesScanned: graph.metadata.filesScanned,
-      });
+      await acquireWrite(_graphLock);
+      try {
+        const graph = await scanCodebase(root, settings);
+        await writeGraph(root, graph);
+        // Invalidate cache after write so next read gets fresh data
+        _cachedGraph = null;
+        _cachedGraphMtime = 0;
+        return text({
+          graph: ".codegraph/graph.db",
+          nodes: graph.nodes.length,
+          edges: graph.edges.length,
+          filesScanned: graph.metadata.filesScanned,
+        });
+      } finally {
+        releaseWrite(_graphLock);
+      }
     }
     case "query_graph": {
       const query = stringArg(args?.query, "query");

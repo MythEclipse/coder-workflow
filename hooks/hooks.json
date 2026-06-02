@@ -499,7 +499,14 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); AGENT=$(jq -r \".agent_type // .subagent_type // unknown\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] AGENT START: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; LOCK=.claude/agent-depth.lock; ( flock -x 200; DEPTH=0; [ -f \"$LOCK\" ] && DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); printf \"%s\" \"$((DEPTH+1))\" > \"$LOCK\" ) 200>.claude/agent-depth.lock.flock; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(jq -r \".agent_type // .subagent_type // unknown\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] AGENT START: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; LOCK=.claude/agent-depth.lock; ( flock -x 200; DEPTH=0; [ -f \"$LOCK\" ] && DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); NEW=$((DEPTH+1)); printf \"%s\" \"$NEW\" > \"$LOCK\"; echo \"$NEW\" ) 200>.claude/agent-depth.lock.flock; exit 0'",
+            "timeout": 5,
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'LOCK=.claude/agent-depth.lock; DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); if [ \"$DEPTH\" -gt 2 ]; then jq -n \"{systemMessage: \\\"coder-workflow CIRCUIT BREAKER: Agent nesting depth is $DEPTH (> 2 max). This subagent SHOULD NOT spawn further subagents. Execute the task directly. Excessive nesting causes context degradation and decision-quality loss.\\\"}\"; else jq -n \"{systemMessage: \\\"coder-workflow: Agent depth = $DEPTH. Max nesting = 2 levels (orchestrator → agent → final executor). Do NOT exceed this depth.\\\"}\"; fi; exit 0'",
+            "if": "Agent|invoke_subagent",
             "timeout": 5,
             "async": true
           }
