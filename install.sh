@@ -168,14 +168,11 @@ install_dir_items() {
 install_mcp() {
   echo -e "${BLUE}Installing MCP server to Claude Code...${NC}"
 
-  # Build project if dist/ is missing
-  if [ ! -d "$PLUGIN_SRC/dist" ]; then
-    echo -e "${YELLOW}Building coder-workflow (TypeScript → CLI + MCP server)...${NC}"
-    cd "$PLUGIN_SRC"
-    npm install
-    npm run build
-    echo -e "${GREEN}✓ Build complete${NC}"
-  fi
+  echo -e "${YELLOW}Installing dependencies and building coder-workflow (TypeScript → CLI + MCP server)...${NC}"
+  cd "$PLUGIN_SRC"
+  npm install
+  npm run build
+  echo -e "${GREEN}✓ Build complete${NC}"
 
   # Install globally if not already installed
   if ! command -v coder-workflow &> /dev/null; then
