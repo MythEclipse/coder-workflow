@@ -1,7 +1,6 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import type { DuckDBValue } from "@duckdb/node-api";
-import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
+import { createClient, type Client, type InValue } from "@libsql/client";
 import type { CodeGraph, CodeGraphEdge, CodeGraphNode } from "../types.js";
 import { ensureSchema, schemaVersion } from "./db/schema.js";
 
