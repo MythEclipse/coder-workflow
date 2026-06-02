@@ -39,7 +39,7 @@ Track your state using a simple, deterministically updatable checklist file (e.g
 
 ### 3. Execution Phase
 
-1. **Situational TDD**: If the task is testable (e.g. core logic, utility functions), invoke the `test-driven-development` skill BEFORE writing code. However, if the task involves UI tweaks, static configuration, or pure structural refactoring where writing a failing test first is impossible or impractical, you may skip TDD.
+1. **Situational TDD**: If the task is testable (e.g. core logic, utility functions), dispatch the `test-engineer` subagent BEFORE writing code. However, if the task involves UI tweaks, static configuration, or pure structural refactoring where writing a failing test first is impossible or impractical, you may skip TDD.
 2. Read the `FILE_MANIFEST` files.
 3. Implement the task sequentially according to the plan.
 4. Perform the necessary logic, using `mcp__codegraph` tools if you need to understand boundaries.

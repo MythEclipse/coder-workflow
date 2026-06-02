@@ -1,6 +1,6 @@
 ---
 name: coder-orchestrator
-description: Use when starting any coding conversation — establishes how to find and use coding skills, requiring Skill tool invocation before ANY response. Always invoke for: implement, fix, refactor, audit, test, deploy, debug, review, or any request that touches source code.
+description: Use when starting any coding conversation — establishes how to orchestrate coding subagents, requiring invoke_subagent invocation before ANY response. Always invoke for: implement, fix, refactor, audit, test, deploy, debug, review, or any request that touches source code.
 ---
 
 <SUBAGENT-STOP>
@@ -8,8 +8,8 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 </SUBAGENT-STOP>
 
 <EXTREMELY-IMPORTANT>
-If you think there is even a 1% chance a skill might apply to what you are doing, you ABSOLUTELY MUST invoke the skill.
-IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
+If you think there is even a 1% chance a subagent might apply to what you are doing, you ABSOLUTELY MUST invoke the subagent.
+IF A SUBAGENT APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
 </EXTREMELY-IMPORTANT>
 
 ## Instruction Priority
@@ -22,12 +22,12 @@ IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
 
 ## The Rule
 
-**Invoke relevant skills BEFORE any response or action.** Even a 1% chance a skill might apply means that you MUST invoke the skill to check.
+**Invoke relevant subagents BEFORE any response or action.** Even a 1% chance a subagent might apply means that you MUST invoke the subagent to check.
 
 ```
 User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
-             → Check: might any other skill apply? → YES → Invoke Skill tool
-                                                       → Follow skill exactly
+             → Check: might any subagent apply? → YES → Invoke invoke_subagent tool
+                                                      → Delegate task exactly
 ```
 
 ## What Triggers This Orchestrator
@@ -111,7 +111,7 @@ To act judiciously and avoid common AI pitfalls, adhere to these strict limits:
 When this orchestrator is invoked, state:
 
 Using coder-orchestrator to route: [one-sentence goal]
-Skills invoked: [list]
+Subagents invoked: [list]
 Architecture pattern: [MVC | Event-Driven | Library | etc.]
 Execution Flow: Parallel Subagents - Always On
 
