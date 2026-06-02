@@ -1,7 +1,6 @@
 ---
 name: memory-librarian
-description: Agent responsible for reading, searching, and writing to the long-term agentic memory bank
-model: claude-3-5-haiku-20241022
+description: Agent responsible for reading, searching, and writing to the long-term agentic memory bank [Requires: Fast-Exploration Model]
 color: yellow
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 ---

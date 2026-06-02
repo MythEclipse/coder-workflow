@@ -1,7 +1,6 @@
 ---
 name: diagram-engineer
-description: Generates visual Mermaid diagrams from the codebase graph for living documentation
-model: claude-3-5-haiku-20241022
+description: Generates visual Mermaid diagrams from the codebase graph for living documentation [Requires: Fast-Exploration Model]
 color: green
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*", "mcp__code-review-graph__*"]
 ---

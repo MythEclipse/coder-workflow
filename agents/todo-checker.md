@@ -1,7 +1,6 @@
 ---
 name: todo-checker
-description: Use this agent to scan the codebase for leftover TODOs, FIXME comments, or dummy/mock code. It helps ensure code quality before finalizing a task, without polluting the main session context.
-model: claude-3-5-haiku-20241022
+description: Use this agent to scan the codebase for leftover TODOs, FIXME comments, or dummy/mock code. It helps ensure code quality before finalizing a task, without polluting the main session context. [Requires: Fast-Exploration Model]
 color: yellow
 tools: ["Read", "Grep", "Glob", "Bash", "invoke_subagent"]
 ---

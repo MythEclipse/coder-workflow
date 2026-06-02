@@ -2,7 +2,6 @@
 description: Decompose a coding request into many small tracked tasks. Invokes workflow-planner agent for aggressive task decomposition with skill/MCP routing for each task.
 argument-hint: [task-description]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
-model: sonnet
 ---
 
 Invoke the `workflow-planner` agent (using the `Agent` or `Subagent` tool, DO NOT use the `Skill` tool) to aggressively decompose the given coding request.

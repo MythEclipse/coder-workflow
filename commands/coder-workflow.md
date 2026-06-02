@@ -2,7 +2,6 @@
 description: Orchestrate coding work through aggressive task decomposition, skill-first routing, and persistent execution. Always trigger orchestrator for any coding task.
 argument-hint: [task-optional]
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
-model: sonnet
 ---
 
 Trigger the coder-orchestrator skill. Every coding request flows through:

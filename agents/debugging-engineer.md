@@ -1,7 +1,6 @@
 ---
 name: debugging-engineer
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
-model: claude-3-5-sonnet-20241022
+description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes [Requires: Complex-Reasoning Model]
 color: blue
 ---
 

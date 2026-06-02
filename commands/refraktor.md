@@ -2,7 +2,6 @@
 description: Refactor codebase ke arsitektur Modular MVC + Service + Repository
 argument-hint: [scope-optional]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
-model: sonnet
 ---
 
 Invoke the `refactoring-engineer` subagent to perform a comprehensive refactor to a Modular MVC architecture.

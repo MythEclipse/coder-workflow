@@ -2,7 +2,6 @@
 description: Run a read-only architecture audit of the current project. Checks for fat controllers, missing repositories, schema-less boundaries, layer leakage, cross-module leaks, and circular dependencies.
 argument-hint: [scope-optional]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
-model: sonnet
 ---
 
 Invoke the `architecture-auditor` agent to perform a comprehensive read-only architecture audit.

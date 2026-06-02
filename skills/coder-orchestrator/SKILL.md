@@ -49,7 +49,7 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
 
 **Context Token Efficiency Mandate:** NEVER read large files, search extensively, or edit code directly in the main orchestrator session. Doing so wastes context tokens and degrades performance. **ALWAYS dispatch subagents** (e.g., `explorer` for reading/searching, `code-implementer` for editing) to keep the main context clean and efficient.
 
-Speed and parallelism are important, but preventing race conditions and massive token overhead is the priority. Instruct Claude Code to decompose tasks into parallel subagents ONLY when domains are strictly isolated. Work sequentially if modifying agents risk overlapping writes or logical merge conflicts.
+Speed and parallelism are important, but preventing race conditions and massive token overhead is the priority. Instruct the AI CLI to decompose tasks into parallel subagents ONLY when domains are strictly isolated. Work sequentially if modifying agents risk overlapping writes or logical merge conflicts.
 
 ### Parallel Strategy Planning
 Before calling \`invoke_subagent\`, you MUST explicitly write a short thought block in your response explaining your strategy:

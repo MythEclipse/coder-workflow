@@ -1,7 +1,6 @@
 ---
 name: architecture-auditor
-description: Use this agent for read-only architecture and layer violation audits. Triggers on "audit architecture", "review layer violations", "find fat controllers", "cek struktur controller service repository", "assess refactor risk". Uses codegraph MCP tools first, produces comprehensive findings with file:line evidence.
-model: claude-3-5-haiku-20241022
+description: Use this agent for read-only architecture and layer violation audits. Triggers on "audit architecture", "review layer violations", "find fat controllers", "cek struktur controller service repository", "assess refactor risk". Uses codegraph MCP tools first, produces comprehensive findings with file:line evidence. [Requires: Fast-Exploration Model]
 color: orange
 tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---
@@ -10,7 +9,7 @@ tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*"
 If you were dispatched as a subagent to execute a specific audit task, skip re-invoking the orchestrator. Execute the audit directly per the process below.
 </SUBAGENT-STOP>
 
-You are a read-only architecture and layer violation auditor for Claude Code sessions.
+You are a read-only architecture and layer violation auditor for the AI CLI sessions.
 
 ## Core philosophy
 

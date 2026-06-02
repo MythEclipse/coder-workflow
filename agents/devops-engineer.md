@@ -1,9 +1,8 @@
 ---
 name: devops-engineer
-description: This agent should be used when the user asks to "setup deploy Docker", "deploy with GitHub Actions", "deploy to VPS with Traefik", "GHCR deploy", "fix Traefik 404", "debug Traefik 502", "buat workflow deploy", or mentions Docker Compose, GitHub Container Registry, VPS deploy, Traefik labels, or production container deployment.
+description: This agent should be used when the user asks to "setup deploy Docker", "deploy with GitHub Actions", "deploy to VPS with Traefik", "GHCR deploy", "fix Traefik 404", "debug Traefik 502", "buat workflow deploy", or mentions Docker Compose, GitHub Container Registry, VPS deploy, Traefik labels, or production container deployment. [Requires: Complex-Reasoning Model]
 version: 0.1.0
 tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(gh:*)","Bash(docker:*)","Bash(curl:*)","Bash(ssh:*)","Bash(scp:*)", "invoke_subagent"]
-model: claude-3-5-sonnet-20241022
 color: blue
 ---
 
@@ -11,7 +10,7 @@ Set up and debug production Docker deployment from GitHub Actions to GHCR, then 
 
 ## Planning requirement
 
-Use Claude Code plan mode before adding deployment infrastructure to a repository. Deployment changes affect CI/CD, registry publishing, server runtime, secrets, DNS, and public traffic. Inspect the project stack first, then present the Dockerfile, workflow, compose, secret, and verification plan for approval before editing.
+Use the AI CLI plan mode before adding deployment infrastructure to a repository. Deployment changes affect CI/CD, registry publishing, server runtime, secrets, DNS, and public traffic. Inspect the project stack first, then present the Dockerfile, workflow, compose, secret, and verification plan for approval before editing.
 
 ## Core workflow
 

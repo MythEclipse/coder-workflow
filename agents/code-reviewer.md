@@ -1,7 +1,6 @@
 ---
 name: code-reviewer
-description: Perform strict security audits, code reviews, and edge-case detection before code is merged
-model: claude-3-5-haiku-20241022
+description: Perform strict security audits, code reviews, and edge-case detection before code is merged [Requires: Fast-Exploration Model]
 color: yellow
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---

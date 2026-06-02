@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to the AI CLI (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-Coder Workflow is a Claude Code plugin that orchestrates all coding work through aggressive task decomposition, skill-first routing, and persistent execution. It combines **coding workflow skills** (implement, audit, refactor, deploy) with **graph-first codebase understanding** via the CodeGraph MCP server. Ships skills, agents, commands, hooks, and an MCP server for disciplined coding workflows.
+Coder Workflow is a the AI CLI plugin that orchestrates all coding work through aggressive task decomposition, skill-first routing, and persistent execution. It combines **coding workflow skills** (implement, audit, refactor, deploy) with **graph-first codebase understanding** via the CodeGraph MCP server. Ships skills, agents, commands, hooks, and an MCP server for disciplined coding workflows.
 
 ## Single Orchestrator Model
 
@@ -14,7 +14,7 @@ Codebase exploration and MCP tool usage rules (graph-first, Explore codegraph-fi
 
 ## Plugin Discovery
 
-**This plugin installs to `~/.claude/skills/coder-workflow/`** (not `~/.claude/plugins/`). Claude Code auto-discovers and loads plugins from `~/.claude/skills/<name>/` on every session start. No marketplace install needed.
+**This plugin installs to `~/.claude/skills/coder-workflow/`** (not `~/.claude/plugins/`). the AI CLI auto-discovers and loads plugins from `~/.claude/skills/<name>/` on every session start. No marketplace install needed.
 
 ```bash
 ./install.sh          # installs to ~/.claude/skills/coder-workflow/ (builds + global CLI + MCP)
@@ -23,7 +23,7 @@ Codebase exploration and MCP tool usage rules (graph-first, Explore codegraph-fi
 ./install.sh --mcp-only # install only the MCP server
 ```
 
-After install: restart Claude Code or run `/reload-plugins`.
+After install: restart the AI CLI or run `/reload-plugins`.
 
 When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder-workflow:auditor`, etc.
 
@@ -164,7 +164,7 @@ claude --plugin-dir /mnt/code/djnaidwhbwda/coder-workflow
 - `src/` — TypeScript source for CLI and MCP server
 - `dist/` — bundled JavaScript artifacts
 - `.mcp.json` — MCP server configuration
-- `.claude-plugin/plugin.json` — plugin metadata for Claude Code discovery
+- `.claude-plugin/plugin.json` — plugin metadata for the AI CLI discovery
 
 ## Workflow Philosophy
 

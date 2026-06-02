@@ -1,7 +1,6 @@
 ---
 name: docs-engineer
-description: Create and update project documentation, READMEs, inline docs, and PR descriptions
-model: claude-3-5-sonnet-20241022
+description: Create and update project documentation, READMEs, inline docs, and PR descriptions [Requires: Complex-Reasoning Model]
 color: cyan
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---

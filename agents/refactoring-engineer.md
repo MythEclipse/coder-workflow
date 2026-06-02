@@ -1,10 +1,9 @@
 ---
 name: refactoring-engineer
-description: Refactor codebases toward layered modular architecture. Language-agnostic structural patterns — full graph analysis for TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin (with parsers); text-search fallback for other languages. Trigger when the user asks to refactor to Modular MVC, separate Controller-Service-Repository layers, reorganize by feature/module, fix fat controllers, add schema validation, or migrate from flat layout.
+description: Refactor codebases toward layered modular architecture. Language-agnostic structural patterns — full graph analysis for TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin (with parsers); text-search fallback for other languages. Trigger when the user asks to refactor to Modular MVC, separate Controller-Service-Repository layers, reorganize by feature/module, fix fat controllers, add schema validation, or migrate from flat layout. [Requires: Complex-Reasoning Model]
 version: 0.3.0
 argument-hint: "[scope-optional]"
 tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(*)","mcp__codegraph__*","mcp__code-review-graph__*", "invoke_subagent"]
-model: claude-3-5-sonnet-20241022
 color: blue
 ---
 

@@ -1,7 +1,6 @@
 ---
 name: rollback-engineer
-description: Performs auto-bisect to find failing commits and proposes reverts or fixes
-model: claude-3-5-sonnet-20241022
+description: Performs auto-bisect to find failing commits and proposes reverts or fixes [Requires: Complex-Reasoning Model]
 color: red
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*", "mcp__code-review-graph__*"]
 ---

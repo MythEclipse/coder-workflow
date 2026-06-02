@@ -1,7 +1,6 @@
 ---
 name: db-architect
-description: Database specialist for schema design, query optimization, migrations, and indexing
-model: claude-3-5-sonnet-20241022
+description: Database specialist for schema design, query optimization, migrations, and indexing [Requires: Complex-Reasoning Model]
 color: blue
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---

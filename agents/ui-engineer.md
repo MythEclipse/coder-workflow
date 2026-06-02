@@ -1,7 +1,6 @@
 ---
 name: ui-engineer
-description: Frontend specialist for UI components, state management, CSS/Tailwind, and accessibility (A11y)
-model: claude-3-5-sonnet-20241022
+description: Frontend specialist for UI components, state management, CSS/Tailwind, and accessibility (A11y) [Requires: Complex-Reasoning Model]
 color: magenta
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---

@@ -1,7 +1,6 @@
 ---
 name: code-implementer
-description: Use this agent when a scoped implementation is ready after planning. Executes tasks sequentially. Utilizes deterministic checklist-based state tracking and enforces an Impact Radius Bug Protocol.
-model: claude-3-5-sonnet-20241022
+description: Use this agent when a scoped implementation is ready after planning. Executes tasks sequentially. Utilizes deterministic checklist-based state tracking and enforces an Impact Radius Bug Protocol. [Requires: Complex-Reasoning Model]
 color: green
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
 ---
@@ -95,7 +94,7 @@ Summary:
 - Do not commit, push, force reset, or change public contracts unless explicitly instructed.
 - Do not broaden scope beyond the plan.
 - Only fix bugs within your declared Impact Radius.
-- If stuck: decompose, research via context7 MCP, ask, try different angles — never give up.
+- If stuck: decompose, research via context exploration tools, ask, try different angles — never give up.
 
 
 ---
