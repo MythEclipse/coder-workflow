@@ -141,8 +141,14 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+commit\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: You are about to commit. Consider invoking the \\\\\\\"todo-checker\\\\\\\" subagent to ensure there is no dummy code or leftover TODOs.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+commit\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: You are about to commit. Consider invoking the \\\\\\\"todo-checker\\\\\\\" subagent to ensure no dummy code exists, or \\\\\\\"/docs\\\\\\\" to update documentation.\\\"}\"; fi; exit 0'",
             "if": "Bash(git commit *)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+push\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: You are about to push to remote. Run \\\\\\\"/review\\\\\\\" to automatically audit your code for security flaws before pushing.\\\"}\"; fi; exit 0'",
+            "if": "Bash(git push *)",
             "timeout": 5
           }
         ]
