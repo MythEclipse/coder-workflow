@@ -39,7 +39,7 @@
     "install:link": "./install.sh --link"
   },
   "dependencies": {
-    "@duckdb/node-api": "^1.5.3-r.2",
+    "@libsql/client": "^0.8.0",
     "@modelcontextprotocol/sdk": "latest",
     "@types/node": "latest",
     "blessed": "^0.1.81",
