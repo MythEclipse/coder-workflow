@@ -138,6 +138,11 @@ const server = new Server(
   { capabilities: { tools: {} } },
 );
 
+// ─── Server uptime tracking (for health checks) ───
+const _serverStartTime = Date.now();
+let _toolCallCount = 0;
+let _lastToolCallTime = 0;
+
 function readThreshold(value: unknown): QualityGateThreshold | undefined {
   if (value === "high" || value === "medium" || value === "low") return value;
   if (value === undefined) return undefined;
@@ -295,6 +300,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: { type: "object", properties: {} },
     },
     {
+      name: "ping",
+      description: "Health check — returns server uptime, cache status, and connection state. Use to verify the MCP server is responsive before initiating long-running operations.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
       name: "diff_graphs",
       description: "Membandingkan perbedaan struktur sebelum dan sesudah perubahan kode.",
       inputSchema: {
@@ -314,7 +324,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const settings = loadSettings(root);
   const args = request.params.arguments as Record<string, unknown> | undefined;
 
+  _toolCallCount++;
+  _lastToolCallTime = Date.now();
+
   switch (request.params.name) {
+    case "ping":
+      return text({
+        status: "ok",
+        uptimeSeconds: Math.round((Date.now() - _serverStartTime) / 1000),
+        toolCalls: _toolCallCount,
+        lastToolCallSecondsAgo:
+          _lastToolCallTime > 0
+            ? Math.round((Date.now() - _lastToolCallTime) / 1000)
+            : null,
+        cache: {
+          loaded: _cachedGraph !== null,
+          nodes: _cachedGraph?.nodes.length ?? 0,
+          edges: _cachedGraph?.edges.length ?? 0,
+          mtime: _cachedGraphMtime ? new Date(_cachedGraphMtime).toISOString() : null,
+        },
+        lock: {
+          writer: _graphLock.writer,
+          readers: _graphLock.readers,
+          pending: _graphLock.pending.length,
+        },
+      });
     case "scan_codebase":
     case "update_codebase": {
       await acquireWrite(_graphLock);

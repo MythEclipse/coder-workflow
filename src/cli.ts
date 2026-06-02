@@ -213,11 +213,60 @@ switch (command) {
     }
     break;
   }
+  case "help":
+  case "--help":
+  case "-h":
+    console.log(`coder-workflow — CodeGraph CLI & MCP Server
+
+USAGE:
+  coder-workflow scan              Build or refresh the codebase graph database
+  coder-workflow update            Incremental update (changed files only)
+  coder-workflow search <pattern>  Search source code by text or regex
+  coder-workflow query <query>     Query the graph (definitions, references, callers, etc.)
+  coder-workflow impact <target>   Analyze upstream/downstream dependency impact
+  coder-workflow cycles            Detect circular dependencies
+  coder-workflow orphans           Find unreferenced files/symbols
+  coder-workflow summary           Print architecture summary (entry points, hotspots)
+  coder-workflow quality           Run quality analysis [--fail-on high|medium|low]
+  coder-workflow export            Export graph [json|mermaid|dot|markdown|html]
+  coder-workflow diff <a> <b>      Compare two graph JSON exports
+  coder-workflow ui                Start interactive graph UI (http://localhost:3737)
+  coder-workflow dashboard         Open terminal dashboard (TUI)
+  coder-workflow mcp               Start MCP server (stdio transport, for .mcp.json)
+  coder-workflow help              Show this help
+
+SEARCH OPTIONS:
+  --regex           Pattern is a regular expression
+  --case-sensitive  Case-sensitive matching
+  --context <n>     Lines of context around matches
+  --max-results <n> Maximum results to return
+  --include <pat>   File glob to include (repeatable)
+  --exclude <pat>   File glob to exclude (repeatable)
+
+MCP INTEGRATION:
+  Add to .mcp.json:
+  { "mcpServers": { "codegraph": {
+      "type": "stdio",
+      "command": "coder-workflow",
+      "args": ["mcp"],
+      "env": { "CODEGRAPH_DEFAULT_UI_PORT": "3737" }
+  } } }
+
+EXAMPLES:
+  coder-workflow scan
+  coder-workflow query "src/graph/db.ts:GraphDatabase.open"
+  coder-workflow impact "src/types.ts:CodeGraph"
+  coder-workflow search "TODO|FIXME" --regex --context 2
+  coder-workflow quality --fail-on high
+  coder-workflow export json mermaid html
+`);
+    break;
   default:
     console.log(
-      "Usage: codegraph-mapper <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|mcp|dashboard>",
+      "Usage: coder-workflow <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|dashboard|mcp|help>",
     );
-    console.log("Quick start: codegraph-mapper scan && codegraph-mapper summary");
+    console.log("Quick start: coder-workflow scan && coder-workflow summary");
+    console.log("Full help:   coder-workflow help");
 }
 
 async function ensureGraph(): Promise<void> {

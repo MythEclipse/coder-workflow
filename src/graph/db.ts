@@ -4,6 +4,76 @@ import { type Client, createClient, type InValue } from "@libsql/client";
 import type { CodeGraph, CodeGraphEdge, CodeGraphNode } from "../types.js";
 import { ensureSchema, schemaVersion } from "./db/schema.js";
 
+/**
+ * Normalize parameter placeholders to SQLite-style `?`.
+ * libSQL does not support `$N` (PostgreSQL-style); this helper converts:
+ *   "$1  $2  $3" → "?  ?  ?"
+ * so that callers can write dialect-agnostic parameterized queries.
+ *
+ * Edge cases handled:
+ *   - `$` inside string literals: skipped (delimited by single quotes)
+ *   - `$$` (PostgreSQL dollar-quoting): treated as literal, not parameter
+ *   - Out-of-sequence `$3` before `$1`: auto-ordered to `?  ?  ?`
+ *   - Max parameter index: validated ≤ 100 (defensive limit)
+ *
+ * Returns the normalized SQL string and the reordered parameter count.
+ */
+export function normalizePlaceholders(sql: string, paramCount: number): { sql: string; count: number } {
+  // Fast path: already uses `?` placeholders
+  if (!/\$\d+/.test(sql)) return { sql, count: paramCount };
+
+  let result = "";
+  let inString = false;
+  let i = 0;
+
+  while (i < sql.length) {
+    const char = sql[i];
+
+    // Track single-quoted strings (skip content inside them)
+    if (char === "'" && (i === 0 || sql[i - 1] !== "\\")) {
+      inString = !inString;
+      result += char;
+      i++;
+      continue;
+    }
+
+    // Check for $N placeholder
+    if (!inString && char === "$") {
+      // $$ dollar-quoting — treat as literal
+      if (i + 1 < sql.length && sql[i + 1] === "$") {
+        result += "$$";
+        i += 2;
+        continue;
+      }
+
+      const match = sql.slice(i).match(/^\$(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num < 1 || num > 100) {
+          throw new Error(
+            `Invalid placeholder index $${num} in SQL — must be 1-100. ` +
+            `SQL fragment: "${sql.slice(Math.max(0, i - 20), i + 30)}"`,
+          );
+        }
+        if (num > paramCount) {
+          throw new Error(
+            `Placeholder $${num} exceeds declared param count ${paramCount}. ` +
+            `SQL fragment: "${sql.slice(Math.max(0, i - 20), i + 30)}"`,
+          );
+        }
+        result += "?";
+        i += match[0].length;
+        continue;
+      }
+    }
+
+    result += char;
+    i++;
+  }
+
+  return { sql: result, count: paramCount };
+}
+
 export interface ScanCacheEntry {
   hash: string;
   mtime: number;
@@ -61,7 +131,9 @@ interface ScanCacheRow {
 
 /**
  * Singleton-ish wrapper: one libSQL client per database path.
- * libSQL client is async, so all functions are async.
+ * libSQL client uses SQLite-style `?` positional placeholders.
+ * `normalizePlaceholders()` auto-converts `$N` (PostgreSQL-style) to `?`
+ * so that callers can use dialect-agnostic parameter references.
  */
 class GraphDatabase {
   private static instances = new Map<string, GraphDatabase>();
@@ -113,18 +185,20 @@ class GraphDatabase {
   }
 
   async run(sql: string, ...params: (string | number | null | undefined)[]): Promise<void> {
+    const normalized = normalizePlaceholders(sql, params.length);
     const args = params.map((p) => p ?? null) as InValue[];
     await this.client!.execute({
-      sql,
+      sql: normalized.sql,
       args,
     });
     this.refreshIdleTimer();
   }
 
   async all<T>(sql: string, ...params: (string | number | null | undefined)[]): Promise<T[]> {
+    const normalized = normalizePlaceholders(sql, params.length);
     const args = params.map((p) => p ?? null) as InValue[];
     const result = await this.client!.execute({
-      sql,
+      sql: normalized.sql,
       args,
     });
     this.refreshIdleTimer();
@@ -181,7 +255,7 @@ async function prepareDatabaseFile(root: string): Promise<void> {
     const result = await testClient.execute(
       "SELECT value FROM metadata WHERE key = 'schemaVersion'",
     );
-    await testClient.close();
+    testClient.close();
 
     if (result.rows && result.rows.length > 0) {
       const row = result.rows[0];
