@@ -66,14 +66,59 @@ function Install-DirectoryItems($SrcDir, $DestSub) {
   }
 }
 
+function Install-McpAndBuild {
+  Write-Host "Installing dependencies and building coder-workflow (TypeScript -> CLI + MCP server)..." -ForegroundColor Yellow
+  Push-Location $PluginRoot
+  Invoke-Step { npm install } "npm install"
+  Invoke-Step { npm run build } "npm run build"
+  Write-Host "Build complete" -ForegroundColor Green
+
+  $GlobalPath = Get-Command coder-workflow -ErrorAction SilentlyContinue
+  if (-not $GlobalPath) {
+    Write-Host "Installing coder-workflow CLI globally..." -ForegroundColor Yellow
+    Invoke-Step { npm install -g . } "npm install -g ."
+    Write-Host "Global install complete" -ForegroundColor Green
+  }
+  
+  $Bin = (Get-Command coder-workflow -ErrorAction SilentlyContinue)?.Source
+  Write-Host "Using coder-workflow: $Bin" -ForegroundColor Cyan
+
+  if ($Project) {
+    $McpConfig = Join-Path $PluginRoot ".mcp.json"
+  } else {
+    $McpConfig = Join-Path $env:USERPROFILE ".claude.json"
+  }
+  
+  $McpParent = Split-Path -Parent $McpConfig
+  if (-not (Test-Path $McpParent)) {
+    New-Item -ItemType Directory -Path $McpParent -Force | Out-Null
+  }
+
+  if (-not (Test-Path $McpConfig)) {
+    Write-Host "Creating new MCP configuration..." -ForegroundColor Cyan
+    $ConfigContent = @{
+      mcpServers = @{
+        codegraph = @{
+          type = "stdio"
+          command = "coder-workflow"
+          args = @("mcp")
+          env = @{
+            CODEGRAPH_DEFAULT_UI_PORT = "3737"
+          }
+        }
+      }
+    } | ConvertTo-Json -Depth 5
+    Set-Content -Path $McpConfig -Value $ConfigContent
+  } else {
+    Write-Host "Found existing MCP configuration. Please ensure codegraph is added to $McpConfig." -ForegroundColor Yellow
+  }
+  Pop-Location
+}
+
 # --- MCP-only mode ---
 if ($McpOnly) {
-  $BinPath = (Get-Command coder-workflow -ErrorAction SilentlyContinue)?.Source
-  if (-not $BinPath) {
-    Write-Error "coder-workflow is not installed globally. Run the full installer first."
-    exit 1
-  }
-  Write-Host "MCP-only: coder-workflow at $BinPath"
+  Install-McpAndBuild
+  Write-Host "MCP-only installation complete!" -ForegroundColor Green
   Write-Host "Restart Claude Code to pick up MCP configuration."
   exit 0
 }
@@ -135,6 +180,8 @@ if (-not $SkillsOnly -and -not $AgentsOnly -and -not $HooksOnly -and -not $Comma
     Install-ItemToClaude $McpJsonSrc $McpJsonDst
   }
 }
+
+Install-McpAndBuild
 
 Write-Host ""
 Write-Host "Installation complete: $Dest"
