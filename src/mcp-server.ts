@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { statSync, readFileSync } from "node:fs";
+import { statSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { cwd } from "node:process";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -28,10 +28,30 @@ import { openGraphUi } from "./ui.js";
 let _cachedGraph: CodeGraph | null = null;
 let _cachedGraphMtime = 0;
 
+/**
+ * Get max mtime across main DB and WAL sidecar files.
+ * WAL mode writes to graph.db-wal before checkpointing into graph.db.
+ */
+function getDbMaxMtime(dbPath: string): number {
+  let maxMtime = 0;
+  const files = [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
+  for (const file of files) {
+    if (existsSync(file)) {
+      try {
+        const stat = statSync(file);
+        maxMtime = Math.max(maxMtime, stat.mtimeMs);
+      } catch {
+        // ignore stat errors
+      }
+    }
+  }
+  return maxMtime;
+}
+
 async function getCachedGraph(root: string): Promise<CodeGraph> {
   const dbPath = join(root, ".codegraph", "graph.db");
   try {
-    const mtime = statSync(dbPath).mtimeMs;
+    const mtime = getDbMaxMtime(dbPath);
     if (_cachedGraph && _cachedGraphMtime === mtime) {
       return _cachedGraph;
     }
@@ -229,6 +249,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "update_codebase": {
       const graph = await scanCodebase(root, settings);
       await writeGraph(root, graph);
+      // Invalidate cache after write so next read gets fresh data
+      _cachedGraph = null;
+      _cachedGraphMtime = 0;
       return text({
         graph: ".codegraph/graph.db",
         nodes: graph.nodes.length,
