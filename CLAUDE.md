@@ -27,24 +27,38 @@ After install: restart Claude Code or run `/reload-plugins`.
 
 When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder-workflow:auditor`, etc.
 
-## Skill Routing
+## Slash Commands (Fast Triggers)
 
-| Request | Skill |
-|---------|-------|
-| Implement feature, fix bug, write tests | `coder` |
-| Audit architecture, layer violations | `auditor` |
-| Refactor to Modular MVC + Service + Repository | `refraktor` |
-| Setup Docker, CI/CD, VPS deploy, Traefik | `deploy-docker` |
-| Orchestrate any coding work | `coder-orchestrator` |
+| Command | Triggers Agent | Purpose |
+|---------|----------------|---------|
+| `/coder-workflow` | `coder-orchestrator` (skill) | Main routing brain for any task |
+| `/plan` | `workflow-planner` | Task decomposition |
+| `/audit` | `architecture-auditor` | Read-only architecture audit |
+| `/refraktor` | `refactoring-engineer` | Modular MVC extraction |
+| `/debug` | `debugging-engineer` | Root-cause analysis |
+| `/test` | `test-engineer` | TDD and test scaffolding |
+| `/deploy` | `devops-engineer` | Docker, CI/CD, Traefik setup |
+| `/ui` | `ui-engineer` | React, Vue, CSS, Accessibility |
+| `/db` | `db-architect` | SQL, indexing, schemas |
+| `/docs` | `docs-engineer` | README, API specs, inline docs |
+| `/review` | `code-reviewer` | Security & edge-case review |
 
 ## Agent Coordination
 
 | Agent | Purpose |
 |---|---|
-| `workflow-planner` | Decompose requests into tracked tasks (right-sized: 1-3 for simple, 3-8 for features, 10+ for complex) |
+| `workflow-planner` | Decompose requests into tracked tasks |
 | `architecture-auditor` | Read-only architecture and layer violation audit |
-| `code-implementer` | Scoped implementation after plan approval (right-sized: simple=direct, complex=full SDD) |
-| `test-engineer` | Test generation, coverage gap detection, test scaffolding |
+| `code-implementer` | Scoped implementation after plan approval |
+| `test-engineer` | Test generation, coverage gap detection |
+| `refactoring-engineer` | Structural codebase transformations |
+| `debugging-engineer` | Systematic error tracing and resolution |
+| `devops-engineer` | Infrastructure as Code, CI/CD |
+| `docs-engineer` | Documentation synchronization |
+| `code-reviewer` | Security audits and peer reviews |
+| `ui-engineer` | Frontend UI components and state |
+| `db-architect` | Database schemas and migrations |
+| `todo-checker` | Dummy code and TODO scanner |
 
 ## Hooks (Auto-Loaded)
 
@@ -143,10 +157,10 @@ claude --plugin-dir /mnt/code/djnaidwhbwda/coder-workflow
 
 ## Plugin Surface
 
-- `skills/` — workflow skills (coder, auditor, coder-orchestrator, refraktor, deploy-docker)
-- `agents/` — workflow-planner, architecture-auditor, code-implementer, test-engineer
-- `commands/` — slash commands for orchestrator, audit, plan, refraktor
-- `hooks/hooks.json` — auto-trigger for session start, file changes, session end
+- `skills/` — interactive meta-skills (coder-orchestrator, brainstorming, dispatching-parallel-agents)
+- `agents/` — specialized autonomous engineers (code-implementer, debugging-engineer, ui-engineer, db-architect, etc.)
+- `commands/` — slash commands mapping to agents (/audit, /ui, /db, /deploy, etc.)
+- `hooks/hooks.json` — auto-trigger for session start, git operations, safety guards
 - `src/` — TypeScript source for CLI and MCP server
 - `dist/` — bundled JavaScript artifacts
 - `.mcp.json` — MCP server configuration
