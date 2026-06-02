@@ -11,8 +11,9 @@ Run a disciplined coding workflow for Claude Code sessions. Balance speed with s
 
 1. **Task tracking is mandatory.** Before running ANY other tools (such as Grep, ViewFile, run_command, or CodeGraph MCP tools) at the start of a session or task, you MUST first run `TaskCreate` to initialize workflow tracking. Create an initial task (e.g., 'Explore codebase and plan implementation') and set it to `in_progress` immediately using `TaskUpdate`. This prevents warnings about task tools not being used.
 2. **Skills and MCP first.** Before implementing, check if a relevant skill exists (`coder-orchestrator` routing). Use codegraph MCP for cross-file lookups. Use context7 MCP for framework/library docs.
-3. **Research before guessing.** If unfamiliar with a framework, API, or pattern — query context7 MCP or WebSearch.
-4. **Fix every discovered bug — Impact Radius Protocol.** When pre-existing bugs, warnings, or deprecation notices are found during implementation:
+3. **Context Token Efficiency (Subagent First).** NEVER read large files, search extensively, or edit code directly in the main session. ALWAYS dispatch subagents (`explorer` for reading/searching, `code-implementer` for editing) to keep the main context token usage low and highly efficient.
+4. **Research before guessing.** If unfamiliar with a framework, API, or pattern — query context7 MCP or WebSearch.
+5. **Fix every discovered bug — Impact Radius Protocol.** When pre-existing bugs, warnings, or deprecation notices are found during implementation:
    - **Category A (files I touched)**: Fix ALL without exception. You MUST invoke the `systematic-debugging` skill to perform a 4-phase root-cause analysis before attempting any fixes.
    - **Category B (files I did NOT touch)**: Budget-capped at 5 High/Medium severity bugs per session. Beyond 5, write to `.claude/deferred-bugs.json` with file:line, severity, and reason. Never silently drop bugs. Always create `TaskCreate` entries for tracking.
    - This aligns with the orchestrator's Impact Radius Protocol. See `coder-orchestrator` for full details.
@@ -53,17 +54,17 @@ In plan mode, inspect the relevant code, identify the target files, define the i
    - If recent changes or migration may apply — use WebSearch.
    - Document learnings for future reference.
 
-4. **Plan the change**
+4. **Plan the change (Anti-Reductionism)**
    - Identify files to edit and why.
-   - Prefer existing patterns over new abstractions.
-   - Avoid feature flags, compatibility shims, and defensive code for impossible internal states.
-   - Validate only at system boundaries such as user input and external APIs.
+   - Never oversimplify complex problems. Drill down to the absolute root cause.
+   - Always prefer a robust, complex, and scalable solution over a fragile or overly simple one.
+   - Do not hesitate to introduce new abstractions or complex logic if it genuinely solves the root architectural problem.
 
-5. **Implement narrowly**
-   - Edit existing files where possible.
-   - Keep changes scoped to the requested outcome.
+5. **Implement robustly (Anti-Lazy)**
+   - Strictly prohibited from offering "shortcuts," "quick fixes," or "band-aid solutions".
+   - **Zero Suppression Policy**: STRICTLY FORBIDDEN from using suppression flags or annotations to bypass checks (e.g., `// eslint-disable`, `@ts-ignore`). Fix the underlying logic instead.
+   - Never use "dummy code", "mock code", or "simple placeholders" just to get things to compile. Build real, complex logic as required by the domain.
    - Preserve public behavior unless explicitly changing it.
-   - Avoid comments unless the reason is non-obvious.
 
 6. **Verify**
    - Run the smallest relevant typecheck, lint, and test commands.
@@ -113,3 +114,16 @@ Do not delegate understanding completely. Provide agents with concrete goals, re
 ## Additional resources
 
 - `references/workflow-checklist.md` provides a reusable checklist for implementation sessions.
+
+
+---
+
+# ⚠️ OVERPOWERED ANTI-LAZY DIRECTIVE ⚠️
+
+**MANDATORY CORE OPERATING PRINCIPLE**:
+1. **Absolute Anti-Reductionism**: You are STRICTLY FORBIDDEN from oversimplifying complex problems. Drill down to the absolute root cause, no matter how convoluted.
+2. **Over-Engineering Mandate**: Always prefer a robust, highly-complex, scalable solution over a fragile or overly simple one. Do not output simple "quick fixes".
+3. **Zero Suppression**: Never use `// eslint-disable`, `@ts-ignore`, `@SuppressWarnings`, or equivalent suppression flags. Fix the underlying logic instead.
+4. **No Dummy Code**: Outputting mock logic, placeholders, or dummy structures just to force compilation is an IMMEDIATE FAILURE. You must engineer the real solution.
+
+**Do not ignore these rules under any circumstances.**

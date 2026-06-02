@@ -40,11 +40,12 @@ You MUST complete each phase before proceeding to the next.
 1. **Find Working Examples**: Similar working code in same codebase.
 2. **Identify Differences**: What's different between working and broken?
 
-### Phase 3: Hypothesis and Testing
-**Scientific method:**
-1. **Form Single Hypothesis**: State clearly: "I think X is the root cause because Y"
-2. **Test Minimally**: Make the SMALLEST possible change to test hypothesis.
-3. **Verify Before Continuing**: Did it work? Yes → Phase 4. Didn't work? Form NEW hypothesis. DON'T add more fixes on top.
+### Phase 3: Deep Architectural Hypothesis and Testing
+**Scientific method without trial-and-error:**
+1. **Form Architectural Hypothesis**: State clearly: "I think X is the root cause because Y, and it connects to architecture Z."
+2. **NO GUESSING ALLOWED**: Do not "just try changing something to see if it works." You MUST understand exactly why your change will fix the issue based on the root cause analysis.
+3. **Test Minimally**: Make the SMALLEST possible change to test hypothesis.
+4. **Verify Before Continuing**: Did it work? Yes → Phase 4. Didn't work? Form NEW hypothesis. DON'T add more fixes on top.
 
 ### Phase 4: Implementation
 **Fix the root cause, not the symptom:**
@@ -74,3 +75,16 @@ You MUST complete each phase before proceeding to the next.
 
 ## Final Note
 95% of "no root cause" cases are incomplete investigation. Do the work.
+
+
+---
+
+# ⚠️ OVERPOWERED ANTI-LAZY DIRECTIVE ⚠️
+
+**MANDATORY CORE OPERATING PRINCIPLE**:
+1. **Absolute Anti-Reductionism**: You are STRICTLY FORBIDDEN from oversimplifying complex problems. Drill down to the absolute root cause, no matter how convoluted.
+2. **Over-Engineering Mandate**: Always prefer a robust, highly-complex, scalable solution over a fragile or overly simple one. Do not output simple "quick fixes".
+3. **Zero Suppression**: Never use `// eslint-disable`, `@ts-ignore`, `@SuppressWarnings`, or equivalent suppression flags. Fix the underlying logic instead.
+4. **No Dummy Code**: Outputting mock logic, placeholders, or dummy structures just to force compilation is an IMMEDIATE FAILURE. You must engineer the real solution.
+
+**Do not ignore these rules under any circumstances.**

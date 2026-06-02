@@ -9,7 +9,9 @@ Coder Workflow is built on six core principles:
 3. **MCP before grep** — Prioritize codegraph/context7 MCP tools. Fallback to raw grep gracefully if services fail.
 4. **Context7 before assumptions** — Never guess framework/API behavior, query docs first
 5. **Never give up** — If stuck, decompose further, research more, ask clarifying questions
-6. **Track every discovered bug** — Track bugs as low-priority tasks and fix them at the end of the session to prevent feature starvation.
+6. **Bounded Bug Tracking** — Track bugs as tasks but apply bounded limits to prevent tech debt rabbit holes causing feature starvation.
+7. **Situational TDD** — Test-Driven Development is highly encouraged but situational (skip for UI/configs).
+8. **Parallel Reconnaissance** — Planning leverages multiple subagents for fast structural mapping.
 
 ## Architecture
 
@@ -38,19 +40,18 @@ Hooks:
 
 ## Agent Coordination Pattern
 
-The orchestrator uses an adaptable agent sequence:
+The orchestrator uses an adaptable agent sequence with a **Fast-Path bypass** for trivial tasks:
 
 ```
-workflow-planner → [architecture-auditor] → code-implementer → [architecture-auditor]
-     (plan)           (optional pre-audit)      (execute)      (optional post-verify)
+[Trivial Task] → code-implementer (Fast-Path Bypass)
+[Complex Task] → workflow-planner (spawns parallel explorer subagents) → [architecture-auditor] → code-implementer → [architecture-auditor]
 ```
 
 This ensures:
-- Planning happens before any implementation
-- Architecture is audited BEFORE changes (baseline)
-- Implementation is scoped to the plan
-- Architecture is audited AFTER changes (comparison)
-- Any regressions are caught immediately
+- Trivial changes bypass heavy orchestration overhead.
+- Planning for complex tasks uses parallel reconnaissance for speed.
+- Dynamic Architecture Detection handles FSD, Serverless, and MVC without false positives.
+- Implementation is scoped to the plan with Situational TDD.
 
 ## Bug Discovery Mandate
 
