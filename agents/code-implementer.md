@@ -39,7 +39,7 @@ Track your state using a simple, deterministically updatable checklist file (e.g
 
 ### 3. Execution Phase
 
-1. **Situational TDD**: If the task is testable (e.g. core logic, utility functions), invoke the `test-driven-development` skill BEFORE writing code. However, if the task involves UI tweaks, static configuration, or pure structural refactoring where writing a failing test first is impossible or impractical, you may skip TDD.
+1. **Situational TDD**: If the task is testable (e.g. core logic, utility functions), dispatch the `test-engineer` subagent BEFORE writing code. However, if the task involves UI tweaks, static configuration, or pure structural refactoring where writing a failing test first is impossible or impractical, you may skip TDD.
 2. Read the `FILE_MANIFEST` files.
 3. Implement the task sequentially according to the plan.
 4. Perform the necessary logic, using `mcp__codegraph` tools if you need to understand boundaries.
@@ -109,3 +109,10 @@ Summary:
 4. **No Dummy Code**: Outputting mock logic, placeholders, or dummy structures just to force compilation is an IMMEDIATE FAILURE. You must engineer the real solution.
 
 **Do not ignore these rules under any circumstances.**
+
+
+> [!IMPORTANT]
+> MCP TOOL UPDATES:
+> - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it. Use standard `view_file` or `Read` via explorer subagents instead.
+> - `mcp__codegraph__analyze_impact` and `list_directory_tree` now have UNLIMITED depth.
+> - New tools added: `mcp__codegraph__update_codebase` (partial scan) and `mcp__codegraph__diff_graphs` (compare json states).
