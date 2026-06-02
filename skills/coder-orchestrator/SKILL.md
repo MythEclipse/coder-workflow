@@ -61,7 +61,8 @@ Split into parallel subagents for ANY of these patterns:
 ### Workflow Sequence
 
 1. **Fast-Path Heuristic**: If the request is trivial (e.g. text change, typo fix, minor config edit), BYPASS the `workflow-planner` and `architecture-auditor` and directly dispatch a single `code-implementer` subagent to execute the change immediately.
-2. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
+2. **Consult Memory Bank**: If this is a complex feature or recurring bug, explicitly invoke the `memory-librarian` to check `.coder-memory/` for past lessons, rules, or architectural decisions before proceeding.
+3. **Brainstorming**: If the request is a new feature or underspecified, invoke the `brainstorming` skill FIRST to solidify the design.
 3. **Multi-Subagent Planning (Recon)**: Extract tasks via the `workflow-planner` agent. The planner MUST spawn parallel `explorer` subagents to analyze different domains of the codebase simultaneously before generating the final plan.
 4. **Parallel Implementation**: Spawn multiple subagents simultaneously using the Task tool (e.g., `explorer`, `code-implementer`, `test-engineer`, `docs-engineer`).
 5. **Auditing & Review**: Dispatch `architecture-auditor` or `code-reviewer` sub-agents if structural or security review is explicitly requested.
@@ -80,7 +81,8 @@ When resuming a session after a disconnect or token limit:
 3. **Check `.claude/deferred-bugs.json`**: If present, review deferred bugs from the prior session. Fix them as part of your first Bug Fix Phase.
 4. **Check `.claude/agent-depth.lock`**: If it exists with depth > 0, a subagent crashed. Delete the lock file before spawning new agents.
 5. **Verify graph freshness**: Run `check_graph_freshness` MCP tool. If stale (>120 min), re-scan before deep analysis.
-6. **Do NOT restart from scratch**: Pick up exactly where the checklist left off.
+6. **Check Memory Bank**: Re-read `.coder-memory/` if the previous session left specific lessons for resumption.
+7. **Do NOT restart from scratch**: Pick up exactly where the checklist left off.
 
 ## Impact Radius Bug Discovery Mandate
 
