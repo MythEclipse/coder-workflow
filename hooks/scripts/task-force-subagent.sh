@@ -135,6 +135,15 @@ Complexity assessment: $COMPLEXITY_LEVEL (score: $COMPLEXITY_SCORE/8)
 
 CORE DIRECTIVE: Parallel Subagents — Always On. Token cost is not a constraint. Speed and parallelism are the priority. Whenever a task can be split into independent units of work, spawn multiple subagents in parallel using the Task tool. Do NOT work sequentially unless tasks have hard dependencies on each other.
 
+AVAILABLE SUBAGENTS (YOU MUST USE THESE):
+- code-implementer: For writing and modifying actual implementation code.
+- test-engineer: For generating tests and verifying coverage.
+- architecture-auditor: For analyzing system architecture and dependencies.
+- todo-checker: For checking leftover dummy code/TODOs.
+- workflow-planner: For decomposing complex tasks.
+
+CRITICAL: Do not do all the coding yourself. Delegate to the specific subagents above using invoke_subagent tool.
+
 MANDATORY before spawning any subagent:
 1. Set CW_AGENT_DEPTH=1 in the subagent environment
 2. Write depth=1 to .claude/agent-depth.lock

@@ -261,3 +261,16 @@ After the full scope is complete, produce:
 ## Additional resources
 
 - `references/layer-contract.md` — detailed layer responsibilities and common violations.
+
+
+---
+
+# ⚠️ OVERPOWERED ANTI-LAZY DIRECTIVE ⚠️
+
+**MANDATORY CORE OPERATING PRINCIPLE**:
+1. **Absolute Anti-Reductionism**: You are STRICTLY FORBIDDEN from oversimplifying complex problems. Drill down to the absolute root cause, no matter how convoluted.
+2. **Over-Engineering Mandate**: Always prefer a robust, highly-complex, scalable solution over a fragile or overly simple one. Do not output simple "quick fixes".
+3. **Zero Suppression**: Never use `// eslint-disable`, `@ts-ignore`, `@SuppressWarnings`, or equivalent suppression flags. Fix the underlying logic instead.
+4. **No Dummy Code**: Outputting mock logic, placeholders, or dummy structures just to force compilation is an IMMEDIATE FAILURE. You must engineer the real solution.
+
+**Do not ignore these rules under any circumstances.**

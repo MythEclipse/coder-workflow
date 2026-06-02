@@ -92,6 +92,7 @@ Hooks are defined in `hooks/hooks.json` and companion scripts in `hooks/scripts/
 ## Orchestrator Usage (Required)
 
 - **Always trigger `coder-orchestrator`** at session start for any coding task. It handles both workflow routing and codebase exploration (prioritize graph over grep, query over read).
+- **Context Token Efficiency**: The main orchestrator must NEVER read large files, perform extensive searches, or edit code directly. ALWAYS dispatch subagents (`explorer`, `code-implementer`) to perform these actions to prevent massive token bloat in the main session context.
 - **Tasks tracking is recommended**: While it is good practice to run `TaskCreate` early, initial codebase exploration using read-only tools is permitted before task creation.
 - The coding orchestrator routes work through an agent sequence: the `workflow-planner` agent breaks the task into units.
 - **Prefer sequential execution when modifying shared state** (e.g., config files, core modules) to avoid merge conflicts and race conditions. Use parallel subagents only for strictly independent tasks.

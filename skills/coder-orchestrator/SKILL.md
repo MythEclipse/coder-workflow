@@ -43,7 +43,9 @@ User message → Invoke coder-orchestrator (THIS skill — ALWAYS)
 | "Work on this" / "kerjakan" | Any vague coding request |
 | Explore | Codebase exploration, start of session |
 
-## Agent Coordination (Judicious Parallelism)
+## Agent Coordination (Judicious Parallelism & Context Token Efficiency)
+
+**Context Token Efficiency Mandate:** NEVER read large files, search extensively, or edit code directly in the main orchestrator session. Doing so wastes context tokens and degrades performance. **ALWAYS dispatch subagents** (e.g., `explorer` for reading/searching, `code-implementer` for editing) to keep the main context clean and efficient.
 
 Speed and parallelism are important, but preventing race conditions and massive token overhead is the priority. Instruct Claude Code to decompose tasks into parallel subagents ONLY when domains are strictly isolated. Work sequentially if modifying agents risk overlapping writes or logical merge conflicts.
 
@@ -102,6 +104,7 @@ To act judiciously and avoid common AI pitfalls, adhere to these strict limits:
 1. **Anti-Loop Circuit Breaker**: If a specific task, bug fix, or test fails **3 times consecutively** after attempted fixes, you MUST STOP. Do not guess for a 4th time. Mark the task as `BLOCKED`, explain the failure succinctly, and ask the user for help.
 2. **Knowledge Confidence Boundary**: Guessing is strictly prohibited. If your confidence regarding an API, framework convention, or syntax is below 95%, you MUST pause to search the documentation (via `context7` MCP or web search) BEFORE writing any code.
 3. **State Reversion**: If the circuit breaker is triggered (you give up on a failed path), you MUST revert the files to their last known good state (e.g., using `git checkout` or `git reset --hard` for the affected files) so you do not leave the workspace dirty with broken experiments.
+4. **Anti-Lazy & Anti-Reductionism Mandate**: Never oversimplify complex problems. Drill down to the absolute root cause. You are STRICTLY FORBIDDEN from offering "shortcuts," "quick fixes," "band-aid solutions", or "dummy code" just to make things compile. Never use suppression flags (e.g., `// eslint-disable`, `@ts-ignore`) to hide errors—fix the underlying logic. Always prefer a robust, complex solution over a fragile simple one.
 
 ## Output Contract
 
@@ -123,3 +126,16 @@ Answer:
 ## Session Metrics (Optional)
 
 At session end, save metrics to `.claude/session-metrics.json`.
+
+
+---
+
+# ⚠️ OVERPOWERED ANTI-LAZY DIRECTIVE ⚠️
+
+**MANDATORY CORE OPERATING PRINCIPLE**:
+1. **Absolute Anti-Reductionism**: You are STRICTLY FORBIDDEN from oversimplifying complex problems. Drill down to the absolute root cause, no matter how convoluted.
+2. **Over-Engineering Mandate**: Always prefer a robust, highly-complex, scalable solution over a fragile or overly simple one. Do not output simple "quick fixes".
+3. **Zero Suppression**: Never use `// eslint-disable`, `@ts-ignore`, `@SuppressWarnings`, or equivalent suppression flags. Fix the underlying logic instead.
+4. **No Dummy Code**: Outputting mock logic, placeholders, or dummy structures just to force compilation is an IMMEDIATE FAILURE. You must engineer the real solution.
+
+**Do not ignore these rules under any circumstances.**
