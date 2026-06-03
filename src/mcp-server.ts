@@ -211,18 +211,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "search_code",
       description:
-        "Search source text by literal string or regex across project files before falling back to grep.",
+        "Search source text across project files. IMPORTANT: By default, this is a literal string search. If your pattern uses regex syntax (e.g. 'a|b'), you MUST set 'regex': true.",
       inputSchema: {
         type: "object",
         properties: {
-          pattern: { type: "string" },
-          regex: { type: "boolean" },
-          caseSensitive: { type: "boolean" },
-          contextLines: { type: "number" },
-          maxResults: { type: "number" },
+          pattern: { type: "string", description: "The literal string or regex pattern to search for." },
+          regex: { type: "boolean", description: "Set to true if pattern is a regular expression. Default is false (literal)." },
+          caseSensitive: { type: "boolean", description: "Default is false (case-insensitive)." },
+          contextLines: { type: "number", description: "Number of context lines before and after match." },
+          maxResults: { type: "number", description: "Maximum number of results to return." },
           maxFileSizeBytes: { type: "number" },
-          include: { type: "array", items: { type: "string" } },
-          exclude: { type: "array", items: { type: "string" } },
+          include: { type: "array", items: { type: "string" }, description: "Glob patterns to include" },
+          exclude: { type: "array", items: { type: "string" }, description: "Glob patterns to exclude" },
         },
         required: ["pattern"],
       },
@@ -393,19 +393,54 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const query = stringArg(args?.query, "query");
       return text(queryGraph(await getCachedGraph(root), query, numberArg(args?.maxResults)));
     }
-    case "search_code":
-      return text(
-        searchCodebase(root, settings, {
-          pattern: stringArg(args?.pattern, "pattern"),
-          regex: args?.regex === true,
-          caseSensitive: args?.caseSensitive === true,
-          contextLines: numberArg(args?.contextLines),
-          maxResults: numberArg(args?.maxResults),
-          maxFileSizeBytes: numberArg(args?.maxFileSizeBytes),
-          include: stringArrayArg(args?.include, "include"),
-          exclude: stringArrayArg(args?.exclude, "exclude"),
-        }),
-      );
+    case "search_code": {
+      const pattern = stringArg(args?.pattern, "pattern");
+      const isExplicitlyRegex = args?.regex === true;
+      const caseSensitive = args?.caseSensitive === true;
+      const contextLines = numberArg(args?.contextLines);
+      const maxResults = numberArg(args?.maxResults);
+      const maxFileSizeBytes = numberArg(args?.maxFileSizeBytes);
+      const include = stringArrayArg(args?.include, "include");
+      const exclude = stringArrayArg(args?.exclude, "exclude");
+
+      let result = searchCodebase(root, settings, {
+        pattern,
+        regex: isExplicitlyRegex,
+        caseSensitive,
+        contextLines,
+        maxResults,
+        maxFileSizeBytes,
+        include,
+        exclude,
+      });
+
+      // Auto-fallback: if literal search yields 0 results and pattern contains regex syntax, try regex
+      if (
+        !isExplicitlyRegex &&
+        result.stats.totalMatches === 0 &&
+        /[|()[\]*+?^$]/.test(pattern)
+      ) {
+        try {
+          const regexResult = searchCodebase(root, settings, {
+            pattern,
+            regex: true,
+            caseSensitive,
+            contextLines,
+            maxResults,
+            maxFileSizeBytes,
+            include,
+            exclude,
+          });
+          if (regexResult.stats.totalMatches > 0) {
+            result = regexResult;
+          }
+        } catch (e) {
+          // If the pattern was an invalid regex, ignore fallback and return the 0-result literal search
+        }
+      }
+
+      return text(result);
+    }
     case "export_graph":
       return text({
         written: exportGraph(
