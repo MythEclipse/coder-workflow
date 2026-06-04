@@ -637,8 +637,6 @@ switch (command) {
     break;
   }
 
-  }
-
   // ─── API Contract Tester ──────────────────────────────────────────
   case "api-contract": {
     try {
@@ -1048,6 +1046,19 @@ EXAMPLES:
   coder-workflow search "TODO|FIXME" --regex --context 2
   coder-workflow quality --fail-on high
   coder-workflow export json mermaid html
+  coder-workflow api-contract diff --before <a> --after <b>  # API Contract
+  coder-workflow validate env --schema <schema>              # Config Validation
+  coder-workflow licenses                                    # License Checker
+  coder-workflow complexity scan                             # Code Complexity
+  coder-workflow logs <file>                                 # Log Analyzer
+  coder-workflow coverage check --threshold 80               # Coverage
+  coder-workflow hooks scaffold --hooks pre-commit           # Git Hooks
+  coder-workflow todos                                       # TODO Tracker
+  coder-workflow perf bundle --stats <stats.json>            # Performance Audit
+  coder-workflow i18n extract                                # i18n Helper
+  coder-workflow db-schema prisma                            # DB Schema Reporter
+  coder-workflow doctor                                      # Environment Check
+  coder-workflow stats                                       # Codebase Stats
   coder-workflow compress --json < response.json    # Headroom CCR
   coder-workflow decompress <ccr-id>                  # Headroom CCR
   coder-workflow learn-analyze --apply                # Headroom Learn
@@ -1056,7 +1067,7 @@ EXAMPLES:
     break;
   default:
     console.log(
-      "Usage: coder-workflow <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|dashboard|mcp|compress|decompress|ccr-stats|ccr-clean|align-cache|cache-stats|learn-analyze|learn-report|learn-log|learn-resolve|learn-match|memory-store|memory-query|memory-stats|memory-export|memory-sync|memory-platforms|help>",
+      "Usage: coder-workflow <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|dashboard|mcp|compress|decompress|ccr-stats|ccr-clean|align-cache|cache-stats|learn-analyze|learn-report|learn-log|learn-resolve|learn-match|memory-store|memory-query|memory-stats|memory-export|memory-sync|memory-platforms|api-contract|validate|licenses|complexity|logs|coverage|hooks|todos|perf|i18n|db-schema|doctor|stats|help>",
     );
     console.log("Quick start: coder-workflow scan && coder-workflow summary");
     console.log("Full help:   coder-workflow help");

@@ -183,7 +183,7 @@ import { analyzeDirectory, trackComplexityTrend, formatComplexityReport } from "
 import { analyzeLogFile, formatLogReport } from "./log-analyzer.js";
 import { aggregateCoverage, checkCoverageThreshold, formatCoverageReport } from "./coverage-aggregator.js";
 import { scaffoldHooks, validateCommitMessage, formatHookError, detectExistingHooks } from "./git-hooks.js";
-import { scanForTodos, formatTodoReport } from "./todo-tracker.js";
+import { scanForTodos, formatTodoReport, getTodoHistory } from "./todo-tracker.js";
 import { analyzeBundleStats, parseBundlePhobia, compareBundles, formatBundleReport, createPerfReport } from "./performance-audit.js";
 import { extractHardcodedStrings, checkMissingTranslation, formatLocaleReport } from "./i18n-helper.js";
 import { parsePrismaSchema, parseTypeOrmEntities, compareSchemas, formatSchemaReport, formatSchemaDiff, generateMigrationSql } from "./db-schema.js";
@@ -848,6 +848,325 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["name"],
       },
     },
+
+    // ─── API Contract Tester ────────────────────────────────────────────
+    {
+      name: "compare_api_specs",
+      description: "Compare two OpenAPI specs and detect breaking changes.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          beforePath: { type: "string", description: "Path to original OpenAPI spec" },
+          afterPath: { type: "string", description: "Path to updated OpenAPI spec" },
+        },
+        required: ["beforePath", "afterPath"],
+      },
+    },
+    {
+      name: "diff_api_from_git",
+      description: "Compare OpenAPI specs across git refs to detect API drift.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ref1: { type: "string", description: "First git ref (default: HEAD)" },
+          ref2: { type: "string", description: "Second git ref" },
+        },
+      },
+    },
+
+    // ─── Config Validator ───────────────────────────────────────────────
+    {
+      name: "validate_env_file",
+      description: "Validate .env file against a JSON schema.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          envPath: { type: "string", description: "Path to .env file" },
+          schema: { type: "object", description: "JSON schema with key→{type,required} mapping" },
+        },
+        required: ["envPath", "schema"],
+      },
+    },
+    {
+      name: "validate_json_file",
+      description: "Validate a JSON file against a schema.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          jsonPath: { type: "string", description: "Path to JSON file" },
+          schema: { type: "object", description: "Validation schema" },
+        },
+        required: ["jsonPath", "schema"],
+      },
+    },
+    {
+      name: "detect_missing_env_vars",
+      description: "Check if required environment variables are present in .env file.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          requiredVars: { type: "array", items: { type: "string" }, description: "Required variable names" },
+          envPath: { type: "string", description: "Path to .env file" },
+        },
+        required: ["requiredVars"],
+      },
+    },
+
+    // ─── License Checker ────────────────────────────────────────────────
+    {
+      name: "check_licenses",
+      description: "Scan npm dependencies and report license compatibility issues.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          root: { type: "string", description: "Project root directory" },
+        },
+      },
+    },
+
+    // ─── Complexity Tracker ─────────────────────────────────────────────
+    {
+      name: "analyze_complexity",
+      description: "Measure cyclomatic complexity across the codebase.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          root: { type: "string", description: "Project root directory" },
+          glob: { type: "string", description: "File glob pattern (default: **/*.ts)" },
+        },
+      },
+    },
+    {
+      name: "track_complexity_trend",
+      description: "Track complexity changes between current and previous scan.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          root: { type: "string", description: "Project root directory" },
+        },
+      },
+    },
+
+    // ─── Log Analyzer ───────────────────────────────────────────────────
+    {
+      name: "analyze_logs",
+      description: "Parse structured logs (JSONL) and produce error analysis report.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          filePath: { type: "string", description: "Path to log file" },
+        },
+        required: ["filePath"],
+      },
+    },
+
+    // ─── Coverage Aggregator ────────────────────────────────────────────
+    {
+      name: "aggregate_coverage",
+      description: "Merge coverage reports from jest, vitest, istanbul into unified report.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sources: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                tool: { type: "string", enum: ["jest", "vitest", "playwright", "istanbul", "nyc"] },
+                path: { type: "string" },
+              },
+            },
+          },
+        },
+        required: ["sources"],
+      },
+    },
+    {
+      name: "check_coverage_threshold",
+      description: "Check if coverage meets minimum threshold across all files.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sources: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                tool: { type: "string", enum: ["jest", "vitest", "playwright", "istanbul", "nyc"] },
+                path: { type: "string" },
+              },
+            },
+          },
+          threshold: { type: "number", description: "Minimum coverage percentage" },
+        },
+        required: ["sources", "threshold"],
+      },
+    },
+
+    // ─── Git Hook Scaffolder ────────────────────────────────────────────
+    {
+      name: "scaffold_git_hooks",
+      description: "Generate git hooks with lint, conventional commit validation, and test checks.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          targetDir: { type: "string", description: "Project directory with .git" },
+          hooks: {
+            type: "array",
+            items: { type: "string", enum: ["pre-commit", "commit-msg", "pre-push", "post-commit", "post-merge"] },
+          },
+          linter: { type: "string", description: "Linter command to run on pre-commit" },
+          testCommand: { type: "string", description: "Test command for pre-push" },
+        },
+        required: ["targetDir", "hooks"],
+      },
+    },
+    {
+      name: "validate_commit_message",
+      description: "Check a commit message against conventional commit format.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          message: { type: "string", description: "Commit message to validate" },
+        },
+        required: ["message"],
+      },
+    },
+
+    // ─── Todo/Fixme Tracker ─────────────────────────────────────────────
+    {
+      name: "scan_todos",
+      description: "Scan codebase for TODO/FIXME/HACK/NOTE/XXX comments with author tracking.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          root: { type: "string", description: "Project root" },
+          include: { type: "string", description: "Comma-separated include globs" },
+          exclude: { type: "string", description: "Comma-separated exclude globs" },
+        },
+      },
+    },
+    {
+      name: "todo_history",
+      description: "Show historical TODO/FIXME tracking data.",
+      inputSchema: { type: "object", properties: { root: { type: "string" } } },
+    },
+
+    // ─── Performance Audit ──────────────────────────────────────────────
+    {
+      name: "analyze_bundle",
+      description: "Analyze webpack/vite stats.json for bundle composition.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          statsPath: { type: "string", description: "Path to stats.json" },
+        },
+      },
+    },
+    {
+      name: "compare_bundles",
+      description: "Compare two bundle analyses to detect size regressions.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          beforeStats: { type: "string", description: "Path to previous stats.json" },
+          afterStats: { type: "string", description: "Path to current stats.json" },
+        },
+        required: ["beforeStats", "afterStats"],
+      },
+    },
+    {
+      name: "generate_perf_report",
+      description: "Generate combined performance report (bundle + lighthouse if available).",
+      inputSchema: {
+        type: "object",
+        properties: { root: { type: "string", description: "Project root" } },
+      },
+    },
+
+    // ─── i18n Helper ────────────────────────────────────────────────────
+    {
+      name: "extract_i18n_strings",
+      description: "Extract hardcoded user-facing strings from source code.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          root: { type: "string", description: "Project root" },
+          excludePatterns: { type: "string", description: "Comma-separated exclude patterns" },
+        },
+      },
+    },
+    {
+      name: "check_missing_translations",
+      description: "Compare extracted strings against locale files to find missing translations.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          root: { type: "string", description: "Project root" },
+          localesDir: { type: "string", description: "Locale directory path" },
+        },
+        required: ["root", "localesDir"],
+      },
+    },
+
+    // ─── DB Schema Reporter ─────────────────────────────────────────────
+    {
+      name: "parse_prisma_schema",
+      description: "Parse Prisma schema file into entity relationship report.",
+      inputSchema: {
+        type: "object",
+        properties: { schemaPath: { type: "string", description: "Path to schema.prisma" } },
+        required: ["schemaPath"],
+      },
+    },
+    {
+      name: "diff_db_schemas",
+      description: "Compare two schema reports and generate migration summary.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          beforeSchema: { type: "string", description: "Path to previous schema file" },
+          afterSchema: { type: "string", description: "Path to current schema file" },
+        },
+        required: ["beforeSchema", "afterSchema"],
+      },
+    },
+
+    // ─── Doctor (Environment) ───────────────────────────────────────────
+    {
+      name: "doctor",
+      description: "Check development environment: tools, project health, and diagnose issues.",
+      inputSchema: {
+        type: "object",
+        properties: { root: { type: "string", description: "Project root" } },
+      },
+    },
+
+    // ─── Codebase Stats ─────────────────────────────────────────────────
+    {
+      name: "codebase_stats",
+      description: "Generate snapshot of codebase statistics (LOC, languages, deps).",
+      inputSchema: {
+        type: "object",
+        properties: { root: { type: "string", description: "Project root" } },
+      },
+    },
+    {
+      name: "codebase_stats_history",
+      description: "Show historical codebase stats trends over time.",
+      inputSchema: {
+        type: "object",
+        properties: { root: { type: "string" } },
+      },
+    },
+    {
+      name: "compare_codebase_stats",
+      description: "Compare current stats with last snapshot to show change.",
+      inputSchema: {
+        type: "object",
+        properties: { root: { type: "string" } },
+      },
+    },
   ],
 }));
 
@@ -1277,6 +1596,196 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "benchmark_regression": {
       const name = stringArg(args?.name, "name");
       return text({ regression: detectBenchmarkRegression(name) });
+    }
+
+    // ─── API Contract Tester ─────────────────────────────────────────────
+    case "compare_api_specs": {
+      const beforePath = stringArg(args?.beforePath, "beforePath");
+      const afterPath = stringArg(args?.afterPath, "afterPath");
+      const report = compareOpenApiSpecs(beforePath, afterPath);
+      return text({ ...report, formatted: formatContractReport(report) });
+    }
+    case "diff_api_from_git": {
+      const ref1 = args?.ref1 as string | undefined;
+      const ref2 = args?.ref2 as string | undefined;
+      const report = diffOpenApiFromGit(ref1, ref2);
+      return text({ ...report, formatted: formatContractReport(report) });
+    }
+
+    // ─── Config Validator ─────────────────────────────────────────────────
+    case "validate_env_file": {
+      const envPath = stringArg(args?.envPath, "envPath");
+      const schema = args?.schema as Record<string, { type: 'string'|'number'|'boolean'|'url', required: boolean; pattern?: string }>;
+      const report = validateEnvFile(envPath, schema);
+      return text({ ...report, formatted: formatValidationReport(report) });
+    }
+    case "validate_json_file": {
+      const jsonPath = stringArg(args?.jsonPath, "jsonPath");
+      const schema = args?.schema as Record<string, { type: string; required?: boolean }>;
+      const report = validateJsonFile(jsonPath, schema);
+      return text({ ...report, formatted: formatValidationReport(report) });
+    }
+    case "detect_missing_env_vars": {
+      const requiredVars = args?.requiredVars as string[];
+      const envPath = args?.envPath as string | undefined;
+      if (!requiredVars || !Array.isArray(requiredVars)) throw new Error("requiredVars must be an array of strings");
+      const report = detectMissingEnvVars(requiredVars, envPath);
+      return text({ ...report, formatted: formatValidationReport(report) });
+    }
+
+    // ─── License Checker ──────────────────────────────────────────────────
+    case "check_licenses": {
+      const rootPath = (args?.root as string) || root;
+      const report = scanNpmLicenses(rootPath);
+      const categorized = categorizeLicenses(report);
+      return text({ ...categorized, formatted: formatLicenseReport(categorized) });
+    }
+
+    // ─── Complexity Tracker ───────────────────────────────────────────────
+    case "analyze_complexity": {
+      const rootPath = (args?.root as string) || root;
+      const glob = args?.glob as string | undefined;
+      const report = analyzeDirectory(rootPath, glob);
+      return text({ ...report, formatted: formatComplexityReport(report) });
+    }
+    case "track_complexity_trend": {
+      const rootPath = (args?.root as string) || root;
+      return text(trackComplexityTrend(rootPath));
+    }
+
+    // ─── Log Analyzer ─────────────────────────────────────────────────────
+    case "analyze_logs": {
+      const filePath = stringArg(args?.filePath, "filePath");
+      const report = analyzeLogFile(filePath);
+      return text({ ...report, formatted: formatLogReport(report) });
+    }
+
+    // ─── Coverage Aggregator ──────────────────────────────────────────────
+    case "aggregate_coverage": {
+      const sources = args?.sources as Array<{ tool: 'jest'|'vitest'|'playwright'|'istanbul'|'nyc'; path: string }>;
+      if (!sources || !Array.isArray(sources)) throw new Error("sources must be an array");
+      const report = aggregateCoverage(sources);
+      return text({ ...report, formatted: formatCoverageReport(report) });
+    }
+    case "check_coverage_threshold": {
+      const sources = args?.sources as Array<{ tool: 'jest'|'vitest'|'playwright'|'istanbul'|'nyc'; path: string }>;
+      const threshold = Number(args?.threshold);
+      if (!sources || !Array.isArray(sources)) throw new Error("sources must be an array");
+      if (!threshold || Number.isNaN(threshold)) throw new Error("threshold must be a valid number");
+      const report = aggregateCoverage(sources);
+      const gate = checkCoverageThreshold(report, threshold);
+      return text({ ...report, ...gate, formatted: formatCoverageReport(report) });
+    }
+
+    // ─── Git Hook Scaffolder ──────────────────────────────────────────────
+    case "scaffold_git_hooks": {
+      const targetDir = stringArg(args?.targetDir, "targetDir");
+      const hooks = args?.hooks as Array<'pre-commit'|'commit-msg'|'pre-push'|'post-commit'|'post-merge'>;
+      const linter = args?.linter as string | undefined;
+      const testCommand = args?.testCommand as string | undefined;
+      if (!hooks || !Array.isArray(hooks)) throw new Error("hooks must be an array");
+      const result = scaffoldHooks(targetDir, { hooks, linter, testCommand });
+      return text(result);
+    }
+    case "validate_commit_message": {
+      const message = stringArg(args?.message, "message");
+      const result = validateCommitMessage(message);
+      return text(result);
+    }
+
+    // ─── Todo/Fixme Tracker ───────────────────────────────────────────────
+    case "scan_todos": {
+      const scanRoot = (args?.root as string) || root;
+      const report = scanForTodos(scanRoot, {
+        include: (args?.include as string)?.split(",").filter(Boolean),
+        exclude: (args?.exclude as string)?.split(",").filter(Boolean),
+      });
+      return text({ ...report, formatted: formatTodoReport(report, { showAge: true }) });
+    }
+    case "todo_history": {
+      const scanRoot = (args?.root as string) || root;
+      return text({ history: getTodoHistory(scanRoot) });
+    }
+
+    // ─── Performance Audit ────────────────────────────────────────────────
+    case "analyze_bundle": {
+      const statsPath = args?.statsPath as string | undefined;
+      if (statsPath) {
+        const report = analyzeBundleStats(statsPath);
+        return text({ ...report, formatted: formatBundleReport(report) });
+      }
+      const report = await parseBundlePhobia(root);
+      return text({ ...report, formatted: formatBundleReport(report) });
+    }
+    case "compare_bundles": {
+      const beforeStats = stringArg(args?.beforeStats, "beforeStats");
+      const afterStats = stringArg(args?.afterStats, "afterStats");
+      const before = analyzeBundleStats(beforeStats);
+      const after = analyzeBundleStats(afterStats);
+      const diffs = compareBundles(before, after);
+      return text({ diffs, before: { ...before, formatted: formatBundleReport(before) }, after: { ...after, formatted: formatBundleReport(after) } });
+    }
+    case "generate_perf_report": {
+      const perfRoot = (args?.root as string) || root;
+      return text(createPerfReport(perfRoot));
+    }
+
+    // ─── i18n Helper ──────────────────────────────────────────────────────
+    case "extract_i18n_strings": {
+      const i18nRoot = (args?.root as string) || root;
+      const strings = extractHardcodedStrings(i18nRoot, {
+        excludePatterns: (args?.excludePatterns as string)?.split(",").filter(Boolean),
+      });
+      return text({ total: strings.length, strings });
+    }
+    case "check_missing_translations": {
+      const i18nRoot = stringArg(args?.root, "root");
+      const localesDir = stringArg(args?.localesDir, "localesDir");
+      const report = checkMissingTranslation(i18nRoot, localesDir);
+      return text({ ...report, formatted: formatLocaleReport(report) });
+    }
+
+    // ─── DB Schema Reporter ───────────────────────────────────────────────
+    case "parse_prisma_schema": {
+      const schemaPath = stringArg(args?.schemaPath, "schemaPath");
+      const schemaReport = parsePrismaSchema(schemaPath);
+      return text({ ...schemaReport, formatted: formatSchemaReport(schemaReport) });
+    }
+    case "diff_db_schemas": {
+      const beforeSchema = stringArg(args?.beforeSchema, "beforeSchema");
+      const afterSchema = stringArg(args?.afterSchema, "afterSchema");
+      const before = parsePrismaSchema(beforeSchema);
+      const after = parsePrismaSchema(afterSchema);
+      const diff = compareSchemas(before, after);
+      return text({ ...diff, formatted: formatSchemaDiff(diff) });
+    }
+
+    // ─── Doctor (Environment) ─────────────────────────────────────────────
+    case "doctor": {
+      const docRoot = (args?.root as string) || root;
+      const report = generateDoctorReport(docRoot);
+      return text({ ...report, formatted: formatDoctorReport(report) });
+    }
+
+    // ─── Codebase Stats ───────────────────────────────────────────────────
+    case "codebase_stats": {
+      const statsRoot = (args?.root as string) || root;
+      const stats = generateStats(statsRoot);
+      return text({ ...stats, formatted: formatStats(stats) });
+    }
+    case "codebase_stats_history": {
+      const statsRoot = (args?.root as string) || root;
+      return text(getStatsHistory(statsRoot));
+    }
+    case "compare_codebase_stats": {
+      const statsRoot = (args?.root as string) || root;
+      const current = generateStats(statsRoot);
+      const history = getStatsHistory(statsRoot);
+      let comparison = null;
+      if (history.reports.length > 0) {
+        comparison = compareStats(history.reports[history.reports.length - 1], current);
+      }
+      return text({ current: { ...current, formatted: formatStats(current) }, history, comparison });
     }
 
     default:

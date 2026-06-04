@@ -38,6 +38,19 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 | **PR/Changelog** | Generate PR description, changelog, release |
 | **Dead code** | Find unused exports, orphans, uncalled functions |
 | **Semantic search** | Search code by meaning (not just regex) |
+| **API Contract** | Compare OpenAPI specs for breaking changes |
+| **Config validation** | Validate .env, JSON, config files |
+| **License check** | Scan dependency licenses for compliance |
+| **Complexity** | Cyclomatic complexity analysis |
+| **Log analysis** | Parse JSONL logs for error patterns |
+| **Coverage** | Aggregate coverage reports from jest/vitest |
+| **Git hooks** | Scaffold pre-commit, commit-msg, pre-push hooks |
+| **TODO tracker** | Scan TODO/FIXME/HACK with author aging |
+| **Performance** | Bundle analysis and audit |
+| **i18n helper** | Extract hardcoded strings, check translations |
+| **DB schema** | Prisma/TypeORM schema diff and analysis |
+| **Doctor** | Dev environment and project health check |
+| **Stats** | Codebase LOC, languages, dependencies trends |
 
 ## Headroom Feature-Agent Mapping
 
@@ -58,6 +71,19 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 | Team Metrics | `team-metrics` | `team_metrics` | `devops-engineer` |
 | Auto-Merge | `pr-check` | `pr_auto_merge` | `devops-engineer` |
 | Benchmark | `benchmark` | `record_benchmark` | `devops-engineer` |
+| API Contract | `api-contract` | `compare_api_specs` | `Explore` |
+| Config Validation | `validate` | `validate_env_file` | `Explore` |
+| License Check | `licenses` | `check_licenses` | `Explore` |
+| Code Complexity | `complexity` | `analyze_complexity` | `Explore` |
+| Log Analysis | `logs` | `analyze_logs` | `debugging-engineer` |
+| Coverage | `coverage` | `aggregate_coverage` | `test-engineer` |
+| Git Hooks | `hooks` | `scaffold_git_hooks` | `Explore` |
+| TODO Tracker | `todos` | `scan_todos` | `todo-checker` |
+| Performance | `perf` | `analyze_bundle` | `Explore` |
+| i18n Helper | `i18n` | `extract_i18n_strings` | `Explore` |
+| DB Schema | `db-schema` | `parse_prisma_schema` | `db-architect` |
+| Doctor | `doctor` | `doctor` | `Explore` |
+| Codebase Stats | `stats` | `codebase_stats` | `Explore` |
 
 ## Workflow Sequence
 

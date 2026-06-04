@@ -50,6 +50,18 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | `/qa` | `codebase-qa-agent` | Tanya apa aja tentang codebase |
 | `/ops` | `devops-engineer` | Sprint, metrics, benchmark, auto-merge |
 | `/semantic-search` | `Explore` | Search code by meaning |
+| `/licenses` | `Explore` | Scan dependency licenses for compliance |
+| `/complexity` | `Explore` | Cyclomatic complexity analysis |
+| `/logs` | `Explore` | Parse and analyze JSONL log files |
+| `/coverage` | `test-engineer` | Aggregate coverage reports (jest, vitest) |
+| `/hooks` | `Explore` | Scaffold git hooks with validation |
+| `/todos` | `todo-checker` | TODO/FIXME tracking with author aging |
+| `/perf` | `Explore` | Bundle size analysis and performance audit |
+| `/i18n` | `Explore` | Extract i18n strings and check translations |
+| `/db-schema` | `db-architect` | Prisma/TypeORM schema diff and analysis |
+| `/doctor` | `Explore` | Dev environment and project health check |
+| `/stats` | `Explore` | Codebase statistics (LOC, languages, trends) |
+| `/api-contract` | `Explore` | Compare OpenAPI specs for breaking changes |
 
 ## Agent Coordination
 
