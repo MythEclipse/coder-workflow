@@ -42,7 +42,7 @@ interface SecretPattern {
 
 const PATTERNS: SecretPattern[] = [
   // API Keys — High severity
-  { type: "OpenAI API Key", regex: /sk-[A-Za-z0-9]{20,}/g, severity: "high", description: "OpenAI API key exposed" },
+  { type: "OpenAI API Key", regex: /sk-[A-Za-z0-9-]{20,}/g, severity: "high", description: "OpenAI API key exposed" },
   { type: "Anthropic API Key", regex: /sk-ant-[A-Za-z0-9]{20,}/g, severity: "high", description: "Anthropic API key exposed" },
   { type: "AWS Access Key", regex: /AKIA[0-9A-Z]{16}/g, severity: "high", description: "AWS Access Key ID exposed" },
   { type: "AWS Secret Key", regex: /aws[_-]?secret[_-]?access[_-]?key[\s"']*[:=][\s"']*[A-Za-z0-9\/+]{40}/gi, severity: "high", description: "AWS Secret Access Key" },
@@ -102,11 +102,11 @@ export function scanForSecrets(
   let totalFiles = 0;
   const filesWithSecrets = new Set<string>();
 
-  const maxSeverityRank = options?.severity
+  const minSeverityRank = options?.severity
     ? severityRank(options.severity)
-    : 3; // all
+    : 1; // all (show everything)
 
-  const scanPaths = options?.paths ?? [root];
+  const scanPaths = options?.paths ?? ["."];
 
   for (const scanPath of scanPaths) {
     const absPath = join(root, scanPath);
@@ -131,7 +131,7 @@ export function scanForSecrets(
           const line = lines[lineIdx];
 
           for (const pattern of PATTERNS) {
-            if (severityRank(pattern.severity) > maxSeverityRank) continue;
+            if (severityRank(pattern.severity) < minSeverityRank) continue;
 
             const matches = line.matchAll(pattern.regex);
             for (const match of matches) {

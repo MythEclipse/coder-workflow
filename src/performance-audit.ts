@@ -475,7 +475,7 @@ function extractLighthouseMetrics(rawJson: string): LighthouseMetric[] {
       return metrics;
     }
   } catch {
-    // return empty
+    console.warn("[performance-audit] Error analyzing, returning empty");
   }
 
   return [];

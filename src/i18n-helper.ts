@@ -1,6 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve, parse, extname } from "node:path";
-import { readFileContent } from "./fs-tools.js";
+import { join, relative, resolve, extname } from "node:path";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -235,7 +234,6 @@ export function extractHardcodedStrings(
       let match: RegExpExecArray | null;
       while ((match = USER_FACING_STRING_RE.exec(line)) !== null) {
         const text = match[2];
-        const full = match[0];
         // Skip if this match was already caught by JSX or console detection
         if (consoleOrThrowRE.test(line)) continue;
 
@@ -528,7 +526,7 @@ export function generateLocaleTemplate(
           const localKey = key.startsWith(`${prefix}.`) ? key.slice(prefix.length + 1) : key;
           sub[localKey] = val;
         }
-        template[prefix] = sub as unknown as string;
+        template[prefix] = sub;
       }
     }
 

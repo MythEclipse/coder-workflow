@@ -3,6 +3,7 @@ import { relative } from "node:path";
 import { listSourceFiles } from "./graph/files.js";
 import { rankHybridSearchResults } from "./search/semantic.js";
 import type { CodeGraphSettings } from "./types.js";
+import { escapeRegex } from "./utils/escape.js";
 
 const DEFAULT_MAX_RESULTS = 100;
 const MAX_RESULTS_LIMIT = 10_000;
@@ -268,15 +269,11 @@ function globToRegExp(pattern: string): RegExp {
     } else if (char === "*") {
       source += "[^/]*";
     } else {
-      source += escapeRegExp(char);
+      source += escapeRegex(char);
     }
   }
 
   return new RegExp(`${source}$`);
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
 }
 
 function isBinaryBuffer(buffer: Buffer): boolean {

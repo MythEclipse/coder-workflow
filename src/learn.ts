@@ -121,12 +121,33 @@ export function getFailures(options?: {
 
 // ─── Correction Management ──────────────────────────────────────────────
 
+function correctionReplacer(_key: string, value: unknown): unknown {
+  if (value instanceof RegExp) {
+    return { __regexp: true, source: value.source, flags: value.flags };
+  }
+  return value;
+}
+
+function correctionReviver(_key: string, value: unknown): unknown {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    (value as Record<string, unknown>).__regexp === true
+  ) {
+    return new RegExp(
+      (value as Record<string, unknown>).source as string,
+      (value as Record<string, unknown>).flags as string,
+    );
+  }
+  return value;
+}
+
 function loadCorrections(): CorrectionEntry[] {
   const dir = ensureLearnDir();
   const filePath = join(dir, CORRECTIONS_FILE);
   if (!existsSync(filePath)) return [];
   try {
-    return JSON.parse(readFileSync(filePath, "utf-8"));
+    return JSON.parse(readFileSync(filePath, "utf-8"), correctionReviver);
   } catch {
     return [];
   }
@@ -134,7 +155,11 @@ function loadCorrections(): CorrectionEntry[] {
 
 function saveCorrections(corrections: CorrectionEntry[]): void {
   const dir = ensureLearnDir();
-  writeFileSync(join(dir, CORRECTIONS_FILE), JSON.stringify(corrections, null, 2), "utf-8");
+  writeFileSync(
+    join(dir, CORRECTIONS_FILE),
+    JSON.stringify(corrections, correctionReplacer, 2),
+    "utf-8",
+  );
 }
 
 /**
@@ -204,8 +229,10 @@ export function analyzeFailures(): {
   const groups = new Map<string, FailureRecord[]>();
   for (const f of failures) {
     if (!f.error) continue;
-    // Use first 80 chars of error as grouping key
-    const key = f.error.slice(0, 80);
+    // Normalize digits so "timeout after 30s" and "timeout after 60s" group together
+    // Use first 80 chars of normalized error as grouping key
+    const normalized = f.error.replace(/\d+/g, "0");
+    const key = normalized.slice(0, 80);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(f);
   }

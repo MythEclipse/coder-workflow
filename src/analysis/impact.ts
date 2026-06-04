@@ -25,7 +25,7 @@ export function analyzeImpact(
     try {
       regex = new RegExp(target.slice(1, -1));
     } catch {
-      // fallback to exact match if regex is invalid
+      console.warn("[impact] Regex invalid, falling back to exact match");
     }
   }
 

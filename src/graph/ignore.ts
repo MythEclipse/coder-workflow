@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CodeGraphSettings } from "../types.js";
+import { escapeRegex } from "../utils/escape.js";
 
 interface IgnoreRule {
   negated: boolean;
@@ -78,8 +79,4 @@ function gitignorePatternToRegex(pattern: string, directoryOnly: boolean): RegEx
 
 function trimSlashes(value: string): string {
   return value.replace(/^\/+|\/+$/g, "");
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[|\\{}[\]().^$+?.]/g, "\\$&");
 }

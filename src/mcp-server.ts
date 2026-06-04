@@ -25,6 +25,7 @@ import { loadSettings } from "./settings.js";
 import type { CodeGraph } from "./types.js";
 import { openGraphUi } from "./ui.js";
 import { SequentialThinkingEngine } from "./sequential-thinking.js";
+import { stringArg, numberArg, stringArrayArg } from "./args.js";
 
 let _cachedGraph: CodeGraph | null = null;
 
@@ -155,26 +156,21 @@ import {
 } from "./compress.js";
 import {
   logFailure,
-  getFailures,
   analyzeFailures,
   applyCorrections,
   getLearnReport,
   resolveFailure,
-  addCorrection,
   matchCorrection,
 } from "./learn.js";
 import {
   storeMemory,
   queryMemory,
-  getAllMemories,
-  getMemoryById,
-  deleteMemory as deleteAgentMemory,
   getMemoryStats,
   exportToMarkdown as exportMemoryToMarkdown,
   syncWithPlatform,
   getSupportedPlatforms,
 } from "./cross-agent-memory.js";
-import { detectDeadCode, detectDeadCodeFromGraph } from "./deadcode.js";
+import { detectDeadCodeFromGraph } from "./deadcode.js";
 import { semanticSearch, buildEmbeddings, getEmbeddingStats } from "./semantic-search.js";
 import { generatePRDescription, generateChangelog, formatChangelogMarkdown, createRelease } from "./release.js";
 import { scanForSecrets, formatSecretsReport } from "./secrets.js";
@@ -188,13 +184,13 @@ import { scanNpmLicenses, categorizeLicenses, formatLicenseReport } from "./lice
 import { analyzeDirectory, trackComplexityTrend, formatComplexityReport } from "./complexity-tracker.js";
 import { analyzeLogFile, formatLogReport } from "./log-analyzer.js";
 import { aggregateCoverage, checkCoverageThreshold, formatCoverageReport } from "./coverage-aggregator.js";
-import { scaffoldHooks, validateCommitMessage, formatHookError, detectExistingHooks } from "./git-hooks.js";
+import { scaffoldHooks, validateCommitMessage } from "./git-hooks.js";
 import { scanForTodos, formatTodoReport, getTodoHistory } from "./todo-tracker.js";
 import { analyzeBundleStats, parseBundlePhobia, compareBundles, formatBundleReport, createPerfReport } from "./performance-audit.js";
 import { extractHardcodedStrings, checkMissingTranslation, formatLocaleReport } from "./i18n-helper.js";
-import { parsePrismaSchema, parseTypeOrmEntities, compareSchemas, formatSchemaReport, formatSchemaDiff, generateMigrationSql } from "./db-schema.js";
-import { checkTool, checkEnvironment, checkProjectHealth, diagnoseIssues, generateDoctorReport, formatDoctorReport } from "./doctor.js";
-import { generateStats, getStatsHistory, recordStats, compareStats, formatStats, formatStatsHistory } from "./codebase-stats.js";
+import { parsePrismaSchema, compareSchemas, formatSchemaReport, formatSchemaDiff } from "./db-schema.js";
+import { generateDoctorReport, formatDoctorReport } from "./doctor.js";
+import { generateStats, getStatsHistory, compareStats, formatStats } from "./codebase-stats.js";
 
 const _serverStartTime = Date.now();
 let _toolCallCount = 0;
@@ -1949,23 +1945,6 @@ await server.connect(new StdioServerTransport());
 
 function text(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] };
-}
-
-function numberArg(value: unknown): number | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  throw new Error("Search numeric options must be finite numbers.");
-}
-
-function stringArg(value: unknown, name: string): string {
-  if (typeof value === "string" && value.length > 0) return value;
-  throw new Error(`${name} must be a non-empty string.`);
-}
-
-function stringArrayArg(value: unknown, name: string): string[] {
-  if (value === undefined) return [];
-  if (Array.isArray(value) && value.every((item) => typeof item === "string")) return value;
-  throw new Error(`${name} must be an array of strings.`);
 }
 
 interface GraphFreshness {

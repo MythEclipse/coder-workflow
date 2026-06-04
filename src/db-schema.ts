@@ -244,6 +244,7 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
         // The entity is determined by the field type which references another model
         if (/^[A-Z]/.test(rawType)) {
           relation = { entity: rawType, type: 'one-to-one' };
+          currentRelations.push(rawType);
         }
       }
 

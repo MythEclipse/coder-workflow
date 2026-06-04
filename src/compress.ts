@@ -362,6 +362,7 @@ function retrieveCCR(ccrId: string): DecompressResult | null {
   }
 
   // Try without type suffix
+  if (!existsSync(dir)) return null;
   const files = readdirSync(dir);
   const match = files.find((f) => f.startsWith(ccrId));
   if (match) {

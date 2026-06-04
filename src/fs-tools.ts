@@ -24,11 +24,11 @@ export function getDirectoryTree(
   root: string,
   relDir: string = ".",
   options?: TreeOptions,
-): object {
+): Record<string, unknown> | string {
   const maxDepth = options?.maxDepth ?? 3;
   const excludeDirs = options?.excludeDirs ?? DEFAULT_EXCLUDES;
 
-  function walk(currentDir: string, currentDepth: number): any {
+  function walk(currentDir: string, currentDepth: number): Record<string, unknown> | string {
     if (currentDepth > maxDepth) return "[MAX DEPTH REACHED]";
     let items: fs.Dirent[];
     try {
@@ -37,7 +37,7 @@ export function getDirectoryTree(
       return "[UNREADABLE]";
     }
 
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     for (const item of items) {
       if (item.isDirectory()) {
         if (excludeDirs.has(item.name)) continue;

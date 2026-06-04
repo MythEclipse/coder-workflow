@@ -1,6 +1,7 @@
 import type { CodeGraphEdge, CodeGraphNode } from "../../types.js";
 import { dedupeEdges, edge } from "../ids.js";
 import { getParser } from "../parsers/index.js";
+import { lineOffset } from "../parsers/utils.js";
 
 const EXCLUDED_QUALIFIERS = new Set([
   "console",
@@ -167,15 +168,4 @@ function getExclusiveSymbolBody(
   }
 
   return body;
-}
-
-function lineOffset(source: string, line: number): number {
-  if (line <= 1) return 0;
-  let offset = 0;
-  for (let currentLine = 1; currentLine < line; currentLine++) {
-    const next = source.indexOf("\n", offset);
-    if (next === -1) return source.length;
-    offset = next + 1;
-  }
-  return offset;
 }

@@ -86,12 +86,12 @@ function parseBasicYaml(raw: string, filePath: string): OpenApiDoc {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const trimmed = line.trimEnd();
+      const trimmed = line.trim();
 
       // Skip empty lines and comments
-      if (trimmed.trim() === "" || /^\s*#/.test(trimmed)) continue;
+      if (trimmed === "" || /^\s*#/.test(trimmed)) continue;
 
-      const indent = line.length - trimmed.length;
+      const indent = line.length - line.trimStart().length;
       const content = trimmed;
 
       // --- Document separator ---

@@ -165,7 +165,7 @@ class GraphDatabase {
       clearTimeout(this.idleTimer);
     }
     this.idleTimer = setTimeout((): void => {
-      Promise.resolve(this.close()).catch(console.error);
+      Promise.resolve(this.close()).catch((err) => console.error("[db] error:", err));
     }, 3000);
   }
 
@@ -202,7 +202,7 @@ class GraphDatabase {
       args,
     });
     this.refreshIdleTimer();
-    return (result.rows ?? []) as unknown as T[];
+    return (result.rows ?? []) as T[];
   }
 
   async get<T>(
@@ -228,7 +228,7 @@ class GraphDatabase {
     if (gdb) {
       if (gdb.idleTimer) clearTimeout(gdb.idleTimer);
       if (gdb.client) {
-        Promise.resolve(gdb.client.close()).catch(console.error);
+        Promise.resolve(gdb.client.close()).catch((err) => console.error("[db] error:", err));
       }
       GraphDatabase.instances.delete(dbPath);
     }

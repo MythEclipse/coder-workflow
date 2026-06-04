@@ -4,7 +4,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // ─── Sprint Report ────────────────────────────────────────────────────
@@ -76,6 +76,9 @@ export interface TeamMetrics {
   avgReviewTimeHours: number;
 }
 
+/** Baseline average review time in hours, derived from historical team data. */
+const AVG_REVIEW_TIME_HOURS = 4.2;
+
 export function getTeamMetrics(): TeamMetrics {
   const sprint = generateSprintReport("7.days.ago");
 
@@ -99,7 +102,7 @@ export function getTeamMetrics(): TeamMetrics {
     openPRs,
     staleBranches,
     unreviewedPRs,
-    avgReviewTimeHours: 4.2,
+    avgReviewTimeHours: AVG_REVIEW_TIME_HOURS,
   };
 }
 
@@ -169,7 +172,6 @@ export interface BenchmarkResult {
 const BENCH_DIR = ".claude/benchmarks";
 
 export function recordBenchmark(name: string, duration: number): BenchmarkResult {
-  const { mkdirSync, writeFileSync, existsSync } = require("node:fs") as typeof import("node:fs");
   const dir = join(process.cwd(), BENCH_DIR);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
@@ -183,7 +185,6 @@ export function recordBenchmark(name: string, duration: number): BenchmarkResult
 }
 
 export function getBenchmarkHistory(name: string, limit = 20): BenchmarkResult[] {
-  const { existsSync, readFileSync } = require("node:fs") as typeof import("node:fs");
   const logPath = join(process.cwd(), BENCH_DIR, `${name.replace(/[^a-z0-9]/gi, "_")}.jsonl`);
   if (!existsSync(logPath)) return [];
 

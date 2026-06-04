@@ -12,7 +12,7 @@
  * constructs an answer with file:line citations.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { readGraph, graphExists } from "./graph.js";
 import { listSourceFiles } from "./graph/files.js";
@@ -59,7 +59,6 @@ function getDocFiles(root: string): string[] {
     if (pattern.endsWith("/")) {
       // Directory — list .md files
       try {
-        const { readdirSync } = require("node:fs") as typeof import("node:fs");
         for (const f of readdirSync(path)) {
           if (f.endsWith(".md")) files.push(join(path, f));
         }

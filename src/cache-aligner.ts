@@ -176,14 +176,18 @@ const DEFAULT_WARMUP_ENTRIES: CacheWarmupEntry[] = [
   },
 ];
 
+function cloneDefaults(): CacheWarmupEntry[] {
+  return DEFAULT_WARMUP_ENTRIES.map((e) => ({ ...e }));
+}
+
 function loadWarmupRegistry(): CacheWarmupEntry[] {
   const dir = ensureDir();
   const filePath = join(dir, WARMUP_REGISTRY);
-  if (!existsSync(filePath)) return [...DEFAULT_WARMUP_ENTRIES];
+  if (!existsSync(filePath)) return cloneDefaults();
   try {
     return JSON.parse(readFileSync(filePath, "utf-8"));
   } catch {
-    return [...DEFAULT_WARMUP_ENTRIES];
+    return cloneDefaults();
   }
 }
 

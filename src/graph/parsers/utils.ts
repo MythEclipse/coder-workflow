@@ -135,3 +135,19 @@ export function resolveJavaKotlinPackageImport(
   }
   return undefined;
 }
+
+/**
+ * Resolves the byte offset in a source string for a given 1-based line number.
+ * Returns 0 for line 1 (or earlier), and the start of the Nth line otherwise.
+ * If the line is past the end of the source, returns `source.length`.
+ */
+export function lineOffset(source: string, line: number): number {
+  if (line <= 1) return 0;
+  let offset = 0;
+  for (let currentLine = 1; currentLine < line; currentLine++) {
+    const next = source.indexOf("\n", offset);
+    if (next === -1) return source.length;
+    offset = next + 1;
+  }
+  return offset;
+}

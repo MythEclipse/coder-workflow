@@ -83,12 +83,14 @@ function measureFunctionComplexity(
   let complexity = 1; // base
 
   // +1 per if / else-if
+  // \bif\s*\( matches both "if (" and the "if" inside "else if (",
+  // so this single regex already captures all conditional branches.
+  // The separate else-if regex below is kept only for documentation /
+  // debug logging purposes — it is not double-added.
   const ifMatches = body.match(/\bif\s*\(/g);
   if (ifMatches) complexity += ifMatches.length;
-
-  // +1 per else if
-  const elseIfMatches = body.match(/\belse\s+if\s*\(/g);
-  if (elseIfMatches) complexity += elseIfMatches.length;
+  // \belse\s+if\s*\( count is intentionally NOT added because \bif\s*\(
+  // already matched those occurrences. Adding it would double-count.
 
   // +1 per for (including for-in, for-of)
   const forMatches = body.match(/\bfor\s*\(/g);
@@ -141,7 +143,7 @@ export function measureComplexity(
   const funcRegex =
     /(?:function\s+\w+|\w+\s*=\s*(?:async\s*)?\(|\w+\s*\([^)]*\)\s*\{)/g;
 
-  const lines = code.split("\n");
+  // const lines = code.split("\n"); // unused
 
   // Also find arrow functions assigned to identifiers:
   //   const foo = (...) => ...
@@ -187,8 +189,6 @@ export function measureComplexity(
 
     // Extract the function body (find matching closing brace)
     // Start scanning from the opening brace
-    const bodyStart = matchIndex + matchedText.indexOf("{") + 1;
-    const bodyBefore = code.substring(0, matchIndex);
     const bodyAfter = code.substring(matchIndex);
     const braceStart = bodyAfter.indexOf("{");
     if (braceStart === -1) continue;

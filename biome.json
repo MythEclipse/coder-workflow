@@ -38,11 +38,11 @@
       },
       "correctness": {
         "noUnusedFunctionParameters": "off",
-        "noUnusedImports": "off",
-        "noUnusedVariables": "off"
+        "noUnusedImports": "warn",
+        "noUnusedVariables": "warn"
       },
       "complexity": {
-        "useOptionalChain": "off"
+        "useOptionalChain": "warn"
       }
     }
   }

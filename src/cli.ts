@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { cwd } from "node:process";
-import type { QualityGateThreshold } from "./analysis.js";
 import {
   analyzeGraphQuality,
   analyzeImpact,
@@ -11,7 +10,6 @@ import {
   queryGraph,
   summarizeArchitecture,
 } from "./analysis.js";
-import { startDashboard } from "./dashboard.js";
 import { exportGraph } from "./exporters.js";
 import { diffGraphs, formatGraphDiff } from "./git-diff.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
@@ -28,7 +26,6 @@ import {
 } from "./compress.js";
 import {
   logFailure,
-  getFailures,
   analyzeFailures,
   applyCorrections,
   getLearnReport,
@@ -62,22 +59,18 @@ import { scanForTodos, formatTodoReport, getTodoHistory } from "./todo-tracker.j
 import { analyzeBundleStats, parseBundlePhobia, compareBundles, formatBundleReport, createPerfReport } from "./performance-audit.js";
 import { extractHardcodedStrings, checkMissingTranslation, formatLocaleReport } from "./i18n-helper.js";
 import { parsePrismaSchema, compareSchemas, formatSchemaReport, formatSchemaDiff } from "./db-schema.js";
-import { checkTool, checkEnvironment, checkProjectHealth, diagnoseIssues, generateDoctorReport, formatDoctorReport } from "./doctor.js";
+import { generateDoctorReport, formatDoctorReport } from "./doctor.js";
 import { generateStats, getStatsHistory, recordStats, compareStats, formatStats, formatStatsHistory } from "./codebase-stats.js";
+
+import {
+  readFlag,
+  readSearchOptions,
+  readFailOnThreshold,
+} from "./args.js";
 
 const root = cwd();
 const settings = loadSettings(root);
 const [command, ...args] = process.argv.slice(2);
-
-function readFailOnThreshold(args: string[]): QualityGateThreshold | "invalid" | undefined {
-  const index = args.indexOf("--fail-on");
-  if (index === -1) return undefined;
-
-  const value = args[index + 1];
-  if (value === "high" || value === "medium" || value === "low") return value;
-
-  return "invalid";
-}
 
 switch (command) {
   case "search": {
@@ -986,7 +979,6 @@ switch (command) {
     break;
   }
 
-  // ─── Dashboard ────────────────────────────────────────────────────
   // ─── Sequential Thinking ──────────────────────────────────────────
   case "think": {
     try {
@@ -1012,16 +1004,6 @@ switch (command) {
     }
     break;
   }
-  case "dashboard": {
-    try {
-      startDashboard();
-    } catch (error) {
-      console.error(error instanceof Error ? error.message : String(error));
-      process.exitCode = 1;
-    }
-    break;
-  }
-
   /**
    * usage() called below this case.
    */
@@ -1043,7 +1025,6 @@ USAGE:
   coder-workflow export            Export graph [json|mermaid|dot|markdown|html]
   coder-workflow diff <a> <b>      Compare two graph JSON exports
   coder-workflow ui                Start interactive graph UI (http://localhost:3737)
-  coder-workflow dashboard         Open terminal dashboard (TUI)
   coder-workflow mcp               Start MCP server (stdio transport, for .mcp.json)
   coder-workflow help              Show this help
 
@@ -1093,7 +1074,7 @@ EXAMPLES:
     break;
   default:
     console.log(
-      "Usage: coder-workflow <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|dashboard|mcp|compress|decompress|ccr-stats|ccr-clean|align-cache|cache-stats|learn-analyze|learn-report|learn-log|learn-resolve|learn-match|memory-store|memory-query|memory-stats|memory-export|memory-sync|memory-platforms|api-contract|validate|licenses|complexity|logs|coverage|hooks|todos|perf|i18n|db-schema|doctor|stats|help>",
+      "Usage: coder-workflow <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|mcp|compress|decompress|ccr-stats|ccr-clean|align-cache|cache-stats|learn-analyze|learn-report|learn-log|learn-resolve|learn-match|memory-store|memory-query|memory-stats|memory-export|memory-sync|memory-platforms|api-contract|validate|licenses|complexity|logs|coverage|hooks|todos|perf|i18n|db-schema|doctor|stats|help>",
     );
     console.log("Quick start: coder-workflow scan && coder-workflow summary");
     console.log("Full help:   coder-workflow help");
@@ -1103,55 +1084,6 @@ async function ensureGraph(): Promise<void> {
   if (!(await graphExists(root))) {
     throw new Error("Missing .codegraph/graph.db. Run scan first.");
   }
-}
-
-function readSearchOptions(args: string[]) {
-  const pattern = args.find((arg) => !arg.startsWith("--"));
-  if (!pattern) throw new Error("Search pattern is required.");
-
-  const knownFlags = new Set([
-    "--regex",
-    "--case-sensitive",
-    "--context",
-    "--max-results",
-    "--max-file-size",
-    "--include",
-    "--exclude",
-  ]);
-  for (const arg of args) {
-    if (arg.startsWith("--") && !knownFlags.has(arg))
-      throw new Error(`Unknown search option: ${arg}`);
-  }
-
-  return {
-    pattern,
-    regex: args.includes("--regex"),
-    caseSensitive: args.includes("--case-sensitive"),
-    contextLines: readNumberArg(args, "--context"),
-    maxResults: readNumberArg(args, "--max-results"),
-    maxFileSizeBytes: readNumberArg(args, "--max-file-size"),
-    include: readRepeatedStringArg(args, "--include"),
-    exclude: readRepeatedStringArg(args, "--exclude"),
-  };
-}
-
-function readNumberArg(args: string[], name: string): number | undefined {
-  const index = args.indexOf(name);
-  if (index === -1) return undefined;
-  const value = Number(args[index + 1]);
-  if (!Number.isFinite(value)) throw new Error(`${name} requires a finite number.`);
-  return value;
-}
-
-function readRepeatedStringArg(args: string[], name: string): string[] {
-  const values: string[] = [];
-  for (let index = 0; index < args.length; index += 1) {
-    if (args[index] !== name) continue;
-    const value = args[index + 1];
-    if (!value || value.startsWith("--")) throw new Error(`${name} requires a value.`);
-    values.push(value);
-  }
-  return values;
 }
 
 /**
@@ -1166,15 +1098,4 @@ async function readStdin(): Promise<string | null> {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return Buffer.concat(chunks).toString("utf-8");
-}
-
-/**
- * Read a named flag from the args list.
- */
-function readFlag(args: string[], name: string): string | undefined {
-  const index = args.indexOf(name);
-  if (index === -1) return undefined;
-  const value = args[index + 1];
-  if (!value || value.startsWith("--")) return undefined;
-  return value;
 }
