@@ -168,6 +168,14 @@ import {
   syncWithPlatform,
   getSupportedPlatforms,
 } from "./cross-agent-memory.js";
+import { detectDeadCode, detectDeadCodeFromGraph } from "./deadcode.js";
+import { semanticSearch, buildEmbeddings, getEmbeddingStats } from "./semantic-search.js";
+import { generatePRDescription, generateChangelog, formatChangelogMarkdown, createRelease } from "./release.js";
+import { scanForSecrets, formatSecretsReport } from "./secrets.js";
+import { createADR, listADRs, getADR, updateADRStatus, generateADRGraph, formatADRList, initADR } from "./adr.js";
+import { scanVulnerabilities, generateSBOM, formatVulnReport } from "./vuln-sbom.js";
+import { answerQuestion, generateOnboardingDocs, formatQAResult } from "./codebase-qa.js";
+import { generateSprintReport, getTeamMetrics, checkPRAutoMerge, recordBenchmark, getBenchmarkHistory, detectBenchmarkRegression } from "./tier3.js";
 
 const _serverStartTime = Date.now();
 let _toolCallCount = 0;
@@ -597,6 +605,236 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Cross-Agent Memory — List all supported agent platforms for cross-agent memory sharing.",
       inputSchema: { type: "object", properties: {} },
     },
+
+    // ─── Dead Code Detector ────────────────────────────────────────────
+    {
+      name: "find_dead_code",
+      description: "Detect unused exports, orphan files, and uncalled functions using CodeGraph edge analysis.",
+      inputSchema: { type: "object", properties: {} },
+    },
+
+    // ─── Semantic Code Search ──────────────────────────────────────────
+    {
+      name: "semantic_search",
+      description: "Semantic code search by meaning (not just regex). Uses embedding similarity + lexical fallback.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search query in natural language" },
+          maxResults: { type: "number", description: "Max results (default: 20)" },
+          include: { type: "array", items: { type: "string" }, description: "Glob patterns to include" },
+          exclude: { type: "array", items: { type: "string" }, description: "Glob patterns to exclude" },
+          threshold: { type: "number", description: "Similarity threshold 0-1 (default: 0.25)" },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: "build_embeddings",
+      description: "Build embedding cache for semantic search. Scans source files and generates hash embeddings.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "embedding_stats",
+      description: "Get embedding cache statistics: files, chunks, storage bytes.",
+      inputSchema: { type: "object", properties: {} },
+    },
+
+    // ─── PR & Changelog Generator ──────────────────────────────────────
+    {
+      name: "generate_pr",
+      description: "Auto-generate a PR description from git diff and conventional commits.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          targetBranch: { type: "string", description: "Base branch (default: main)" },
+          includeSummary: { type: "boolean", description: "Include summary section" },
+          includeChecklist: { type: "boolean", description: "Include checklist section" },
+        },
+      },
+    },
+    {
+      name: "generate_changelog",
+      description: "Generate changelog from git tags and conventional commits.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          from: { type: "string", description: "Starting version tag" },
+          to: { type: "string", description: "Ending version tag" },
+        },
+      },
+    },
+    {
+      name: "create_release",
+      description: "Bump version, generate changelog, prepare tag. Options: patch, minor, major.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          bump: { type: "string", enum: ["patch", "minor", "major"], description: "Version bump level" },
+        },
+        required: ["bump"],
+      },
+    },
+
+    // ─── Secrets Scanner ───────────────────────────────────────────────
+    {
+      name: "scan_secrets",
+      description: "Scan repository for hardcoded secrets: API keys, tokens, passwords, private keys.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          paths: { type: "array", items: { type: "string" }, description: "Paths to scan (default: root)" },
+          severity: { type: "string", enum: ["high", "medium", "low"], description: "Minimum severity to report" },
+        },
+      },
+    },
+
+    // ─── ADR Manager ───────────────────────────────────────────────────
+    {
+      name: "adr_init",
+      description: "Initialize ADR directory with README.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "adr_new",
+      description: "Create a new Architecture Decision Record.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Decision title" },
+          status: { type: "string", enum: ["proposed", "accepted", "deprecated", "superseded"] },
+          supersedes: { type: "number", description: "ADR ID that this supersedes" },
+        },
+        required: ["title"],
+      },
+    },
+    {
+      name: "adr_list",
+      description: "List all Architecture Decision Records.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "adr_get",
+      description: "Get a specific ADR by ID.",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "number", description: "ADR ID" } },
+        required: ["id"],
+      },
+    },
+    {
+      name: "adr_status",
+      description: "Update ADR status (proposed/accepted/deprecated/superseded).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "number", description: "ADR ID" },
+          status: { type: "string", enum: ["proposed", "accepted", "deprecated", "superseded"] },
+        },
+        required: ["id", "status"],
+      },
+    },
+    {
+      name: "adr_graph",
+      description: "Generate Mermaid graph of ADR relationships.",
+      inputSchema: { type: "object", properties: {} },
+    },
+
+    // ─── Vulnerability Scanner & SBOM ──────────────────────────────────
+    {
+      name: "scan_vulnerabilities",
+      description: "Scan dependencies for known CVEs. Supports npm, pip, go, cargo.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "generate_sbom",
+      description: "Generate Software Bill of Materials (SPDX 2.3 or CycloneDX 1.5).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          format: { type: "string", enum: ["spdx", "cyclonedx"], description: "SBOM format" },
+        },
+      },
+    },
+
+    // ─── Codebase Q&A ──────────────────────────────────────────────────
+    {
+      name: "answer_question",
+      description: "Answer questions about the codebase by searching docs, code definitions, and CodeGraph.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          question: { type: "string", description: "Your question about the codebase" },
+          maxSources: { type: "number", description: "Max sources to return" },
+          includeFiles: { type: "array", items: { type: "string" }, description: "Specific files to search" },
+        },
+        required: ["question"],
+      },
+    },
+    {
+      name: "generate_onboarding_docs",
+      description: "Auto-generate CONTRIBUTING.md and ARCHITECTURE.md from CodeGraph data.",
+      inputSchema: { type: "object", properties: {} },
+    },
+
+    // ─── Tier 3: Sprint / Team / Auto-Merge / Benchmark ────────────────
+    {
+      name: "sprint_report",
+      description: "Generate sprint report from git history. Default: last 7 days.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          since: { type: "string", description: "Git time range (e.g. '7.days.ago', '2024-01-01')" },
+        },
+      },
+    },
+    {
+      name: "team_metrics",
+      description: "Quick team dashboard: open PRs, stale branches, unreviewed PRs, sprint stats.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "pr_auto_merge",
+      description: "Check if a PR meets auto-merge conditions (checks pass, approved, no conflicts).",
+      inputSchema: {
+        type: "object",
+        properties: { prNumber: { type: "number", description: "PR number" } },
+        required: ["prNumber"],
+      },
+    },
+    {
+      name: "record_benchmark",
+      description: "Record a benchmark result for regression tracking.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Benchmark name" },
+          duration: { type: "number", description: "Duration in ms" },
+        },
+        required: ["name", "duration"],
+      },
+    },
+    {
+      name: "benchmark_history",
+      description: "Get benchmark history with durations and timestamps.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Benchmark name" },
+          limit: { type: "number", description: "Max entries (default: 20)" },
+        },
+        required: ["name"],
+      },
+    },
+    {
+      name: "benchmark_regression",
+      description: "Detect benchmark regression (>10% slowdown vs historical average).",
+      inputSchema: {
+        type: "object",
+        properties: { name: { type: "string", description: "Benchmark name" } },
+        required: ["name"],
+      },
+    },
   ],
 }));
 
@@ -878,6 +1116,155 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "supported_platforms":
       return text({ platforms: getSupportedPlatforms() });
+
+    // ─── Dead Code Detector ────────────────────────────────────────────
+    case "find_dead_code": {
+      const result = await detectDeadCodeFromGraph(root);
+      return text(result);
+    }
+
+    // ─── Semantic Code Search ──────────────────────────────────────────
+    case "semantic_search": {
+      const result = semanticSearch(root, settings, {
+        query: stringArg(args?.query, "query"),
+        maxResults: numberArg(args?.maxResults),
+        include: stringArrayArg(args?.include, "include"),
+        exclude: stringArrayArg(args?.exclude, "exclude"),
+        threshold: args?.threshold as number | undefined,
+      });
+      return text(result);
+    }
+    case "build_embeddings": {
+      const result = buildEmbeddings(root, settings);
+      return text(result);
+    }
+    case "embedding_stats":
+      return text(getEmbeddingStats(root));
+
+    // ─── PR & Changelog Generator ──────────────────────────────────────
+    case "generate_pr": {
+      const pr = generatePRDescription({
+        targetBranch: args?.targetBranch as string | undefined,
+        includeSummary: args?.includeSummary !== false,
+        includeChecklist: args?.includeChecklist !== false,
+      });
+      return text(pr);
+    }
+    case "generate_changelog": {
+      const entries = generateChangelog(
+        args?.from as string | undefined,
+        args?.to as string | undefined,
+      );
+      return text({ entries, markdown: formatChangelogMarkdown(entries) });
+    }
+    case "create_release": {
+      const bump = (args?.bump as string) || "patch";
+      if (!["patch", "minor", "major"].includes(bump)) {
+        throw new Error("bump must be patch, minor, or major");
+      }
+      const release = createRelease(bump as "patch" | "minor" | "major");
+      return text(release);
+    }
+
+    // ─── Secrets Scanner ───────────────────────────────────────────────
+    case "scan_secrets": {
+      const report = scanForSecrets(root, {
+        paths: stringArrayArg(args?.paths, "paths"),
+        severity: args?.severity as "high" | "medium" | "low" | undefined,
+      });
+      return text({ ...report, formatted: formatSecretsReport(report) });
+    }
+
+    // ─── ADR Manager ───────────────────────────────────────────────────
+    case "adr_init": {
+      const result = initADR();
+      return text(result);
+    }
+    case "adr_new": {
+      const adr = createADR({
+        title: stringArg(args?.title, "title"),
+        status: (args?.status as "proposed" | "accepted" | "deprecated" | "superseded") ?? "proposed",
+        supersedes: args?.supersedes as number | undefined,
+      });
+      return text(adr);
+    }
+    case "adr_list": {
+      const adrs = listADRs();
+      return text({ adrs, count: adrs.length, formatted: formatADRList(adrs) });
+    }
+    case "adr_get": {
+      const adr = getADR(Number(args?.id));
+      if (!adr) throw new Error(`ADR ${args?.id} not found`);
+      return text(adr);
+    }
+    case "adr_status": {
+      const id = Number(args?.id);
+      const status = stringArg(args?.status, "status") as "proposed" | "accepted" | "deprecated" | "superseded";
+      const adr = updateADRStatus(id, status);
+      if (!adr) throw new Error(`ADR ${id} not found`);
+      return text(adr);
+    }
+    case "adr_graph":
+      return text({ mermaid: generateADRGraph() });
+
+    // ─── Vulnerability Scanner & SBOM ──────────────────────────────────
+    case "scan_vulnerabilities": {
+      const report = scanVulnerabilities(root);
+      return text({ ...report, formatted: formatVulnReport(report) });
+    }
+    case "generate_sbom": {
+      const format = (args?.format as string) || "spdx";
+      if (!["spdx", "cyclonedx"].includes(format)) {
+        throw new Error("format must be spdx or cyclonedx");
+      }
+      const sbom = generateSBOM(root, format as "spdx" | "cyclonedx");
+      return text(sbom);
+    }
+
+    // ─── Codebase Q&A ──────────────────────────────────────────────────
+    case "answer_question": {
+      const result = await answerQuestion(root, {
+        question: stringArg(args?.question, "question"),
+        maxSources: numberArg(args?.maxSources),
+        includeFiles: stringArrayArg(args?.includeFiles, "includeFiles"),
+      });
+      return text({ ...result, formatted: formatQAResult(result) });
+    }
+    case "generate_onboarding_docs": {
+      const docs = await generateOnboardingDocs(root);
+      return text(docs);
+    }
+
+    // ─── Tier 3: Team / Sprint / Auto-Merge / Benchmark ────────────────
+    case "sprint_report": {
+      const since = (args?.since as string) || "7.days.ago";
+      const report = generateSprintReport(since);
+      return text(report);
+    }
+    case "team_metrics":
+      return text(getTeamMetrics());
+    case "pr_auto_merge": {
+      const prNumber = Number(args?.prNumber);
+      if (!prNumber || Number.isNaN(prNumber)) throw new Error("prNumber must be a valid number");
+      const status = await checkPRAutoMerge(prNumber);
+      return text(status);
+    }
+    case "record_benchmark": {
+      const name = stringArg(args?.name, "name");
+      const duration = Number(args?.duration);
+      if (!duration || Number.isNaN(duration)) throw new Error("duration must be a valid number");
+      const result = recordBenchmark(name, duration);
+      return text(result);
+    }
+    case "benchmark_history": {
+      const name = stringArg(args?.name, "name");
+      const limit = numberArg(args?.limit) ?? 20;
+      return text({ history: getBenchmarkHistory(name, limit) });
+    }
+    case "benchmark_regression": {
+      const name = stringArg(args?.name, "name");
+      return text({ regression: detectBenchmarkRegression(name) });
+    }
 
     default:
       throw new Error(`Unknown tool: ${request.params.name}`);

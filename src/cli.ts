@@ -43,6 +43,14 @@ import {
   syncWithPlatform,
   getSupportedPlatforms,
 } from "./cross-agent-memory.js";
+import { detectDeadCodeFromGraph } from "./deadcode.js";
+import { semanticSearch, buildEmbeddings, getEmbeddingStats } from "./semantic-search.js";
+import { generatePRDescription, generateChangelog, formatChangelogMarkdown, createRelease } from "./release.js";
+import { scanForSecrets, formatSecretsReport } from "./secrets.js";
+import { createADR, listADRs, getADR, updateADRStatus, generateADRGraph, formatADRList, initADR } from "./adr.js";
+import { scanVulnerabilities, generateSBOM, formatVulnReport } from "./vuln-sbom.js";
+import { answerQuestion, generateOnboardingDocs, formatQAResult } from "./codebase-qa.js";
+import { generateSprintReport, getTeamMetrics, checkPRAutoMerge, recordBenchmark, getBenchmarkHistory, detectBenchmarkRegression } from "./tier3.js";
 
 const root = cwd();
 const settings = loadSettings(root);
@@ -413,6 +421,206 @@ switch (command) {
   }
   case "memory-platforms": {
     console.log(JSON.stringify({ platforms: getSupportedPlatforms() }, null, 2));
+    break;
+  }
+
+  // ─── New Features: Dead Code ─────────────────────────────────────
+  case "dead-code": {
+    try {
+      const result = await detectDeadCodeFromGraph(root);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── New Features: Semantic Search ────────────────────────────────
+  case "semantic-search": {
+    try {
+      const query = args.join(" ").trim();
+      if (!query && !args.includes("--build")) {
+        console.error("Usage: coder-workflow semantic-search <query> [--max-results 20] or coder-workflow semantic-search --build");
+        process.exitCode = 1;
+        break;
+      }
+      if (args.includes("--build")) {
+        const result = buildEmbeddings(root, settings);
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        const result = semanticSearch(root, settings, {
+          query,
+          maxResults: parseInt(readFlag(args, "--max-results") ?? "20", 10),
+          include: readFlag(args, "--include")?.split(",").filter(Boolean),
+          exclude: readFlag(args, "--exclude")?.split(",").filter(Boolean),
+        });
+        console.log(JSON.stringify(result, null, 2));
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+  case "embedding-stats": {
+    console.log(JSON.stringify(getEmbeddingStats(root), null, 2));
+    break;
+  }
+
+  // ─── New Features: PR & Changelog ─────────────────────────────────
+  case "pr": {
+    const pr = generatePRDescription({
+      targetBranch: readFlag(args, "--target") || undefined,
+    });
+    console.log(pr.body);
+    break;
+  }
+  case "changelog": {
+    const entries = generateChangelog(
+      readFlag(args, "--from") || undefined,
+      readFlag(args, "--to") || undefined,
+    );
+    console.log(formatChangelogMarkdown(entries));
+    break;
+  }
+  case "release": {
+    const bump = args[0];
+    if (!bump || !["patch", "minor", "major"].includes(bump)) {
+      console.error("Usage: coder-workflow release <patch|minor|major>");
+      process.exitCode = 1;
+      break;
+    }
+    const release = createRelease(bump as "patch" | "minor" | "major");
+    console.log(JSON.stringify(release, null, 2));
+    break;
+  }
+
+  // ─── New Features: Secrets Scanner ────────────────────────────────
+  case "secrets": {
+    const report = scanForSecrets(root, {
+      severity: readFlag(args, "--severity") as "high" | "medium" | "low" | undefined,
+    });
+    console.log(formatSecretsReport(report));
+    break;
+  }
+
+  // ─── New Features: ADR Manager ────────────────────────────────────
+  case "adr": {
+    const sub = args[0];
+    if (!sub) {
+      console.error("Usage: coder-workflow adr <new|list|get|status|graph|init> [args...]");
+      process.exitCode = 1;
+      break;
+    }
+    switch (sub) {
+      case "init": console.log(JSON.stringify(initADR(), null, 2)); break;
+      case "new": {
+        const title = readFlag(args, "--title");
+        if (!title) { console.error("Usage: coder-workflow adr new --title <title> [--status proposed|accepted]"); process.exitCode = 1; break; }
+        console.log(JSON.stringify(createADR({ title, status: (readFlag(args, "--status") || "proposed") as any }), null, 2));
+        break;
+      }
+      case "list": console.log(formatADRList(listADRs())); break;
+      case "get": {
+        const id = parseInt(args[1] ?? "0");
+        const adr = getADR(id);
+        if (!adr) { console.error(`ADR ${id} not found`); process.exitCode = 1; break; }
+        console.log(adr.content);
+        break;
+      }
+      case "status": {
+        const id = parseInt(args[1] ?? "0");
+        const status = readFlag(args, "--status");
+        if (!status) { console.error("Usage: coder-workflow adr status <id> --status <accepted|proposed|deprecated|superseded>"); process.exitCode = 1; break; }
+        const updated = updateADRStatus(id, status as any);
+        if (!updated) { console.error(`ADR ${id} not found`); process.exitCode = 1; break; }
+        console.log(`ADR ${id} status updated to: ${status}`);
+        break;
+      }
+      case "graph": console.log(generateADRGraph()); break;
+      default: console.error("Unknown adr subcommand. Use: new, list, get, status, graph, init"); process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── New Features: Vulnerability Scanner ──────────────────────────
+  case "vuln-scan": {
+    const report = scanVulnerabilities(root);
+    console.log(formatVulnReport(report));
+    break;
+  }
+  case "sbom": {
+    const format = (readFlag(args, "--format") || "spdx");
+    const sbom = generateSBOM(root, format as "spdx" | "cyclonedx");
+    console.log(sbom.content);
+    break;
+  }
+
+  // ─── New Features: Codebase Q&A ───────────────────────────────────
+  case "qa": {
+    const question = args.join(" ");
+    if (!question) {
+      console.error("Usage: coder-workflow qa <question>");
+      process.exitCode = 1;
+      break;
+    }
+    const result = await answerQuestion(root, { question });
+    console.log(formatQAResult(result));
+    break;
+  }
+  case "onboarding-docs": {
+    const docs = await generateOnboardingDocs(root);
+    for (const doc of docs.files) {
+      console.log(`--- ${doc.path} ---`);
+      console.log(doc.content);
+      console.log("");
+    }
+    break;
+  }
+
+  // ─── New Features: Tier 3 ─────────────────────────────────────────
+  case "sprint": {
+    const since = readFlag(args, "--since") || "7.days.ago";
+    console.log(JSON.stringify(generateSprintReport(since), null, 2));
+    break;
+  }
+  case "team-metrics": {
+    console.log(JSON.stringify(getTeamMetrics(), null, 2));
+    break;
+  }
+  case "pr-check": {
+    const prNum = parseInt(args[0] ?? "0");
+    if (!prNum) { console.error("Usage: coder-workflow pr-check <pr-number>"); process.exitCode = 1; break; }
+    console.log(JSON.stringify(await checkPRAutoMerge(prNum), null, 2));
+    break;
+  }
+  case "benchmark": {
+    const sub = args[0];
+    if (!sub) { console.error("Usage: coder-workflow benchmark <record|history|regression>"); process.exitCode = 1; break; }
+    switch (sub) {
+      case "record": {
+        const name = readFlag(args, "--name");
+        const duration = parseFloat(readFlag(args, "--duration") ?? "0");
+        if (!name || !duration) { console.error("Usage: coder-workflow benchmark record --name <name> --duration <ms>"); process.exitCode = 1; break; }
+        console.log(JSON.stringify(recordBenchmark(name, duration), null, 2));
+        break;
+      }
+      case "history": {
+        const name = readFlag(args, "--name");
+        if (!name) { console.error("Usage: coder-workflow benchmark history --name <name>"); process.exitCode = 1; break; }
+        const limit = parseInt(readFlag(args, "--limit") ?? "20", 10);
+        console.log(JSON.stringify({ history: getBenchmarkHistory(name, limit) }, null, 2));
+        break;
+      }
+      case "regression": {
+        const name = readFlag(args, "--name");
+        if (!name) { console.error("Usage: coder-workflow benchmark regression --name <name>"); process.exitCode = 1; break; }
+        console.log(JSON.stringify({ regression: detectBenchmarkRegression(name) }, null, 2));
+        break;
+      }
+      default: console.error("Unknown benchmark subcommand"); process.exitCode = 1;
+    }
     break;
   }
 
