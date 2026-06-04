@@ -42,6 +42,14 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | `/db` | `db-architect` | SQL, indexing, schemas |
 | `/docs` | `docs-engineer` | README, API specs, inline docs |
 | `/review` | `code-reviewer` | Security & edge-case review |
+| `/deadcode` | `architecture-auditor` | Deteksi unused exports & dead code |
+| `/secrets` | `secret-scanner` | Scan API keys, tokens, passwords |
+| `/adr` | `docs-generator` | Architecture Decision Records |
+| `/pr` | `docs-generator` | PR description + changelog + release |
+| `/vuln` | `vulnerability-scanner` | CVE scan & SBOM generation |
+| `/qa` | `codebase-qa-agent` | Tanya apa aja tentang codebase |
+| `/ops` | `devops-engineer` | Sprint, metrics, benchmark, auto-merge |
+| `/semantic-search` | `Explore` | Search code by meaning |
 
 ## Agent Coordination
 
@@ -59,6 +67,10 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | `ui-engineer` | Frontend UI components and state |
 | `db-architect` | Database schemas and migrations |
 | `todo-checker` | Dummy code and TODO scanner |
+| `codebase-qa-agent` 🆕 | Answer codebase questions (RAG over docs + code) |
+| `secret-scanner` 🆕 | Detect hardcoded secrets, API keys, tokens |
+| `vulnerability-scanner` 🆕 | CVE scan & SBOM generation |
+| `docs-generator` 🆕 | Generate CONTRIBUTING, ADR, PR, changelog |
 
 ## Hooks (Auto-Loaded)
 
