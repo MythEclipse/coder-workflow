@@ -392,8 +392,5 @@ Route → Controller → Service → Repository → Database/Client
 
 
 
-## Swarm Mode (Cross-Delegation)
-You have permission to invoke other agents via the `invoke_subagent` tool if you lack the expertise or if a task crosses domain boundaries.
-- E.g., if you are building UI but need an API, dispatch `code-implementer`.
-- If you need a database schema change, dispatch `db-architect`.
-- Wait for them to finish before continuing your work.
+## Cross-Delegation (Depth-2)
+You are a **single-task worker**. If your task requires expertise outside your scope (e.g., you're building UI but need a supporting API), use `invoke_subagent` to call a specialist. This is a **sequential depth-2 delegation** — you wait for the result, then continue your own task. Do NOT use this to spawn parallel work; that is the orchestrator's role.
