@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 
 /**
  * Report produced by all config validation functions.
@@ -10,7 +10,7 @@ export interface ConfigValidationReport {
     key: string;
     expected: string;
     actual: string;
-    severity: 'error' | 'warning';
+    severity: "error" | "warning";
   }>;
   warnings: string[];
   filesChecked: number;
@@ -18,7 +18,7 @@ export interface ConfigValidationReport {
 
 /** Schema entry for validateEnvFile. */
 export interface EnvSchemaEntry {
-  type: 'string' | 'number' | 'boolean' | 'url';
+  type: "string" | "number" | "boolean" | "url";
   required: boolean;
   pattern?: string;
 }
@@ -42,21 +42,21 @@ function pushError(
   key: string,
   expected: string,
   actual: string,
-  severity: 'error' | 'warning',
+  severity: "error" | "warning",
 ): void {
   report.errors.push({ key, expected, actual, severity });
-  if (severity === 'error') report.valid = false;
+  if (severity === "error") report.valid = false;
 }
 
 function loadEnvLines(envPath: string): Record<string, string> {
   const result: Record<string, string> = {};
   if (!fs.existsSync(envPath)) return result;
 
-  const text = fs.readFileSync(envPath, 'utf-8');
+  const text = fs.readFileSync(envPath, "utf-8");
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eqIdx = line.indexOf('=');
+    if (!line || line.startsWith("#")) continue;
+    const eqIdx = line.indexOf("=");
     if (eqIdx === -1) continue;
     const key = line.slice(0, eqIdx).trim();
     let value = line.slice(eqIdx + 1).trim();
@@ -76,7 +76,7 @@ function loadEnvLines(envPath: string): Record<string, string> {
 function isUrl(value: string): boolean {
   try {
     const u = new URL(value);
-    return u.protocol === 'http:' || u.protocol === 'https:';
+    return u.protocol === "http:" || u.protocol === "https:";
   } catch {
     return false;
   }
@@ -88,17 +88,11 @@ function validateValue(
   schema: EnvSchemaEntry,
   report: ConfigValidationReport,
 ): void {
-  const actual = value === undefined ? '(missing)' : value;
+  const actual = value === undefined ? "(missing)" : value;
 
-  if (value === undefined || value === '') {
+  if (value === undefined || value === "") {
     if (schema.required) {
-      pushError(
-        report,
-        key,
-        `required ${schema.type}`,
-        actual,
-        'error',
-      );
+      pushError(report, key, `required ${schema.type}`, actual, "error");
     } else {
       report.warnings.push(`${key} is optional but missing or empty`);
     }
@@ -107,26 +101,26 @@ function validateValue(
 
   // Type validation
   switch (schema.type) {
-    case 'number': {
+    case "number": {
       if (isNaN(Number(value))) {
-        pushError(report, key, schema.type, actual, 'error');
+        pushError(report, key, schema.type, actual, "error");
       }
       break;
     }
-    case 'boolean': {
+    case "boolean": {
       const lowered = value.toLowerCase();
-      if (!['true', 'false', '1', '0'].includes(lowered)) {
-        pushError(report, key, schema.type, actual, 'error');
+      if (!["true", "false", "1", "0"].includes(lowered)) {
+        pushError(report, key, schema.type, actual, "error");
       }
       break;
     }
-    case 'url': {
+    case "url": {
       if (!isUrl(value)) {
-        pushError(report, key, schema.type, actual, 'error');
+        pushError(report, key, schema.type, actual, "error");
       }
       break;
     }
-    case 'string':
+    case "string":
       // Any non-empty string is fine
       break;
   }
@@ -136,18 +130,10 @@ function validateValue(
     try {
       const re = new RegExp(schema.pattern);
       if (!re.test(value)) {
-        pushError(
-          report,
-          key,
-          `match pattern ${schema.pattern}`,
-          actual,
-          'warning',
-        );
+        pushError(report, key, `match pattern ${schema.pattern}`, actual, "warning");
       }
     } catch {
-      report.warnings.push(
-        `Invalid regex pattern "${schema.pattern}" for key "${key}"`,
-      );
+      report.warnings.push(`Invalid regex pattern "${schema.pattern}" for key "${key}"`);
     }
   }
 }
@@ -167,7 +153,7 @@ export function validateEnvFile(
   report.filesChecked = 1;
 
   if (!fs.existsSync(envPath)) {
-    pushError(report, '(file)', 'existing .env file', 'file not found', 'error');
+    pushError(report, "(file)", "existing .env file", "file not found", "error");
     return report;
   }
 
@@ -194,28 +180,28 @@ export function validateJsonFile(
   report.filesChecked = 1;
 
   if (!fs.existsSync(jsonPath)) {
-    pushError(report, '(file)', 'existing JSON file', 'file not found', 'error');
+    pushError(report, "(file)", "existing JSON file", "file not found", "error");
     return report;
   }
 
   let data: unknown;
   let raw: string;
   try {
-    raw = fs.readFileSync(jsonPath, 'utf-8');
+    raw = fs.readFileSync(jsonPath, "utf-8");
     data = JSON.parse(raw);
   } catch (err) {
     pushError(
       report,
-      '(parse)',
-      'valid JSON',
+      "(parse)",
+      "valid JSON",
       err instanceof Error ? err.message : String(err),
-      'error',
+      "error",
     );
     return report;
   }
 
-  if (typeof data !== 'object' || data === null) {
-    pushError(report, '(root)', 'object', String(typeof data), 'error');
+  if (typeof data !== "object" || data === null) {
+    pushError(report, "(root)", "object", String(typeof data), "error");
     return report;
   }
 
@@ -226,7 +212,7 @@ export function validateJsonFile(
 
     if (value === undefined) {
       if (entry.required !== false) {
-        pushError(report, key, entry.type, '(missing)', 'error');
+        pushError(report, key, entry.type, "(missing)", "error");
       }
       continue;
     }
@@ -235,18 +221,18 @@ export function validateJsonFile(
     // For array type expectations, accept both "array" and "Array"
     const normalizedExpected = entry.type.toLowerCase();
     const normalizedActual =
-      actualType === 'object' && Array.isArray(value)
-        ? 'array'
-        : actualType === 'object' && value === null
-          ? 'null'
+      actualType === "object" && Array.isArray(value)
+        ? "array"
+        : actualType === "object" && value === null
+          ? "null"
           : actualType;
 
     if (
       normalizedActual !== normalizedExpected &&
-      !(normalizedExpected === 'array' && Array.isArray(value))
+      !(normalizedExpected === "array" && Array.isArray(value))
     ) {
-      const displayActual = Array.isArray(value) ? 'array' : actualType;
-      pushError(report, key, entry.type, displayActual, 'error');
+      const displayActual = Array.isArray(value) ? "array" : actualType;
+      pushError(report, key, entry.type, displayActual, "error");
     }
   }
 
@@ -267,20 +253,20 @@ export function validateYamlFile(
   report.filesChecked = 1;
 
   if (!fs.existsSync(yamlPath)) {
-    pushError(report, '(file)', 'existing YAML file', 'file not found', 'error');
+    pushError(report, "(file)", "existing YAML file", "file not found", "error");
     return report;
   }
 
   let raw: string;
   try {
-    raw = fs.readFileSync(yamlPath, 'utf-8');
+    raw = fs.readFileSync(yamlPath, "utf-8");
   } catch (err) {
     pushError(
       report,
-      '(read)',
-      'readable file',
+      "(read)",
+      "readable file",
       err instanceof Error ? err.message : String(err),
-      'error',
+      "error",
     );
     return report;
   }
@@ -291,18 +277,12 @@ export function validateYamlFile(
   try {
     data = JSON.parse(raw);
   } catch {
-    pushError(
-      report,
-      '(parse)',
-      'valid YAML or JSON',
-      'failed to parse (JSON fallback)',
-      'error',
-    );
+    pushError(report, "(parse)", "valid YAML or JSON", "failed to parse (JSON fallback)", "error");
     return report;
   }
 
-  if (typeof data !== 'object' || data === null) {
-    pushError(report, '(root)', 'object', String(typeof data), 'error');
+  if (typeof data !== "object" || data === null) {
+    pushError(report, "(root)", "object", String(typeof data), "error");
     return report;
   }
 
@@ -313,24 +293,21 @@ export function validateYamlFile(
 
     if (value === undefined) {
       if (entry.required !== false) {
-        pushError(report, key, entry.type, '(missing)', 'error');
+        pushError(report, key, entry.type, "(missing)", "error");
       }
       continue;
     }
 
     const actualType = typeof value;
     const normalizedExpected = entry.type.toLowerCase();
-    const normalizedActual =
-      actualType === 'object' && Array.isArray(value)
-        ? 'array'
-        : actualType;
+    const normalizedActual = actualType === "object" && Array.isArray(value) ? "array" : actualType;
 
     if (
       normalizedActual !== normalizedExpected &&
-      !(normalizedExpected === 'array' && Array.isArray(value))
+      !(normalizedExpected === "array" && Array.isArray(value))
     ) {
-      const displayActual = Array.isArray(value) ? 'array' : actualType;
-      pushError(report, key, entry.type, displayActual, 'error');
+      const displayActual = Array.isArray(value) ? "array" : actualType;
+      pushError(report, key, entry.type, displayActual, "error");
     }
   }
 
@@ -348,24 +325,24 @@ export function detectMissingEnvVars(
   envPath?: string,
 ): ConfigValidationReport {
   const report = emptyReport();
-  const resolvedPath = envPath ?? path.resolve(process.cwd(), '.env');
+  const resolvedPath = envPath ?? path.resolve(process.cwd(), ".env");
   report.filesChecked = 1;
 
   if (!fs.existsSync(resolvedPath)) {
-    pushError(report, '(file)', 'existing .env file', 'file not found', 'error');
+    pushError(report, "(file)", "existing .env file", "file not found", "error");
     return report;
   }
 
   const vars = loadEnvLines(resolvedPath);
 
   for (const v of requiredVars) {
-    if (!vars[v] || vars[v].trim() === '') {
+    if (!vars[v] || vars[v].trim() === "") {
       pushError(
         report,
         v,
-        'non-empty value',
-        vars[v] === undefined ? '(missing)' : '(empty)',
-        'error',
+        "non-empty value",
+        vars[v] === undefined ? "(missing)" : "(empty)",
+        "error",
       );
     }
   }
@@ -384,31 +361,31 @@ export function formatValidationReport(report: ConfigValidationReport): string {
   }
 
   if (report.errors.length === 0 && report.warnings.length === 0) {
-    lines.push('All checks passed.');
-    return lines.join('\n');
+    lines.push("All checks passed.");
+    return lines.join("\n");
   }
 
   // Errors
   if (report.errors.length > 0) {
-    lines.push('');
-    lines.push('-- Errors --');
+    lines.push("");
+    lines.push("-- Errors --");
     for (const err of report.errors) {
-      const mark = err.severity === 'error' ? '✖' : '⚠';
-      const actual = err.actual.length > 80 ? err.actual.slice(0, 77) + '...' : err.actual;
+      const mark = err.severity === "error" ? "✖" : "⚠";
+      const actual = err.actual.length > 80 ? err.actual.slice(0, 77) + "..." : err.actual;
       lines.push(`  ${mark} ${err.key}: expected ${err.expected}, got "${actual}"`);
     }
   }
 
   // Warnings
   if (report.warnings.length > 0) {
-    lines.push('');
-    lines.push('-- Warnings --');
+    lines.push("");
+    lines.push("-- Warnings --");
     for (const w of report.warnings) {
       lines.push(`  ⚠ ${w}`);
     }
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -420,14 +397,11 @@ export function formatValidationReport(report: ConfigValidationReport): string {
  *
  * Example: resolveDotPath({ a: { b: 1 } }, 'a.b') => 1
  */
-function resolveDotPath(
-  obj: Record<string, unknown>,
-  dotted: string,
-): unknown {
-  const parts = dotted.split('.');
+function resolveDotPath(obj: Record<string, unknown>, dotted: string): unknown {
+  const parts = dotted.split(".");
   let current: unknown = obj;
   for (const part of parts) {
-    if (current === null || typeof current !== 'object') return undefined;
+    if (current === null || typeof current !== "object") return undefined;
     current = (current as Record<string, unknown>)[part];
     if (current === undefined) return undefined;
   }

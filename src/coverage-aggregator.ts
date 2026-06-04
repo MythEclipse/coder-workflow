@@ -58,18 +58,15 @@ interface RawFileCoverage {
 function toCoverageFile(raw: RawFileCoverage): CoverageFile {
   return {
     path: raw.path,
-    statements: raw.totalStatements > 0
-      ? Math.round((raw.coveredStatements / raw.totalStatements) * 100)
-      : 100,
-    branches: raw.totalBranches > 0
-      ? Math.round((raw.coveredBranches / raw.totalBranches) * 100)
-      : 100,
-    functions: raw.totalFunctions > 0
-      ? Math.round((raw.coveredFunctions / raw.totalFunctions) * 100)
-      : 100,
-    lines: raw.totalLines > 0
-      ? Math.round((raw.coveredLines / raw.totalLines) * 100)
-      : 100,
+    statements:
+      raw.totalStatements > 0
+        ? Math.round((raw.coveredStatements / raw.totalStatements) * 100)
+        : 100,
+    branches:
+      raw.totalBranches > 0 ? Math.round((raw.coveredBranches / raw.totalBranches) * 100) : 100,
+    functions:
+      raw.totalFunctions > 0 ? Math.round((raw.coveredFunctions / raw.totalFunctions) * 100) : 100,
+    lines: raw.totalLines > 0 ? Math.round((raw.coveredLines / raw.totalLines) * 100) : 100,
     uncoveredLines: raw.uncoveredLines.slice().sort((a, b) => a - b),
   };
 }
@@ -84,9 +81,7 @@ function buildReport(rawFiles: RawFileCoverage[], error?: string): CoverageRepor
   const totalLines = rawFiles.reduce((s, f) => s + f.totalLines, 0);
   const coveredLines = rawFiles.reduce((s, f) => s + f.coveredLines, 0);
 
-  const overallPercent = totalLines > 0
-    ? Math.round((coveredLines / totalLines) * 100)
-    : 0;
+  const overallPercent = totalLines > 0 ? Math.round((coveredLines / totalLines) * 100) : 0;
 
   return {
     files: rawFiles.map(toCoverageFile),
@@ -190,7 +185,11 @@ function parseLcovBody(content: string): CoverageReport {
   const records = content.split("end_of_record");
 
   for (const record of records) {
-    const lines = record.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = record
+      .trim()
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
     if (lines.length === 0) continue;
 
     let sf = "";
@@ -250,9 +249,7 @@ function parseLcovBody(content: string): CoverageReport {
     // Function coverage
     const totalFunctions = fnEntries.length > 0 ? fnEntries.length : fndaEntries.size;
     const coveredFunctions =
-      fndaEntries.size > 0
-        ? Array.from(fndaEntries.values()).filter((h) => h > 0).length
-        : 0;
+      fndaEntries.size > 0 ? Array.from(fndaEntries.values()).filter((h) => h > 0).length : 0;
 
     // Branch coverage
     const totalBranches = brdaEntries.length;
@@ -313,9 +310,7 @@ function mergeRawFiles(target: RawFileCoverage, source: RawFileCoverage): RawFil
       source.coveredLines,
     ),
     // Union of uncovered lines
-    uncoveredLines: [
-      ...new Set([...target.uncoveredLines, ...source.uncoveredLines]),
-    ],
+    uncoveredLines: [...new Set([...target.uncoveredLines, ...source.uncoveredLines])],
   };
 }
 
@@ -514,8 +509,7 @@ function colorPercent(pct: number): string {
 function colorBar(pct: number, width: number = 10): string {
   const filled = Math.round((pct / 100) * width);
   const empty = width - filled;
-  const bar =
-    GREEN + "█".repeat(filled) + GRAY + "░".repeat(empty) + RESET;
+  const bar = GREEN + "█".repeat(filled) + GRAY + "░".repeat(empty) + RESET;
   return bar;
 }
 
@@ -540,19 +534,19 @@ export function formatCoverageReport(report: CoverageReport): string {
   lines.push(`  ${div}`);
   lines.push(
     `  Statements: ${colorPercent(Math.round((report.coveredStatements / Math.max(report.totalStatements, 1)) * 100))}  ` +
-    `(${report.coveredStatements}/${report.totalStatements})`,
+      `(${report.coveredStatements}/${report.totalStatements})`,
   );
   lines.push(
     `  Branches:   ${colorPercent(Math.round((report.coveredBranches / Math.max(report.totalBranches, 1)) * 100))}  ` +
-    `(${report.coveredBranches}/${report.totalBranches})`,
+      `(${report.coveredBranches}/${report.totalBranches})`,
   );
   lines.push(
     `  Functions:  ${colorPercent(Math.round((report.coveredFunctions / Math.max(report.totalFunctions, 1)) * 100))}  ` +
-    `(${report.coveredFunctions}/${report.totalFunctions})`,
+      `(${report.coveredFunctions}/${report.totalFunctions})`,
   );
   lines.push(
     `  Lines:      ${colorPercent(report.overallPercent)}  ` +
-    `(${report.coveredLines}/${report.totalLines})`,
+      `(${report.coveredLines}/${report.totalLines})`,
   );
   lines.push(`  ${colorBar(report.overallPercent, 20)}`);
   lines.push("");
@@ -569,19 +563,19 @@ export function formatCoverageReport(report: CoverageReport): string {
   lines.push(`  ${BOLD}Files${RESET}`);
   lines.push(`  ${div}`);
   lines.push(`  ${header}`);
-  lines.push(`  ${GRAY}${"─".repeat(50)} ${"─".repeat(6)} ${"─".repeat(6)} ${"─".repeat(6)} ${"─".repeat(6)}  ${"─".repeat(12)}${RESET}`);
+  lines.push(
+    `  ${GRAY}${"─".repeat(50)} ${"─".repeat(6)} ${"─".repeat(6)} ${"─".repeat(6)} ${"─".repeat(6)}  ${"─".repeat(12)}${RESET}`,
+  );
 
   for (const file of report.files) {
-    const name = file.path.length > 48
-      ? "..." + file.path.slice(-45)
-      : file.path;
+    const name = file.path.length > 48 ? "..." + file.path.slice(-45) : file.path;
     lines.push(
       `  ${H(name, 50)} ` +
-      `${colorPercent(file.statements).padStart(11)} ` +
-      `${colorPercent(file.branches).padStart(11)} ` +
-      `${colorPercent(file.functions).padStart(11)} ` +
-      `${colorPercent(file.lines).padStart(11)}  ` +
-      `${colorBar(file.lines, 10)}`,
+        `${colorPercent(file.statements).padStart(11)} ` +
+        `${colorPercent(file.branches).padStart(11)} ` +
+        `${colorPercent(file.functions).padStart(11)} ` +
+        `${colorPercent(file.lines).padStart(11)}  ` +
+        `${colorBar(file.lines, 10)}`,
     );
   }
   lines.push("");
@@ -592,14 +586,13 @@ export function formatCoverageReport(report: CoverageReport): string {
     lines.push(`  ${YELLOW}Low-coverage files (< 75%)${RESET}`);
     lines.push(`  ${div}`);
     for (const f of lowCoverage) {
-      lines.push(
-        `    ${f.path}  ${colorPercent(f.lines)}  ${colorBar(f.lines, 10)}`,
-      );
+      lines.push(`    ${f.path}  ${colorPercent(f.lines)}  ${colorBar(f.lines, 10)}`);
       const uncovered = f.uncoveredLines;
       if (uncovered.length > 0) {
-        const snippet = uncovered.length <= 10
-          ? uncovered.join(", ")
-          : uncovered.slice(0, 10).join(", ") + `, ... (+${uncovered.length - 10} more)`;
+        const snippet =
+          uncovered.length <= 10
+            ? uncovered.join(", ")
+            : uncovered.slice(0, 10).join(", ") + `, ... (+${uncovered.length - 10} more)`;
         lines.push(`      ${GRAY}uncovered lines: ${snippet}${RESET}`);
       }
     }

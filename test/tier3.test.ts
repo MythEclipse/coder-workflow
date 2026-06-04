@@ -3,15 +3,15 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import type { BenchmarkResult, PRStatus, SprintReport, TeamMetrics } from "../src/tier3.js";
 import {
-  recordBenchmark,
-  getBenchmarkHistory,
+  checkPRAutoMerge,
   detectBenchmarkRegression,
   generateSprintReport,
+  getBenchmarkHistory,
   getTeamMetrics,
-  checkPRAutoMerge,
+  recordBenchmark,
 } from "../src/tier3.js";
-import type { SprintReport, TeamMetrics, BenchmarkResult, PRStatus } from "../src/tier3.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "codegraph-tier3-test-"));
@@ -258,8 +258,13 @@ test("SprintReport type contract", () => {
 
 test("TeamMetrics type contract", () => {
   const sprint: SprintReport = {
-    totalCommits: 0, filesChanged: 0, insertions: 0, deletions: 0,
-    authors: [], byAuthor: [], period: { from: "", to: "" },
+    totalCommits: 0,
+    filesChanged: 0,
+    insertions: 0,
+    deletions: 0,
+    authors: [],
+    byAuthor: [],
+    period: { from: "", to: "" },
   };
 
   const metrics: TeamMetrics = {

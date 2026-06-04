@@ -3,16 +3,15 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-
-import {
-  generateStats,
-  formatStats,
-  compareStats,
-  formatStatsHistory,
-  countLinesInFile,
-  analyzeLanguages,
-} from "../src/codebase-stats.js";
 import type { CodebaseStats, StatsHistory } from "../src/codebase-stats.js";
+import {
+  analyzeLanguages,
+  compareStats,
+  countLinesInFile,
+  formatStats,
+  formatStatsHistory,
+  generateStats,
+} from "../src/codebase-stats.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "codebase-stats-test-"));
@@ -205,9 +204,7 @@ test("formatStats - produces formatted output with all sections", () => {
       { name: "react", version: "^18.0.0", type: "dependencies" },
       { name: "express", version: "^4.0.0", type: "dependencies" },
     ],
-    devDependencies: [
-      { name: "typescript", version: "^5.0.0", type: "devDependencies" },
-    ],
+    devDependencies: [{ name: "typescript", version: "^5.0.0", type: "devDependencies" }],
     generatedAt: "2026-01-01T00:00:00.000Z",
   };
 
@@ -246,9 +243,7 @@ test("formatStats - handles no dependencies", () => {
     totalFiles: 1,
     totalLines: 10,
     totalBytes: 100,
-    languages: [
-      { name: "TypeScript", files: 1, lines: 10, bytes: 100, percent: 100 },
-    ],
+    languages: [{ name: "TypeScript", files: 1, lines: 10, bytes: 100, percent: 100 }],
     dependencies: [],
     devDependencies: [],
     generatedAt: "2026-01-01T00:00:00.000Z",
@@ -270,9 +265,7 @@ test("formatStats - truncates long dependency lists", () => {
     totalFiles: 1,
     totalLines: 10,
     totalBytes: 100,
-    languages: [
-      { name: "TypeScript", files: 1, lines: 10, bytes: 100, percent: 100 },
-    ],
+    languages: [{ name: "TypeScript", files: 1, lines: 10, bytes: 100, percent: 100 }],
     dependencies: deps,
     devDependencies: [],
     generatedAt: "2026-01-01T00:00:00.000Z",
@@ -328,12 +321,8 @@ test("compareStats - detects removed deps and language changes", () => {
     totalFiles: 5,
     totalLines: 300,
     totalBytes: 15000,
-    languages: [
-      { name: "TypeScript", files: 5, lines: 300, bytes: 15000, percent: 100 },
-    ],
-    dependencies: [
-      { name: "old-pkg", version: "^1.0.0", type: "dependencies" },
-    ],
+    languages: [{ name: "TypeScript", files: 5, lines: 300, bytes: 15000, percent: 100 }],
+    dependencies: [{ name: "old-pkg", version: "^1.0.0", type: "dependencies" }],
     devDependencies: [],
     generatedAt: "2026-01-01T00:00:00.000Z",
   };
@@ -342,9 +331,7 @@ test("compareStats - detects removed deps and language changes", () => {
     totalFiles: 5,
     totalLines: 350,
     totalBytes: 17000,
-    languages: [
-      { name: "TypeScript", files: 5, lines: 350, bytes: 17000, percent: 100 },
-    ],
+    languages: [{ name: "TypeScript", files: 5, lines: 350, bytes: 17000, percent: 100 }],
     dependencies: [],
     devDependencies: [],
     generatedAt: "2026-01-02T00:00:00.000Z",
@@ -364,9 +351,7 @@ test("compareStats - handles identical stats", () => {
     totalFiles: 3,
     totalLines: 100,
     totalBytes: 5000,
-    languages: [
-      { name: "TypeScript", files: 3, lines: 100, bytes: 5000, percent: 100 },
-    ],
+    languages: [{ name: "TypeScript", files: 3, lines: 100, bytes: 5000, percent: 100 }],
     dependencies: [],
     devDependencies: [],
     generatedAt: "2026-01-01T00:00:00.000Z",

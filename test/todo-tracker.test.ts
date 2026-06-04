@@ -3,9 +3,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-
+import type { TodoItem, TodoReport } from "../src/todo-tracker.js";
 import { formatTodoReport, getTodoHistory } from "../src/todo-tracker.js";
-import type { TodoReport, TodoItem } from "../src/todo-tracker.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "todo-tracker-test-"));
@@ -212,9 +211,7 @@ test("getTodoHistory - parses valid JSONL history file", () => {
   };
   const report2: TodoReport = {
     totalItems: 2,
-    items: [
-      { type: "FIXME", message: "fix", file: "b.ts", line: 2 },
-    ],
+    items: [{ type: "FIXME", message: "fix", file: "b.ts", line: 2 }],
     byType: { FIXME: 1 },
     byFile: { "b.ts": 1 },
     byAuthor: { unknown: 1 },

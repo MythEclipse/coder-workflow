@@ -99,8 +99,17 @@ test("validateCommitMessage uses only first line for validation", () => {
 
 test("validateCommitMessage accepts all conventional commit types", () => {
   const types = [
-    "feat", "fix", "chore", "docs", "refactor",
-    "test", "style", "perf", "ci", "build", "revert",
+    "feat",
+    "fix",
+    "chore",
+    "docs",
+    "refactor",
+    "test",
+    "style",
+    "perf",
+    "ci",
+    "build",
+    "revert",
   ];
   for (const type of types) {
     const result = validateCommitMessage(`${type}: add something`);
@@ -121,10 +130,7 @@ test("formatHookError formats single error", () => {
 });
 
 test("formatHookError formats multiple errors", () => {
-  const output = formatHookError([
-    "First error message.",
-    "Second error message.",
-  ]);
+  const output = formatHookError(["First error message.", "Second error message."]);
   assert.match(output, /First error message/);
   assert.match(output, /Second error message/);
 });
@@ -132,14 +138,11 @@ test("formatHookError formats multiple errors", () => {
 test("scaffoldHooks throws when .git/hooks directory does not exist", () => {
   const root = fixture({});
 
-  assert.throws(
-    () => {
-      scaffoldHooks(root, {
-        hooks: ["pre-commit"],
-      });
-    },
-    /Git hooks directory not found/,
-  );
+  assert.throws(() => {
+    scaffoldHooks(root, {
+      hooks: ["pre-commit"],
+    });
+  }, /Git hooks directory not found/);
 });
 
 test("scaffoldHooks creates hook files in .git/hooks", () => {
@@ -168,10 +171,7 @@ test("scaffoldHooks substitutes linter variable in template", () => {
     linter: "biome check",
   });
 
-  const content = readFileSync(
-    join(root, ".git", "hooks", "pre-commit"),
-    "utf-8",
-  );
+  const content = readFileSync(join(root, ".git", "hooks", "pre-commit"), "utf-8");
   assert.match(content, /biome check/);
 });
 
@@ -185,10 +185,7 @@ test("scaffoldHooks substitutes test command and branch pattern in template", ()
     branchPattern: "^feature/",
   });
 
-  const content = readFileSync(
-    join(root, ".git", "hooks", "pre-push"),
-    "utf-8",
-  );
+  const content = readFileSync(join(root, ".git", "hooks", "pre-push"), "utf-8");
   assert.match(content, /npm test/);
   assert.match(content, /feature/);
 });

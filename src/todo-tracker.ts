@@ -7,7 +7,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -52,19 +52,35 @@ export interface FormatOptions {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const TODO_REGEX = /^(?:\/\/|#|<!--|{\/\*|\/\*| \*)\s*(TODO|FIXME|HACK|NOTE|XXX)\b\s*:?\s*(.*?)(?:\*\/|-->)?\s*$/im;
+const TODO_REGEX =
+  /^(?:\/\/|#|<!--|{\/\*|\/\*| \*)\s*(TODO|FIXME|HACK|NOTE|XXX)\b\s*:?\s*(.*?)(?:\*\/|-->)?\s*$/im;
 
 // Default extensions to scan.
 const DEFAULT_EXTENSIONS = new Set([
-  ".ts", ".js", ".tsx", ".jsx",
-  ".py", ".go", ".rs", ".java",
-  ".md", ".yaml", ".yml", ".json",
+  ".ts",
+  ".js",
+  ".tsx",
+  ".jsx",
+  ".py",
+  ".go",
+  ".rs",
+  ".java",
+  ".md",
+  ".yaml",
+  ".yml",
+  ".json",
 ]);
 
 // Directory names always skipped during walk.
 const SKIP_DIRS = new Set([
-  "node_modules", "dist", ".git", "build",
-  ".next", "vendor", ".gradle", "generated",
+  "node_modules",
+  "dist",
+  ".git",
+  "build",
+  ".next",
+  "vendor",
+  ".gradle",
+  "generated",
 ]);
 
 /** Git blame a single line — returns author email (or undefined). */
@@ -100,7 +116,10 @@ function blameDate(file: string, line: number): string | undefined {
 
 /** Parse comment text from a matched line, stripping leading comment markers. */
 function extractMessage(text: string): string {
-  return text.replace(/^\s*(?:\/\/|#|<!--?|\/\*+|\*+)\s*/, "").replace(/\s*(?:\*\/|-->)?\s*$/, "").trim();
+  return text
+    .replace(/^\s*(?:\/\/|#|<!--?|\/\*+|\*+)\s*/, "")
+    .replace(/\s*(?:\*\/|-->)?\s*$/, "")
+    .trim();
 }
 
 /** Convert a glob pattern (with **, *) into a RegExp. */
@@ -189,9 +208,7 @@ export function scanForTodos(root: string, options?: ScanOptions): TodoReport {
   const exclude = options?.exclude ? new Set(options.exclude) : undefined;
 
   // If include patterns are provided, filter the walked files.
-  const files = include
-    ? filterByInclude(allFiles, include, resolvedRoot)
-    : allFiles;
+  const files = include ? filterByInclude(allFiles, include, resolvedRoot) : allFiles;
 
   const items: TodoItem[] = [];
 
@@ -275,7 +292,9 @@ function buildReport(items: TodoItem[]): TodoReport {
   const averageAge = ageCount > 0 ? Math.round(totalAge / ageCount) : 0;
 
   // Oldest items (top 10)
-  const withAge = items.filter((i) => i.age !== undefined).sort((a, b) => (b.age ?? 0) - (a.age ?? 0));
+  const withAge = items
+    .filter((i) => i.age !== undefined)
+    .sort((a, b) => (b.age ?? 0) - (a.age ?? 0));
   const oldestItems = withAge.slice(0, 10);
 
   return {
@@ -395,7 +414,9 @@ export function formatTodoReport(report: TodoReport, options?: FormatOptions): s
   lines.push("## By File (top 15)");
   lines.push("| File | Count |");
   lines.push("|------|-------|");
-  const topFiles = Object.entries(report.byFile).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const topFiles = Object.entries(report.byFile)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15);
   for (const [file, count] of topFiles) {
     lines.push(`| ${file} | ${count} |`);
   }
@@ -405,7 +426,9 @@ export function formatTodoReport(report: TodoReport, options?: FormatOptions): s
   lines.push("## By Author (top 10)");
   lines.push("| Author | Count |");
   lines.push("|--------|-------|");
-  const topAuthors = Object.entries(report.byAuthor).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const topAuthors = Object.entries(report.byAuthor)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
   for (const [author, count] of topAuthors) {
     lines.push(`| ${author} | ${count} |`);
   }
@@ -418,7 +441,9 @@ export function formatTodoReport(report: TodoReport, options?: FormatOptions): s
     lines.push("|------|------|------|------------|---------|");
     for (const item of report.oldestItems) {
       const age = item.age ?? calculateAge(item);
-      lines.push(`| ${item.type} | ${item.file} | ${item.line} | ${age} | ${escapeMarkdown(item.message)} |`);
+      lines.push(
+        `| ${item.type} | ${item.file} | ${item.line} | ${age} | ${escapeMarkdown(item.message)} |`,
+      );
     }
     lines.push("");
   }
@@ -455,7 +480,9 @@ export function formatTodoReport(report: TodoReport, options?: FormatOptions): s
         arr.push(item);
         authorGroups.set(author, arr);
       }
-      for (const [author, group] of [...authorGroups.entries()].sort((a, b) => b[1].length - a[1].length)) {
+      for (const [author, group] of [...authorGroups.entries()].sort(
+        (a, b) => b[1].length - a[1].length,
+      )) {
         lines.push(`\n### ${author} (${group.length})`);
         lines.push("");
         lines.push(formatItemTable(group, showAge));

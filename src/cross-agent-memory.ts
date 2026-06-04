@@ -12,7 +12,7 @@
  * - Platform metadata for cross-agent interop
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // ─── Types ───────────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ function getContentHash(content: string): string {
   let hash = 0;
   for (let i = 0; i < content.length; i++) {
     const char = content.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash |= 0; // Convert to 32bit integer
   }
   return Math.abs(hash).toString(36);
@@ -150,18 +150,23 @@ export function storeMemory(entry: {
   }
 
   // Generate unique ID based on name + timestamp
-  const id = `mem-${entry.name.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase().slice(0, 40)}-${Date.now().toString(36)}`;
+  const id = `mem-${entry.name
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .toLowerCase()
+    .slice(0, 40)}-${Date.now().toString(36)}`;
 
   const newEntry: AgentMemoryEntry = {
     id,
     name: entry.name,
     description: entry.description,
     content: entry.content,
-    agentProvenance: [{
-      agent: entry.agentName,
-      platform: entry.platform ?? "claude",
-      timestamp: new Date().toISOString(),
-    }],
+    agentProvenance: [
+      {
+        agent: entry.agentName,
+        platform: entry.platform ?? "claude",
+        timestamp: new Date().toISOString(),
+      },
+    ],
     tags: entry.tags ?? [],
     platform: entry.platform ?? "claude",
     memoryType: entry.memoryType ?? "lesson",
@@ -291,10 +296,7 @@ export function getMemoryStats(): {
  * Export memory in a platform-agnostic Markdown format.
  * Other agents (Codex, Gemini, Cursor) can read this directly.
  */
-export function exportToMarkdown(options?: {
-  platforms?: string[];
-  memoryType?: string;
-}): string {
+export function exportToMarkdown(options?: { platforms?: string[]; memoryType?: string }): string {
   const store = loadStore();
   let entries = store.entries;
 
@@ -347,9 +349,7 @@ export function exportToMarkdown(options?: {
 /**
  * Export in YAML format for CI/automation tools.
  */
-export function exportToYaml(options?: {
-  filters?: MemoryQuery;
-}): string {
+export function exportToYaml(options?: { filters?: MemoryQuery }): string {
   const entries = options?.filters ? queryMemory(options.filters) : getAllMemories();
 
   const yamlLines = [
@@ -408,7 +408,11 @@ export function syncWithPlatform(platform: AgentMemoryEntry["platform"]): SyncRe
       if (existing) {
         // Merge provenance
         for (const prov of data.agentProvenance) {
-          if (!existing.agentProvenance.some((p) => p.agent === prov.agent && p.platform === prov.platform)) {
+          if (
+            !existing.agentProvenance.some(
+              (p) => p.agent === prov.agent && p.platform === prov.platform,
+            )
+          ) {
             existing.agentProvenance.push(prov);
             existing.updatedAt = new Date().toISOString();
             conflicts++;

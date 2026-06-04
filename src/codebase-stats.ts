@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -111,15 +111,9 @@ export function countLinesInFile(filePath: string): { lines: number; bytes: numb
 // analyzeLanguages
 // ---------------------------------------------------------------------------
 
-export function analyzeLanguages(
-  root: string,
-  options?: { exclude?: string[] },
-): LanguageStats[] {
+export function analyzeLanguages(root: string, options?: { exclude?: string[] }): LanguageStats[] {
   const rootPath = resolve(root);
-  const languageMap = new Map<
-    string,
-    { files: number; lines: number; bytes: number }
-  >();
+  const languageMap = new Map<string, { files: number; lines: number; bytes: number }>();
 
   const skipDirs = new Set(DEFAULT_SKIP_DIRS);
   if (options?.exclude) {
@@ -171,10 +165,7 @@ export function analyzeLanguages(
 
   walk(rootPath);
 
-  const totalLines = Array.from(languageMap.values()).reduce(
-    (sum, v) => sum + v.lines,
-    0,
-  );
+  const totalLines = Array.from(languageMap.values()).reduce((sum, v) => sum + v.lines, 0);
 
   const result: LanguageStats[] = Array.from(languageMap.entries())
     .map(([name, data]) => ({
@@ -239,10 +230,7 @@ export function collectDependencies(
 // generateStats
 // ---------------------------------------------------------------------------
 
-export function generateStats(
-  root: string,
-  options?: { exclude?: string[] },
-): CodebaseStats {
+export function generateStats(root: string, options?: { exclude?: string[] }): CodebaseStats {
   const rootPath = resolve(root);
   const languages = analyzeLanguages(rootPath, options);
   const depResult = collectDependencies(rootPath);
@@ -442,9 +430,8 @@ export function formatStats(stats: CodebaseStats): string {
     lines.push("-".repeat(header.length));
 
     for (const lang of stats.languages) {
-      const barLen = maxPercent > 0
-        ? Math.max(1, Math.round((lang.percent / maxPercent) * barWidth))
-        : 1;
+      const barLen =
+        maxPercent > 0 ? Math.max(1, Math.round((lang.percent / maxPercent) * barWidth)) : 1;
       const bar = "█".repeat(barLen);
       const pct = lang.percent.toFixed(1);
 
@@ -506,7 +493,9 @@ export function formatStatsHistory(history: StatsHistory): string {
   lines.push("Stats History");
   lines.push("=".repeat(60));
   lines.push(`  Snapshots: ${history.reports.length}`);
-  lines.push(`  Span:      ${history.dates[0] || "?"} → ${history.dates[history.dates.length - 1] || "?"}`);
+  lines.push(
+    `  Span:      ${history.dates[0] || "?"} → ${history.dates[history.dates.length - 1] || "?"}`,
+  );
   lines.push("");
 
   // Trend indicators
@@ -516,8 +505,10 @@ export function formatStatsHistory(history: StatsHistory): string {
   const linesDelta = latest.totalLines - first.totalLines;
   const filesDelta = latest.totalFiles - first.totalFiles;
   const depsDelta =
-    latest.dependencies.length + latest.devDependencies.length -
-    first.dependencies.length - first.devDependencies.length;
+    latest.dependencies.length +
+    latest.devDependencies.length -
+    first.dependencies.length -
+    first.devDependencies.length;
 
   const deltaStr = (delta: number): string => {
     if (delta > 0) return `+${delta}`;
@@ -528,7 +519,9 @@ export function formatStatsHistory(history: StatsHistory): string {
   lines.push("Trends (overall change):");
   lines.push(`  Lines: ${first.totalLines} → ${latest.totalLines} (${deltaStr(linesDelta)})`);
   lines.push(`  Files: ${first.totalFiles} → ${latest.totalFiles} (${deltaStr(filesDelta)})`);
-  lines.push(`  Deps:  ${first.dependencies.length + first.devDependencies.length} → ${latest.dependencies.length + latest.devDependencies.length} (${deltaStr(depsDelta)})`);
+  lines.push(
+    `  Deps:  ${first.dependencies.length + first.devDependencies.length} → ${latest.dependencies.length + latest.devDependencies.length} (${deltaStr(depsDelta)})`,
+  );
   lines.push("");
 
   // Per-snapshot breakdown
@@ -553,8 +546,10 @@ export function formatStatsHistory(history: StatsHistory): string {
       const fDiff = r.totalFiles - prev.totalFiles;
       const lDiff = r.totalLines - prev.totalLines;
       const dDiff =
-        r.dependencies.length + r.devDependencies.length -
-        prev.dependencies.length - prev.devDependencies.length;
+        r.dependencies.length +
+        r.devDependencies.length -
+        prev.dependencies.length -
+        prev.devDependencies.length;
 
       filesMarker = fDiff !== 0 ? ` ${fDiff > 0 ? "+" : ""}${fDiff}` : "";
       linesMarker = lDiff !== 0 ? ` ${lDiff > 0 ? "+" : ""}${lDiff}` : "";
@@ -578,6 +573,6 @@ function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const val = bytes / Math.pow(1024, i);
+  const val = bytes / 1024 ** i;
   return `${val.toFixed(1)} ${units[i]}`;
 }

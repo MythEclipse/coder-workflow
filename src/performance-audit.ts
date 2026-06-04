@@ -6,7 +6,7 @@
  * dependencies, formats reports, and combines with Lighthouse data.
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -231,7 +231,9 @@ export function formatBundleReport(report: BundleReport): string {
   lines.push(`  Total size:        ${formatBytes(report.totalSize)}`);
   lines.push(`  Total gzip (est.): ${formatBytes(report.totalGzip)}`);
   lines.push(`  Modules:           ${report.modules.length}`);
-  lines.push(`  Duplicates:        ${report.duplicates.length > 0 ? report.duplicates.join(", ") : "none"}`);
+  lines.push(
+    `  Duplicates:        ${report.duplicates.length > 0 ? report.duplicates.join(", ") : "none"}`,
+  );
   lines.push("");
 
   if (report.largest.length > 0) {
@@ -333,10 +335,7 @@ export function createPerfReport(root: string): PerfReport {
  * Modules are matched by name; only modules present in both reports
  * (or in one) are included.
  */
-export function compareBundles(
-  before: BundleReport,
-  after: BundleReport,
-): BundleDiff[] {
+export function compareBundles(before: BundleReport, after: BundleReport): BundleDiff[] {
   const beforeMap = new Map<string, number>();
   for (const mod of before.modules) {
     beforeMap.set(mod.name, mod.size);
@@ -377,13 +376,9 @@ function buildBundleReport(modules: BundleModule[]): BundleReport {
   for (const m of modules) {
     seen.set(m.name, (seen.get(m.name) ?? 0) + 1);
   }
-  const duplicates = [...seen.entries()]
-    .filter(([, count]) => count > 1)
-    .map(([name]) => name);
+  const duplicates = [...seen.entries()].filter(([, count]) => count > 1).map(([name]) => name);
 
-  const largest = modules
-    .filter((m) => m.size > 100_000)
-    .sort((a, b) => b.size - a.size);
+  const largest = modules.filter((m) => m.size > 100_000).sort((a, b) => b.size - a.size);
 
   return {
     totalSize,
@@ -398,7 +393,7 @@ function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / Math.pow(1024, i);
+  const value = bytes / 1024 ** i;
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
@@ -435,8 +430,12 @@ function extractLighthouseMetrics(rawJson: string): LighthouseMetric[] {
   try {
     const report = JSON.parse(rawJson) as Record<string, unknown>;
 
-    const categories = report.categories as Record<string, { title?: string; score?: number }> | undefined;
-    const audits = report.audits as Record<string, { title?: string; displayValue?: string; score?: number | null }> | undefined;
+    const categories = report.categories as
+      | Record<string, { title?: string; score?: number }>
+      | undefined;
+    const audits = report.audits as
+      | Record<string, { title?: string; displayValue?: string; score?: number | null }>
+      | undefined;
 
     if (categories && audits) {
       const metrics: LighthouseMetric[] = [];

@@ -1,7 +1,7 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-export type HookType = 'pre-commit' | 'commit-msg' | 'pre-push' | 'post-commit' | 'post-merge';
+export type HookType = "pre-commit" | "commit-msg" | "pre-push" | "post-commit" | "post-merge";
 
 export interface HookConfig {
   hooks: HookType[];
@@ -17,10 +17,11 @@ export interface ScaffoldResult {
   files: string[];
 }
 
-const CONVENTIONAL_COMMIT_REGEX = /^(feat|fix|chore|docs|refactor|test|style|perf|ci|build|revert)(\(.+\))?!?:\s.+/;
+const CONVENTIONAL_COMMIT_REGEX =
+  /^(feat|fix|chore|docs|refactor|test|style|perf|ci|build|revert)(\(.+\))?!?:\s.+/;
 
 export const HOOK_TEMPLATES: Record<HookType, string> = {
-  'pre-commit': `#!/bin/sh
+  "pre-commit": `#!/bin/sh
 # Pre-commit hook — run linter on staged files
 set -e
 
@@ -49,7 +50,7 @@ fi
 echo "Linting passed."
 exit 0
 `,
-  'commit-msg': `#!/bin/sh
+  "commit-msg": `#!/bin/sh
 # Commit-msg hook — validate conventional commit message
 set -e
 
@@ -76,7 +77,7 @@ fi
 
 exit 0
 `,
-  'pre-push': `#!/bin/sh
+  "pre-push": `#!/bin/sh
 # Pre-push hook — run tests before push
 set -e
 
@@ -109,7 +110,7 @@ fi
 echo "All tests passed."
 exit 0
 `,
-  'post-commit': `#!/bin/sh
+  "post-commit": `#!/bin/sh
 # Post-commit hook — success notification
 set -e
 
@@ -122,7 +123,7 @@ echo "  $COMMIT_MSG"
 echo ""
 exit 0
 `,
-  'post-merge': `#!/bin/sh
+  "post-merge": `#!/bin/sh
 # Post-merge hook — npm install reminder
 set -e
 
@@ -140,13 +141,13 @@ exit 0
 
 function substituteVars(template: string, config: HookConfig): string {
   return template
-    .replace('{{LINTER}}', config.linter ?? '')
-    .replace('{{TEST_COMMAND}}', config.testCommand ?? '')
-    .replace('{{BRANCH_PATTERN}}', config.branchPattern ?? '');
+    .replace("{{LINTER}}", config.linter ?? "")
+    .replace("{{TEST_COMMAND}}", config.testCommand ?? "")
+    .replace("{{BRANCH_PATTERN}}", config.branchPattern ?? "");
 }
 
 function writeHookFile(hookPath: string, content: string): void {
-  fs.writeFileSync(hookPath, content, { encoding: 'utf-8', mode: 0o755 });
+  fs.writeFileSync(hookPath, content, { encoding: "utf-8", mode: 0o755 });
 }
 
 /**
@@ -154,7 +155,7 @@ function writeHookFile(hookPath: string, content: string): void {
  * and would be overwritten.
  */
 export function detectExistingHooks(targetDir: string, hooks: HookType[]): HookType[] {
-  const gitHooksDir = path.join(targetDir, '.git', 'hooks');
+  const gitHooksDir = path.join(targetDir, ".git", "hooks");
 
   if (!fs.existsSync(gitHooksDir)) {
     return [];
@@ -176,10 +177,10 @@ export function validateCommitMessage(message: string): { valid: boolean; errors
   const trimmed = message.trim();
 
   if (!trimmed) {
-    return { valid: false, errors: ['Commit message is empty.'] };
+    return { valid: false, errors: ["Commit message is empty."] };
   }
 
-  const firstLine = trimmed.split('\n')[0] ?? '';
+  const firstLine = trimmed.split("\n")[0] ?? "";
 
   // Allow fixup!, squash!, Merge, and merge commit messages
   if (/^(fixup!|squash!|Merge|merge)/.test(firstLine)) {
@@ -213,18 +214,18 @@ Received:
  */
 export function formatHookError(errors: string[]): string {
   if (errors.length === 0) {
-    return '';
+    return "";
   }
 
-  const lines: string[] = ['Hook validation failed with the following errors:', ''];
+  const lines: string[] = ["Hook validation failed with the following errors:", ""];
 
   for (const err of errors) {
     lines.push(`  - ${err}`);
   }
 
-  lines.push('', 'Commit aborted.');
+  lines.push("", "Commit aborted.");
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -238,7 +239,7 @@ export function formatHookError(errors: string[]): string {
  * skipped (i.e., overwritten), and the list of file paths written.
  */
 export function scaffoldHooks(targetDir: string, config: HookConfig): ScaffoldResult {
-  const gitHooksDir = path.join(targetDir, '.git', 'hooks');
+  const gitHooksDir = path.join(targetDir, ".git", "hooks");
 
   // Ensure the .git/hooks directory exists
   if (!fs.existsSync(gitHooksDir)) {

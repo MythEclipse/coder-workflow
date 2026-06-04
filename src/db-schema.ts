@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -11,7 +11,7 @@ export interface EntityField {
   default?: any;
   relation?: {
     entity: string;
-    type: 'one-to-one' | 'one-to-many' | 'many-to-many';
+    type: "one-to-one" | "one-to-many" | "many-to-many";
   };
 }
 
@@ -46,7 +46,7 @@ export interface SchemaDiff {
   }>;
 }
 
-type Dialect = 'postgres' | 'mysql' | 'sqlite';
+type Dialect = "postgres" | "mysql" | "sqlite";
 
 // ── Prisma Schema Parser ────────────────────────────────────────────────────
 
@@ -64,8 +64,8 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
     };
   }
 
-  const content = fs.readFileSync(schemaPath, 'utf-8');
-  const lines = content.split('\n');
+  const content = fs.readFileSync(schemaPath, "utf-8");
+  const lines = content.split("\n");
 
   const entities: Entity[] = [];
   let currentEntity: Partial<Entity> | null = null;
@@ -77,15 +77,15 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
 
   // Map Prisma scalar types to generic type strings
   const scalarMap: Record<string, string> = {
-    String: 'string',
-    Int: 'integer',
-    Float: 'float',
-    Boolean: 'boolean',
-    DateTime: 'datetime',
-    Json: 'json',
-    BigInt: 'bigint',
-    Decimal: 'decimal',
-    Bytes: 'bytes',
+    String: "string",
+    Int: "integer",
+    Float: "float",
+    Boolean: "boolean",
+    DateTime: "datetime",
+    Json: "json",
+    BigInt: "bigint",
+    Decimal: "decimal",
+    Bytes: "bytes",
   };
 
   for (let i = 0; i < lines.length; i++) {
@@ -93,7 +93,7 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
     const line = raw.trim();
 
     // Skip empty lines and comments
-    if (line === '' || line.startsWith('//') || line.startsWith('#')) continue;
+    if (line === "" || line.startsWith("//") || line.startsWith("#")) continue;
 
     // Detect model start
     const modelMatch = line.match(/^model\s+(\w+)\s*\{/);
@@ -115,11 +115,11 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
     }
 
     // Closing brace
-    if (line === '}') {
+    if (line === "}") {
       if (currentEntity && currentEntity.name) {
         entities.push({
           name: currentEntity.name,
-          table: currentEntity.table ?? '',
+          table: currentEntity.table ?? "",
           fields: currentFields,
           relations: currentRelations,
           primaryKey: currentPrimaryKey,
@@ -137,8 +137,8 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
     const compositeIdMatch = line.match(/@@id\s*\(\s*\[([^\]]+)\]\s*\)/);
     if (compositeIdMatch) {
       currentPrimaryKey = compositeIdMatch[1]
-        .split(',')
-        .map((s) => s.trim().replace(/^"|"$/g, ''))
+        .split(",")
+        .map((s) => s.trim().replace(/^"|"$/g, ""))
         .filter(Boolean);
       continue;
     }
@@ -147,11 +147,11 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
     const indexMatch = line.match(/@@index\s*\(\s*\[([^\]]+)\]\s*(?:,\s*(.+))?\)/);
     if (indexMatch) {
       const cols = indexMatch[1]
-        .split(',')
-        .map((s) => s.trim().replace(/^"|"$/g, ''))
+        .split(",")
+        .map((s) => s.trim().replace(/^"|"$/g, ""))
         .filter(Boolean);
-      const rest = (indexMatch[2] || '').trim();
-      currentIndexes.push(cols.join(', ') + (rest ? ` (${rest})` : ''));
+      const rest = (indexMatch[2] || "").trim();
+      currentIndexes.push(cols.join(", ") + (rest ? ` (${rest})` : ""));
       continue;
     }
 
@@ -173,30 +173,30 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
         currentRelations.push(typeName);
 
         // Determine relation type: [] indicates one-to-many or many-to-many
-        let relType: EntityField['relation'] = {
+        let relType: EntityField["relation"] = {
           entity: typeName,
-          type: 'one-to-one',
+          type: "one-to-one",
         };
 
         // Detect relation type from following attribute lines
         let j = i + 1;
         while (j < lines.length) {
           const nextLine = lines[j].trim();
-          if (nextLine === '') {
+          if (nextLine === "") {
             j++;
             continue;
           }
-          if (!nextLine.startsWith('@')) break;
+          if (!nextLine.startsWith("@")) break;
 
-          if (nextLine.startsWith('@relation')) {
+          if (nextLine.startsWith("@relation")) {
             // Could be many-to-many if both sides have arrays
             // For one-to-many, the field type often includes []
-            if (line.includes('[]')) {
-              relType = { entity: typeName, type: 'one-to-many' };
+            if (line.includes("[]")) {
+              relType = { entity: typeName, type: "one-to-many" };
             }
             // Check for many-to-many via @@relation on the field
-            if (nextLine.includes('references:') && line.includes('[]')) {
-              relType = { entity: typeName, type: 'many-to-many' };
+            if (nextLine.includes("references:") && line.includes("[]")) {
+              relType = { entity: typeName, type: "many-to-many" };
             }
           }
           j++;
@@ -214,14 +214,12 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
     }
 
     // Regular field line: fieldName FieldType? @attributes
-    const fieldLineMatch = line.match(
-      /^(\w+)\s+(\w+)(\?)?\s*(@[\s\S]*)?$/
-    );
+    const fieldLineMatch = line.match(/^(\w+)\s+(\w+)(\?)?\s*(@[\s\S]*)?$/);
     if (fieldLineMatch) {
       const fieldName = fieldLineMatch[1];
       const rawType = fieldLineMatch[2];
       const optional = !!fieldLineMatch[3];
-      const attrs = fieldLineMatch[4] || '';
+      const attrs = fieldLineMatch[4] || "";
 
       const resolvedType = scalarMap[rawType] || rawType;
       const isId = /@id\b/.test(attrs);
@@ -229,21 +227,21 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
       const isUnique = /@unique\b/.test(attrs);
 
       // Extract default value
-      let defaultVal: any = undefined;
+      let defaultVal: any;
       const defaultMatch = attrs.match(/@default\s*\(\s*([^)]+)\s*\)/);
       if (defaultMatch) {
         defaultVal = defaultMatch[1];
       }
 
       // Extract relation info from @relation
-      let relation: EntityField['relation'] | undefined;
+      let relation: EntityField["relation"] | undefined;
       const relationMatch = attrs.match(
-        /@relation\s*\(\s*(?:([^()]+)|(?:fields:\s*\[?([^\]]+)\]?))\s*\)/
+        /@relation\s*\(\s*(?:([^()]+)|(?:fields:\s*\[?([^\]]+)\]?))\s*\)/,
       );
       if (relationMatch) {
         // The entity is determined by the field type which references another model
         if (/^[A-Z]/.test(rawType)) {
-          relation = { entity: rawType, type: 'one-to-one' };
+          relation = { entity: rawType, type: "one-to-one" };
           currentRelations.push(rawType);
         }
       }
@@ -271,15 +269,10 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
     // Block-level attributes on model
     const blockAttrMatch = line.match(/^@@(\w+)\(/);
     if (blockAttrMatch) {
-      // Already handled above for id/index/unique
-      continue;
     }
   }
 
-  const totalRelations = entities.reduce(
-    (sum, e) => sum + e.relations.length,
-    0
-  );
+  const totalRelations = entities.reduce((sum, e) => sum + e.relations.length, 0);
 
   return {
     entities,
@@ -309,20 +302,15 @@ export function parseTypeOrmEntities(entityDir: string): SchemaReport {
   const entities: Entity[] = [];
   const entries = fs.readdirSync(entityDir, { withFileTypes: true });
 
-  const entityFiles = entries.filter(
-    (e) => e.isFile() && e.name.endsWith('.entity.ts')
-  );
+  const entityFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".entity.ts"));
 
   for (const file of entityFiles) {
-    const content = fs.readFileSync(path.join(entityDir, file.name), 'utf-8');
+    const content = fs.readFileSync(path.join(entityDir, file.name), "utf-8");
     const entity = parseTypeOrmEntityContent(content, file.name);
     if (entity) entities.push(entity);
   }
 
-  const totalRelations = entities.reduce(
-    (sum, e) => sum + e.relations.length,
-    0
-  );
+  const totalRelations = entities.reduce((sum, e) => sum + e.relations.length, 0);
 
   return {
     entities,
@@ -335,22 +323,15 @@ export function parseTypeOrmEntities(entityDir: string): SchemaReport {
 /**
  * Parse a single TypeORM entity file content.
  */
-function parseTypeOrmEntityContent(
-  content: string,
-  filename: string
-): Entity | null {
+function parseTypeOrmEntityContent(content: string, filename: string): Entity | null {
   // Detect @Entity() decorator and extract table name
-  const entityMatch = content.match(
-    /@Entity\s*\(\s*(?:'([^']*)'|"([^"]*)")\s*\)/
-  );
+  const entityMatch = content.match(/@Entity\s*\(\s*(?:'([^']*)'|"([^"]*)")\s*\)/);
   if (!entityMatch) return null;
 
-  const tableName = entityMatch[1] || entityMatch[2] || '';
+  const tableName = entityMatch[1] || entityMatch[2] || "";
   // Extract class name
-  const classMatch = content.match(
-    /export\s+(?:abstract\s+)?class\s+(\w+)/
-  );
-  const entityName = classMatch ? classMatch[1] : path.basename(filename, '.entity.ts');
+  const classMatch = content.match(/export\s+(?:abstract\s+)?class\s+(\w+)/);
+  const entityName = classMatch ? classMatch[1] : path.basename(filename, ".entity.ts");
 
   const fields: EntityField[] = [];
   const relations: string[] = [];
@@ -358,25 +339,22 @@ function parseTypeOrmEntityContent(
   const indexes: string[] = [];
 
   // Split into lines for line-by-line processing
-  const lines = content.split('\n');
+  const lines = content.split("\n");
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (line === '' || line.startsWith('//') || line.startsWith('import '))
-      continue;
+    if (line === "" || line.startsWith("//") || line.startsWith("import ")) continue;
 
     // @PrimaryGeneratedColumn() or @PrimaryColumn()
     const primaryGenMatch = line.match(/@PrimaryGeneratedColumn\s*\(\s*\)/);
     const primaryColMatch = line.match(
-      /@PrimaryColumn\s*\(\s*(?:'([^']*)'|"([^"]*)"|(\{[^}]+\}))?\s*\)/
+      /@PrimaryColumn\s*\(\s*(?:'([^']*)'|"([^"]*)"|(\{[^}]+\}))?\s*\)/,
     );
 
     if (primaryGenMatch || primaryColMatch) {
       // Read the next line for the field declaration
-      const nextLine = (lines[i + 1] || '').trim();
-      const fieldDecl = nextLine.match(
-        /(\w+)\s*[?:!]?\s*(\w+(?:<\w+>)?)\s*[;=]/
-      );
+      const nextLine = (lines[i + 1] || "").trim();
+      const fieldDecl = nextLine.match(/(\w+)\s*[?:!]?\s*(\w+(?:<\w+>)?)\s*[;=]/);
       if (fieldDecl) {
         const fieldName = fieldDecl[1];
         const fieldType = fieldDecl[2];
@@ -395,11 +373,9 @@ function parseTypeOrmEntityContent(
     // @Column() decorator
     const colMatch = line.match(/@Column\s*\(\s*(\{[^}]*\})?\s*\)/);
     if (colMatch) {
-      const args = colMatch[1] || '';
-      const nextLine = (lines[i + 1] || '').trim();
-      const fieldDecl = nextLine.match(
-        /(\w+)\s*[?:!]?\s*(\w+(?:<\w+>)?)\s*[;=]/
-      );
+      const args = colMatch[1] || "";
+      const nextLine = (lines[i + 1] || "").trim();
+      const fieldDecl = nextLine.match(/(\w+)\s*[?:!]?\s*(\w+(?:<\w+>)?)\s*[;=]/);
       if (fieldDecl) {
         const fieldName = fieldDecl[1];
         const fieldType = fieldDecl[2];
@@ -411,9 +387,7 @@ function parseTypeOrmEntityContent(
         const defaultMatch = args.match(/default\s*:\s*(['"`]?)([^'"`,}]+)\1/);
         const defaultVal = defaultMatch ? defaultMatch[2] : undefined;
 
-        const enumMatch = content.match(
-          /export\s+enum\s+(\w+)\s*\{/
-        );
+        const enumMatch = content.match(/export\s+enum\s+(\w+)\s*\{/);
         // If fieldType matches an enum defined in the file, use 'enum' as type
         const resolvedType =
           enumMatch && enumMatch[1] === fieldType ? `enum(${fieldType})` : colType;
@@ -431,49 +405,43 @@ function parseTypeOrmEntityContent(
 
     // @ManyToOne() / @OneToMany() / @OneToOne() / @ManyToMany() decorators
     const relationDecMatch = line.match(
-      /@(ManyToOne|OneToMany|OneToOne|ManyToMany)\s*\(\s*(?:\(?\s*\)?\s*)?[^)]*\)/
+      /@(ManyToOne|OneToMany|OneToOne|ManyToMany)\s*\(\s*(?:\(?\s*\)?\s*)?[^)]*\)/,
     );
     if (relationDecMatch) {
-      const relType = relationDecMatch[1] as NonNullable<EntityField['relation']>['type'];
-      const nextLine = (lines[i + 1] || '').trim();
+      const relType = relationDecMatch[1] as NonNullable<EntityField["relation"]>["type"];
+      const nextLine = (lines[i + 1] || "").trim();
 
       // Extract the related entity from the decorator argument
-      const typeFuncMatch = line.match(
-        /=>\s*(\w+)\s*\)/
-      );
-      const relatedEntity = typeFuncMatch
-        ? typeFuncMatch[1]
-        : 'unknown';
+      const typeFuncMatch = line.match(/=>\s*(\w+)\s*\)/);
+      const relatedEntity = typeFuncMatch ? typeFuncMatch[1] : "unknown";
 
-      if (relatedEntity !== 'unknown') {
+      if (relatedEntity !== "unknown") {
         relations.push(relatedEntity);
       }
 
       // Read field declaration from current or next line
-      const fieldDecl = nextLine.match(
-        /(\w+)\s*[?:!]?\s*(\w+(?:<\w+>)?)\s*[;=]/
-      );
+      const fieldDecl = nextLine.match(/(\w+)\s*[?:!]?\s*(\w+(?:<\w+>)?)\s*[;=]/);
       if (fieldDecl) {
         const fieldName = fieldDecl[1];
         // The declared type might be the related entity or Promise<Entity>
-        const rawFieldType = fieldDecl[2].replace(/^Promise</, '').replace(/>$/, '');
+        const rawFieldType = fieldDecl[2].replace(/^Promise</, "").replace(/>$/, "");
 
-        let mappedRelType: NonNullable<EntityField['relation']>['type'];
+        let mappedRelType: NonNullable<EntityField["relation"]>["type"];
         switch (relType.toLowerCase()) {
-          case 'onetomany':
-            mappedRelType = 'one-to-many';
+          case "onetomany":
+            mappedRelType = "one-to-many";
             break;
-          case 'manytoone':
-            mappedRelType = 'one-to-many';
+          case "manytoone":
+            mappedRelType = "one-to-many";
             break;
-          case 'onetoone':
-            mappedRelType = 'one-to-one';
+          case "onetoone":
+            mappedRelType = "one-to-one";
             break;
-          case 'manytomany':
-            mappedRelType = 'many-to-many';
+          case "manytomany":
+            mappedRelType = "many-to-many";
             break;
           default:
-            mappedRelType = 'one-to-one';
+            mappedRelType = "one-to-one";
         }
 
         fields.push({
@@ -493,9 +461,9 @@ function parseTypeOrmEntityContent(
     // @Index() decorator
     const indexMatch = line.match(/@Index\s*\(\s*(?:'([^']*)'|"([^"]*)")\s*\)/);
     if (indexMatch) {
-      const indexName = indexMatch[1] || indexMatch[2] || '';
+      const indexName = indexMatch[1] || indexMatch[2] || "";
       // Assume the next line's field is indexed
-      const nextLine = (lines[i + 1] || '').trim();
+      const nextLine = (lines[i + 1] || "").trim();
       const fieldDecl = nextLine.match(/(\w+)\s*[?:!]?\s*\w+/);
       if (fieldDecl) {
         indexes.push(indexName || fieldDecl[1]);
@@ -504,15 +472,10 @@ function parseTypeOrmEntityContent(
     }
 
     // Composite unique constraint via @Unique(["col1", "col2"])
-    const uniqueDecMatch = line.match(
-      /@Unique\s*\(\s*\[([^\]]+)\]\s*\)/
-    );
+    const uniqueDecMatch = line.match(/@Unique\s*\(\s*\[([^\]]+)\]\s*\)/);
     if (uniqueDecMatch) {
-      const cols = uniqueDecMatch[1]
-        .split(',')
-        .map((c) => c.trim().replace(/['"]/g, ''));
-      indexes.push(`unique(${cols.join(', ')})`);
-      continue;
+      const cols = uniqueDecMatch[1].split(",").map((c) => c.trim().replace(/['"]/g, ""));
+      indexes.push(`unique(${cols.join(", ")})`);
     }
   }
 
@@ -531,10 +494,7 @@ function parseTypeOrmEntityContent(
 /**
  * Compare two SchemaReports and produce a SchemaDiff describing what changed.
  */
-export function compareSchemas(
-  before: SchemaReport,
-  after: SchemaReport
-): SchemaDiff {
+export function compareSchemas(before: SchemaReport, after: SchemaReport): SchemaDiff {
   const beforeMap = new Map<string, Entity>();
   for (const e of before.entities) beforeMap.set(e.name, e);
 
@@ -543,7 +503,7 @@ export function compareSchemas(
 
   const added: Entity[] = [];
   const removed: Entity[] = [];
-  const changed: SchemaDiff['changed'] = [];
+  const changed: SchemaDiff["changed"] = [];
 
   // Detect added entities
   for (const entity of after.entities) {
@@ -567,7 +527,7 @@ export function compareSchemas(
     const beforeFields = new Map<string, EntityField>();
     for (const f of beforeEntity.fields) beforeFields.set(f.name, f);
 
-    const fieldChanges: SchemaDiff['changed'][0]['fieldChanges'] = [];
+    const fieldChanges: SchemaDiff["changed"][0]["fieldChanges"] = [];
 
     for (const afterField of afterEntity.fields) {
       const beforeField = beforeFields.get(afterField.name);
@@ -575,8 +535,8 @@ export function compareSchemas(
       if (!beforeField) {
         fieldChanges.push({
           field: afterField.name,
-          change: 'added',
-          after: `${afterField.type}${afterField.required ? '' : '?'}`,
+          change: "added",
+          after: `${afterField.type}${afterField.required ? "" : "?"}`,
         });
         continue;
       }
@@ -585,7 +545,7 @@ export function compareSchemas(
       if (beforeField.type !== afterField.type) {
         fieldChanges.push({
           field: afterField.name,
-          change: 'type changed',
+          change: "type changed",
           before: beforeField.type,
           after: afterField.type,
         });
@@ -595,11 +555,9 @@ export function compareSchemas(
       if (beforeField.required !== afterField.required) {
         fieldChanges.push({
           field: afterField.name,
-          change: afterField.required
-            ? 'changed to required'
-            : 'changed to optional',
-          before: beforeField.required ? 'required' : 'optional',
-          after: afterField.required ? 'required' : 'optional',
+          change: afterField.required ? "changed to required" : "changed to optional",
+          before: beforeField.required ? "required" : "optional",
+          after: afterField.required ? "required" : "optional",
         });
       }
 
@@ -607,11 +565,9 @@ export function compareSchemas(
       if (beforeField.unique !== afterField.unique) {
         fieldChanges.push({
           field: afterField.name,
-          change: afterField.unique
-            ? 'unique constraint added'
-            : 'unique constraint removed',
-          before: beforeField.unique ? 'unique' : 'not unique',
-          after: afterField.unique ? 'unique' : 'not unique',
+          change: afterField.unique ? "unique constraint added" : "unique constraint removed",
+          before: beforeField.unique ? "unique" : "not unique",
+          after: afterField.unique ? "unique" : "not unique",
         });
       }
 
@@ -619,9 +575,9 @@ export function compareSchemas(
       if (beforeField.default !== afterField.default) {
         fieldChanges.push({
           field: afterField.name,
-          change: 'default changed',
-          before: beforeField.default ?? '(none)',
-          after: afterField.default ?? '(none)',
+          change: "default changed",
+          before: beforeField.default ?? "(none)",
+          after: afterField.default ?? "(none)",
         });
       }
 
@@ -633,32 +589,25 @@ export function compareSchemas(
         (!beforeRel && afterRel) ||
         (beforeRel &&
           afterRel &&
-          (beforeRel.entity !== afterRel.entity ||
-            beforeRel.type !== afterRel.type))
+          (beforeRel.entity !== afterRel.entity || beforeRel.type !== afterRel.type))
       ) {
         fieldChanges.push({
           field: afterField.name,
-          change: 'relation changed',
-          before: beforeRel
-            ? `${beforeRel.type} -> ${beforeRel.entity}`
-            : '(none)',
-          after: afterRel
-            ? `${afterRel.type} -> ${afterRel.entity}`
-            : '(none)',
+          change: "relation changed",
+          before: beforeRel ? `${beforeRel.type} -> ${beforeRel.entity}` : "(none)",
+          after: afterRel ? `${afterRel.type} -> ${afterRel.entity}` : "(none)",
         });
       }
     }
 
     // Detect removed fields
-    const afterFieldNames = new Set(
-      afterEntity.fields.map((f) => f.name)
-    );
+    const afterFieldNames = new Set(afterEntity.fields.map((f) => f.name));
     for (const beforeField of beforeEntity.fields) {
       if (!afterFieldNames.has(beforeField.name)) {
         fieldChanges.push({
           field: beforeField.name,
-          change: 'removed',
-          before: `${beforeField.type}${beforeField.required ? '' : '?'}`,
+          change: "removed",
+          before: `${beforeField.type}${beforeField.required ? "" : "?"}`,
         });
       }
     }
@@ -677,55 +626,52 @@ export function compareSchemas(
  * Generates basic ALTER TABLE statements to migrate from an old schema to a new
  * schema based on the provided diff.
  */
-export function generateMigrationSql(
-  diff: SchemaDiff,
-  dialect: Dialect
-): string {
+export function generateMigrationSql(diff: SchemaDiff, dialect: Dialect): string {
   const statements: string[] = [];
 
   const quote = (name: string): string => {
     switch (dialect) {
-      case 'postgres':
+      case "postgres":
         return `"${name}"`;
-      case 'mysql':
+      case "mysql":
         return `\`${name}\``;
-      case 'sqlite':
+      case "sqlite":
         return `"${name}"`;
     }
   };
 
   const typeMap: Record<string, string> = {
-    string: 'VARCHAR(255)',
-    integer: 'INTEGER',
-    float: 'FLOAT',
-    boolean: 'BOOLEAN',
-    datetime: 'TIMESTAMP',
-    json: dialect === 'postgres' ? 'JSONB' : dialect === 'mysql' ? 'JSON' : 'TEXT',
-    bigint: 'BIGINT',
-    decimal: 'DECIMAL(10,2)',
-    bytes: 'BYTEA',
+    string: "VARCHAR(255)",
+    integer: "INTEGER",
+    float: "FLOAT",
+    boolean: "BOOLEAN",
+    datetime: "TIMESTAMP",
+    json: dialect === "postgres" ? "JSONB" : dialect === "mysql" ? "JSON" : "TEXT",
+    bigint: "BIGINT",
+    decimal: "DECIMAL(10,2)",
+    bytes: "BYTEA",
   };
 
   function mapType(t: string): string {
     // Remove generic parameters for type mapping
-    const base = t.replace(/<.*>$/, '');
+    const base = t.replace(/<.*>$/, "");
     if (typeMap[base.toLowerCase()]) return typeMap[base.toLowerCase()];
     // If it starts with uppercase, treat as relation reference => INTEGER FK
-    if (/^[A-Z]/.test(base)) return 'INTEGER';
+    if (/^[A-Z]/.test(base)) return "INTEGER";
     return t.toUpperCase();
   }
 
   function nullableClause(field: EntityField): string {
-    return field.required ? 'NOT NULL' : 'NULL';
+    return field.required ? "NOT NULL" : "NULL";
   }
 
   function defaultClause(field: EntityField): string {
-    if (field.default === undefined) return '';
+    if (field.default === undefined) return "";
     const val =
-      typeof field.default === 'string'
-        ? field.default.startsWith('now()') ||
-          field.default.startsWith('gen_random_uuid()') ||
-          field.default === 'autoincrement()'
+      typeof field.default === "string"
+        ? field.default.startsWith("now()") ||
+          field.default.startsWith("gen_random_uuid()") ||
+          field.default === "autoincrement()"
           ? field.default
           : `'${field.default}'`
         : String(field.default);
@@ -734,9 +680,7 @@ export function generateMigrationSql(
 
   // Removed entities => DROP TABLE
   for (const entity of diff.removed) {
-    statements.push(
-      `DROP TABLE IF EXISTS ${quote(entity.table)};`
-    );
+    statements.push(`DROP TABLE IF EXISTS ${quote(entity.table)};`);
   }
 
   // Added entities => CREATE TABLE
@@ -746,32 +690,27 @@ export function generateMigrationSql(
       if (field.relation) {
         // FK column naming: fieldName + Id
         const fkCol = `${field.name}Id`;
-        const colDef = [
-          quote(fkCol),
-          'INTEGER',
-          nullableClause(field),
-          defaultClause(field),
-        ]
+        const colDef = [quote(fkCol), "INTEGER", nullableClause(field), defaultClause(field)]
           .filter(Boolean)
-          .join(' ');
+          .join(" ");
         cols.push(`  ${colDef}`);
       } else {
         const colDef = [
           quote(field.name),
           mapType(field.type),
-          field.unique ? 'UNIQUE' : '',
+          field.unique ? "UNIQUE" : "",
           nullableClause(field),
           defaultClause(field),
         ]
           .filter(Boolean)
-          .join(' ');
+          .join(" ");
         cols.push(`  ${colDef}`);
       }
     }
 
     // Primary key
     if (entity.primaryKey.length > 0) {
-      const pkCols = entity.primaryKey.map((k) => quote(k)).join(', ');
+      const pkCols = entity.primaryKey.map((k) => quote(k)).join(", ");
       cols.push(`  PRIMARY KEY (${pkCols})`);
     }
 
@@ -780,9 +719,9 @@ export function generateMigrationSql(
       const idxMatch = idx.match(/^(\w[\w\s,]+)/);
       if (idxMatch) {
         const idxCols = idxMatch[1]
-          .split(',')
+          .split(",")
           .map((s) => quote(s.trim()))
-          .join(', ');
+          .join(", ");
         cols.push(`  INDEX (${idxCols})`);
       }
     }
@@ -791,15 +730,11 @@ export function generateMigrationSql(
     for (const field of entity.fields) {
       if (field.relation) {
         const fkCol = `${field.name}Id`;
-        cols.push(
-          `  FOREIGN KEY (${quote(fkCol)}) REFERENCES ${quote(field.relation.entity)}(id)`
-        );
+        cols.push(`  FOREIGN KEY (${quote(fkCol)}) REFERENCES ${quote(field.relation.entity)}(id)`);
       }
     }
 
-    statements.push(
-      `CREATE TABLE ${quote(entity.table)} (\n${cols.join(',\n')}\n);`
-    );
+    statements.push(`CREATE TABLE ${quote(entity.table)} (\n${cols.join(",\n")}\n);`);
   }
 
   // Changed entities => ALTER TABLE
@@ -810,78 +745,72 @@ export function generateMigrationSql(
 
     for (const fc of change.fieldChanges) {
       switch (fc.change) {
-        case 'added':
+        case "added":
           statements.push(
-            `ALTER TABLE ${quote(tableName)} ADD COLUMN ${quote(fc.field)} ${mapType(fc.after || 'VARCHAR(255)')};`
+            `ALTER TABLE ${quote(tableName)} ADD COLUMN ${quote(fc.field)} ${mapType(fc.after || "VARCHAR(255)")};`,
           );
           break;
-        case 'removed':
-          if (dialect === 'sqlite') {
+        case "removed":
+          if (dialect === "sqlite") {
             statements.push(
-              `-- SQLite does not support DROP COLUMN directly; recreate table to remove ${fc.field}`
+              `-- SQLite does not support DROP COLUMN directly; recreate table to remove ${fc.field}`,
+            );
+          } else {
+            statements.push(`ALTER TABLE ${quote(tableName)} DROP COLUMN ${quote(fc.field)};`);
+          }
+          break;
+        case "type changed":
+          if (dialect === "postgres") {
+            statements.push(
+              `ALTER TABLE ${quote(tableName)} ALTER COLUMN ${quote(fc.field)} TYPE ${mapType(fc.after || "VARCHAR(255)")};`,
+            );
+          } else if (dialect === "mysql") {
+            statements.push(
+              `ALTER TABLE ${quote(tableName)} MODIFY COLUMN ${quote(fc.field)} ${mapType(fc.after || "VARCHAR(255)")};`,
             );
           } else {
             statements.push(
-              `ALTER TABLE ${quote(tableName)} DROP COLUMN ${quote(fc.field)};`
+              `-- SQLite: ALTER TABLE ${quote(tableName)} requires full table rebuild for type change on ${fc.field}`,
             );
           }
           break;
-        case 'type changed':
-          if (dialect === 'postgres') {
+        case "changed to required":
+          if (dialect === "sqlite") {
             statements.push(
-              `ALTER TABLE ${quote(tableName)} ALTER COLUMN ${quote(fc.field)} TYPE ${mapType(fc.after || 'VARCHAR(255)')};`
-            );
-          } else if (dialect === 'mysql') {
-            statements.push(
-              `ALTER TABLE ${quote(tableName)} MODIFY COLUMN ${quote(fc.field)} ${mapType(fc.after || 'VARCHAR(255)')};`
+              `-- SQLite: ALTER TABLE ${quote(tableName)} requires full table rebuild to set ${fc.field} NOT NULL`,
             );
           } else {
             statements.push(
-              `-- SQLite: ALTER TABLE ${quote(tableName)} requires full table rebuild for type change on ${fc.field}`
+              `ALTER TABLE ${quote(tableName)} ALTER COLUMN ${quote(fc.field)} SET NOT NULL;`,
             );
           }
           break;
-        case 'changed to required':
-          if (dialect === 'sqlite') {
+        case "changed to optional":
+          if (dialect === "sqlite") {
             statements.push(
-              `-- SQLite: ALTER TABLE ${quote(tableName)} requires full table rebuild to set ${fc.field} NOT NULL`
+              `-- SQLite: ALTER TABLE ${quote(tableName)} requires full table rebuild to drop NOT NULL on ${fc.field}`,
             );
           } else {
             statements.push(
-              `ALTER TABLE ${quote(tableName)} ALTER COLUMN ${quote(fc.field)} SET NOT NULL;`
+              `ALTER TABLE ${quote(tableName)} ALTER COLUMN ${quote(fc.field)} DROP NOT NULL;`,
             );
           }
           break;
-        case 'changed to optional':
-          if (dialect === 'sqlite') {
-            statements.push(
-              `-- SQLite: ALTER TABLE ${quote(tableName)} requires full table rebuild to drop NOT NULL on ${fc.field}`
-            );
-          } else {
-            statements.push(
-              `ALTER TABLE ${quote(tableName)} ALTER COLUMN ${quote(fc.field)} DROP NOT NULL;`
-            );
-          }
-          break;
-        case 'unique constraint added':
+        case "unique constraint added":
           statements.push(
-            `CREATE UNIQUE INDEX ${quote(`uq_${tableName}_${fc.field}`)} ON ${quote(tableName)} (${quote(fc.field)});`
+            `CREATE UNIQUE INDEX ${quote(`uq_${tableName}_${fc.field}`)} ON ${quote(tableName)} (${quote(fc.field)});`,
           );
           break;
-        case 'unique constraint removed':
-          statements.push(
-            `DROP INDEX IF EXISTS ${quote(`uq_${tableName}_${fc.field}`)};`
-          );
+        case "unique constraint removed":
+          statements.push(`DROP INDEX IF EXISTS ${quote(`uq_${tableName}_${fc.field}`)};`);
           break;
         default:
-          statements.push(
-            `-- ${fc.change}: ${fc.field} ${fc.before || ''} => ${fc.after || ''}`
-          );
+          statements.push(`-- ${fc.change}: ${fc.field} ${fc.before || ""} => ${fc.after || ""}`);
       }
     }
   }
 
-  return statements.join('\n');
+  return statements.join("\n");
 }
 
 // ── Formatters ──────────────────────────────────────────────────────────────
@@ -895,9 +824,11 @@ export function formatSchemaReport(report: SchemaReport): string {
   }
 
   const parts: string[] = [];
-  parts.push(`Schema Report — ${report.totalEntities} entities, ${report.totalRelations} relations`);
+  parts.push(
+    `Schema Report — ${report.totalEntities} entities, ${report.totalRelations} relations`,
+  );
   parts.push(`Generated: ${report.generatedAt}`);
-  parts.push('');
+  parts.push("");
 
   for (const entity of report.entities) {
     parts.push(`┌─ ${entity.name}`);
@@ -905,16 +836,12 @@ export function formatSchemaReport(report: SchemaReport): string {
 
     // Fields
     for (const field of entity.fields) {
-      const pk = entity.primaryKey.includes(field.name) ? ' 🔑' : '';
-      const uq = field.unique ? ' 🔒' : '';
-      const req = field.required ? '' : '?';
-      const def = field.default !== undefined ? ` = ${field.default}` : '';
-      const rel = field.relation
-        ? ` ──${field.relation.type}──> ${field.relation.entity}`
-        : '';
-      parts.push(
-        `│  ├─ ${field.name}${req}: ${field.type}${pk}${uq}${def}${rel}`
-      );
+      const pk = entity.primaryKey.includes(field.name) ? " 🔑" : "";
+      const uq = field.unique ? " 🔒" : "";
+      const req = field.required ? "" : "?";
+      const def = field.default !== undefined ? ` = ${field.default}` : "";
+      const rel = field.relation ? ` ──${field.relation.type}──> ${field.relation.entity}` : "";
+      parts.push(`│  ├─ ${field.name}${req}: ${field.type}${pk}${uq}${def}${rel}`);
     }
 
     // Relations
@@ -926,14 +853,14 @@ export function formatSchemaReport(report: SchemaReport): string {
 
     // Indexes
     if (entity.indexes.length > 0) {
-      parts.push(`│  indexes: ${entity.indexes.join(', ')}`);
+      parts.push(`│  indexes: ${entity.indexes.join(", ")}`);
     }
 
-    parts.push('└──');
-    parts.push('');
+    parts.push("└──");
+    parts.push("");
   }
 
-  return parts.join('\n');
+  return parts.join("\n");
 }
 
 /**
@@ -941,17 +868,17 @@ export function formatSchemaReport(report: SchemaReport): string {
  */
 export function formatSchemaDiff(diff: SchemaDiff): string {
   const parts: string[] = [];
-  parts.push('Schema Migration Summary');
-  parts.push('');
+  parts.push("Schema Migration Summary");
+  parts.push("");
 
   if (diff.added.length > 0) {
     parts.push(`[Added Entities] (${diff.added.length})`);
     for (const entity of diff.added) {
-      const fields = entity.fields.map((f) => `  ${f.name}: ${f.type}`).join('\n');
+      const fields = entity.fields.map((f) => `  ${f.name}: ${f.type}`).join("\n");
       parts.push(`  + ${entity.name} (${entity.fields.length} fields)`);
       parts.push(fields);
     }
-    parts.push('');
+    parts.push("");
   }
 
   if (diff.removed.length > 0) {
@@ -959,7 +886,7 @@ export function formatSchemaDiff(diff: SchemaDiff): string {
     for (const entity of diff.removed) {
       parts.push(`  - ${entity.name}`);
     }
-    parts.push('');
+    parts.push("");
   }
 
   if (diff.changed.length > 0) {
@@ -972,16 +899,16 @@ export function formatSchemaDiff(diff: SchemaDiff): string {
             ? ` (${fc.before} → ${fc.after})`
             : fc.after
               ? ` (→ ${fc.after})`
-              : '';
+              : "";
         parts.push(`      ${fc.field}: ${fc.change}${detail}`);
       }
     }
-    parts.push('');
+    parts.push("");
   }
 
   if (diff.added.length === 0 && diff.removed.length === 0 && diff.changed.length === 0) {
-    parts.push('  No schema changes detected.');
+    parts.push("  No schema changes detected.");
   }
 
-  return parts.join('\n');
+  return parts.join("\n");
 }

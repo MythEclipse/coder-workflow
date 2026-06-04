@@ -123,7 +123,8 @@ export function detectDeadCode(graph: CodeGraph): DeadCodeReport {
   const orphanFiles: DeadCodeReport["orphanFiles"] = [];
   for (const fileNode of fileNodes) {
     // Skip root/entry files
-    if (fileNode.path === "index.ts" || fileNode.path === "main.ts" || fileNode.path === "cli.ts") continue;
+    if (fileNode.path === "index.ts" || fileNode.path === "main.ts" || fileNode.path === "cli.ts")
+      continue;
     if (fileNode.path === "mcp-server.ts") continue;
     if (fileNode.path.startsWith("dist/") || fileNode.path.startsWith("node_modules/")) continue;
 
@@ -195,7 +196,9 @@ export function detectDeadCode(graph: CodeGraph): DeadCodeReport {
   };
 }
 
-export async function detectDeadCodeFromGraph(root: string): Promise<DeadCodeReport | { error: string }> {
+export async function detectDeadCodeFromGraph(
+  root: string,
+): Promise<DeadCodeReport | { error: string }> {
   if (!(await graphExists(root))) {
     return { error: "No graph database found. Run scan_codebase first or use --skip-graph." };
   }

@@ -70,8 +70,6 @@ jobs:
         run: node --test dist/test/search.test.js
       - name: Run parser tests
         run: node --test dist/test/parsers/*.test.js
-      - name: Run batch tests
-        run: node --test dist/test/batch.test.js dist/test/batch-cli.test.js dist/test/batch-mcp.test.js
       - name: Run quality gate tests
         run: node --test dist/test/cli-quality-gate.test.js dist/test/mcp-quality-gate.test.js
       - name: Run fs-tools and git-diff tests

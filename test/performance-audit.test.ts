@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import {
-  formatBundleReport,
-  compareBundles,
-} from "../src/performance-audit.js";
-import type { BundleReport, BundleDiff } from "../src/performance-audit.js";
+import type { BundleDiff, BundleReport } from "../src/performance-audit.js";
+import { compareBundles, formatBundleReport } from "../src/performance-audit.js";
 
 // ---------------------------------------------------------------------------
 // formatBundleReport
@@ -19,9 +15,7 @@ test("formatBundleReport - produces formatted output with totals", () => {
       { name: "react", size: 6832, gzipSize: 2049 },
       { name: "react-dom", size: 130912, gzipSize: 39274 },
     ],
-    largest: [
-      { name: "react-dom", size: 130912, gzipSize: 39274 },
-    ],
+    largest: [{ name: "react-dom", size: 130912, gzipSize: 39274 }],
     duplicates: [],
   };
 
@@ -58,9 +52,7 @@ test("formatBundleReport - highlights duplicates warning", () => {
   const report: BundleReport = {
     totalSize: 10000,
     totalGzip: 3000,
-    modules: [
-      { name: "lodash", size: 5000, gzipSize: 1500 },
-    ],
+    modules: [{ name: "lodash", size: 5000, gzipSize: 1500 }],
     largest: [],
     duplicates: ["lodash"],
   };

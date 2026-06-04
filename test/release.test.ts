@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { formatChangelogMarkdown } from "../src/release.js";
 import type { ChangelogEntry } from "../src/release.js";
+import { formatChangelogMarkdown } from "../src/release.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "codegraph-release-test-"));
@@ -18,7 +18,15 @@ function fixture(files: Record<string, string>): string {
 
 test("formatChangelogMarkdown renders empty entries (no sections)", () => {
   const entries: ChangelogEntry[] = [
-    { version: "1.0.0", date: "2024-01-15", features: [], fixes: [], chores: [], breaking: [], refactors: [] },
+    {
+      version: "1.0.0",
+      date: "2024-01-15",
+      features: [],
+      fixes: [],
+      chores: [],
+      breaking: [],
+      refactors: [],
+    },
   ];
 
   const output = formatChangelogMarkdown(entries);
@@ -219,16 +227,31 @@ test("formatChangelogMarkdown handles special characters in entry content", () =
 test("formatChangelogMarkdown preserves entry ordering in output", () => {
   const entries: ChangelogEntry[] = [
     {
-      version: "3.0.0", date: "2024-03-01",
-      features: ["Feature A"], fixes: [], chores: [], breaking: [], refactors: [],
+      version: "3.0.0",
+      date: "2024-03-01",
+      features: ["Feature A"],
+      fixes: [],
+      chores: [],
+      breaking: [],
+      refactors: [],
     },
     {
-      version: "2.0.0", date: "2024-02-01",
-      features: ["Feature B"], fixes: [], chores: [], breaking: [], refactors: [],
+      version: "2.0.0",
+      date: "2024-02-01",
+      features: ["Feature B"],
+      fixes: [],
+      chores: [],
+      breaking: [],
+      refactors: [],
     },
     {
-      version: "1.0.0", date: "2024-01-01",
-      features: ["Feature C"], fixes: [], chores: [], breaking: [], refactors: [],
+      version: "1.0.0",
+      date: "2024-01-01",
+      features: ["Feature C"],
+      fixes: [],
+      chores: [],
+      breaking: [],
+      refactors: [],
     },
   ];
 

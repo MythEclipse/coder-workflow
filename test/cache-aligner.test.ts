@@ -98,7 +98,11 @@ test("alignContent uses type and subType for prefix selection", () => {
 });
 
 test("alignContent includes task tag when provided", () => {
-  const result = alignContent("do something", { type: "agent", subType: "implementer", task: "add-login" });
+  const result = alignContent("do something", {
+    type: "agent",
+    subType: "implementer",
+    task: "add-login",
+  });
 
   assert.ok(result.aligned.includes("add-login"));
   assert.ok(result.aligned.endsWith("do something"));

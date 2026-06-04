@@ -54,10 +54,7 @@ test("detectMissingEnvVars passes when all vars present and non-empty", () => {
     ".env": "DATABASE_URL=postgres://localhost/mydb\nSECRET_KEY=abc123\n",
   });
 
-  const report = detectMissingEnvVars(
-    ["DATABASE_URL", "SECRET_KEY"],
-    join(root, ".env"),
-  );
+  const report = detectMissingEnvVars(["DATABASE_URL", "SECRET_KEY"], join(root, ".env"));
 
   assert.equal(report.valid, true);
   assert.equal(report.errors.length, 0);
@@ -75,13 +72,10 @@ test("detectMissingEnvVars handles empty requiredVars list", () => {
 
 test("detectMissingEnvVars strips surrounding quotes from values", () => {
   const root = fixture({
-    ".env": 'DATABASE_URL="postgres://localhost/mydb"\nSECRET_KEY=\'abc123\'\n',
+    ".env": "DATABASE_URL=\"postgres://localhost/mydb\"\nSECRET_KEY='abc123'\n",
   });
 
-  const report = detectMissingEnvVars(
-    ["DATABASE_URL", "SECRET_KEY"],
-    join(root, ".env"),
-  );
+  const report = detectMissingEnvVars(["DATABASE_URL", "SECRET_KEY"], join(root, ".env"));
 
   assert.equal(report.valid, true);
   assert.equal(report.errors.length, 0);

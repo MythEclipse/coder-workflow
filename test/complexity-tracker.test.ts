@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  measureComplexity,
-  formatComplexityReport,
-} from "../src/complexity-tracker.js";
 import type { ComplexityReport } from "../src/complexity-tracker.js";
+import { formatComplexityReport, measureComplexity } from "../src/complexity-tracker.js";
 
 // ---------------------------------------------------------------------------
 // measureComplexity
@@ -233,9 +230,7 @@ test("formatComplexityReport - produces valid output with all sections", () => {
       {
         file: "test.ts",
         path: "/test.ts",
-        functions: [
-          { name: "foo", file: "test.ts", line: 1, complexity: 3, params: 1, lines: 5 },
-        ],
+        functions: [{ name: "foo", file: "test.ts", line: 1, complexity: 3, params: 1, lines: 5 }],
         averageComplexity: 3,
         maxComplexity: 3,
         totalFunctions: 1,

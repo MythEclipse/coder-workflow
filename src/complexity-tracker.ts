@@ -128,10 +128,7 @@ function measureFunctionComplexity(
   };
 }
 
-export function measureComplexity(
-  code: string,
-  filePath?: string,
-): FunctionComplexity[] {
+export function measureComplexity(code: string, filePath?: string): FunctionComplexity[] {
   const results: FunctionComplexity[] = [];
 
   // Regex to find function boundaries.
@@ -140,16 +137,14 @@ export function measureComplexity(
   //   const foo = (...) => { / function(...) {
   //   foo(...) {
   //   methodName(...) {
-  const funcRegex =
-    /(?:function\s+\w+|\w+\s*=\s*(?:async\s*)?\(|\w+\s*\([^)]*\)\s*\{)/g;
+  const funcRegex = /(?:function\s+\w+|\w+\s*=\s*(?:async\s*)?\(|\w+\s*\([^)]*\)\s*\{)/g;
 
   // const lines = code.split("\n"); // unused
 
   // Also find arrow functions assigned to identifiers:
   //   const foo = (...) => ...
   //   let foo = (...) => ...
-  const arrowFuncRegex =
-    /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*{?/g;
+  const arrowFuncRegex = /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*{?/g;
 
   // Combine: first collect standard functions, then arrow assignments.
   // We use a simpler approach: iterate line by line and collect matches.
@@ -211,14 +206,7 @@ export function measureComplexity(
     const bodyLines = body.split("\n").length;
 
     results.push(
-      measureFunctionComplexity(
-        body,
-        funcName,
-        lineNum,
-        params,
-        filePath || "",
-        bodyLines,
-      ),
+      measureFunctionComplexity(body, funcName, lineNum, params, filePath || "", bodyLines),
     );
   }
 
@@ -262,14 +250,7 @@ export function measureComplexity(
     bodyLines = body.split("\n").length;
 
     results.push(
-      measureFunctionComplexity(
-        body,
-        funcName,
-        lineNum,
-        params,
-        filePath || "",
-        bodyLines,
-      ),
+      measureFunctionComplexity(body, funcName, lineNum, params, filePath || "", bodyLines),
     );
   }
 
@@ -304,10 +285,7 @@ export function analyzeFile(filePath: string): FileComplexity {
 // analyzeDirectory
 // ---------------------------------------------------------------------------
 
-export function analyzeDirectory(
-  root: string,
-  glob?: string,
-): ComplexityReport {
+export function analyzeDirectory(root: string, glob?: string): ComplexityReport {
   const rootPath = path.resolve(root);
   const pattern = glob ? new RegExp(glob) : DEFAULT_GLOB;
   const files: FileComplexity[] = [];
@@ -345,9 +323,7 @@ export function analyzeDirectory(
 
   walk(rootPath);
 
-  const overallAvg = totalFuncCount > 0
-    ? totalComplexitySum / totalFuncCount
-    : 0;
+  const overallAvg = totalFuncCount > 0 ? totalComplexitySum / totalFuncCount : 0;
 
   // Sort hotspots descending by average complexity
   hotspots.sort((a, b) => b.averageComplexity - a.averageComplexity);

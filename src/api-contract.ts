@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * API Contract Testing — Diff OpenAPI specs and detect breaking changes
  * between two versions of an API specification.
@@ -7,8 +8,8 @@
  * Compares path+method keys across specs and reports structural differences.
  */
 
-import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -55,9 +56,7 @@ function parseSpecFile(filePath: string): OpenApiDoc {
     try {
       return JSON.parse(raw) as OpenApiDoc;
     } catch (err) {
-      throw new Error(
-        `Failed to parse JSON spec: ${filePath}. ${(err as Error).message}`,
-      );
+      throw new Error(`Failed to parse JSON spec: ${filePath}. ${(err as Error).message}`);
     }
   }
 
@@ -125,7 +124,13 @@ function parseBasicYaml(raw: string, filePath: string): OpenApiDoc {
           entry = null;
         } else if (/^["']/.test(entryContent)) {
           entry = parseYamlScalar(entryContent);
-        } else if (/^[\d.]+$/.test(entryContent) || entryContent === "true" || entryContent === "false" || entryContent === "null" || entryContent === "~") {
+        } else if (
+          /^[\d.]+$/.test(entryContent) ||
+          entryContent === "true" ||
+          entryContent === "false" ||
+          entryContent === "null" ||
+          entryContent === "~"
+        ) {
           entry = parseYamlScalar(entryContent);
         } else if (entryContent.includes(":")) {
           // Inline mapping in sequence: - key: value
@@ -179,7 +184,14 @@ function parseBasicYaml(raw: string, filePath: string): OpenApiDoc {
         const cleanKey = key.replace(/^["']|["']$/g, "");
 
         if (parent && !Array.isArray(parent)) {
-          if (valuePart === "" || valuePart === "|" || valuePart === ">" || valuePart === "|-" || valuePart === ">-" || valuePart === "|+") {
+          if (
+            valuePart === "" ||
+            valuePart === "|" ||
+            valuePart === ">" ||
+            valuePart === "|-" ||
+            valuePart === ">-" ||
+            valuePart === "|+"
+          ) {
             // Value will follow on indented lines or is null
             parent[cleanKey] = null;
             stack.push({
@@ -213,7 +225,13 @@ function parseBasicYaml(raw: string, filePath: string): OpenApiDoc {
             } catch {
               parent[cleanKey] = valuePart;
             }
-          } else if (/^[\d.]+(e[+-]?\d+)?$/.test(valuePart) || valuePart === "true" || valuePart === "false" || valuePart === "null" || valuePart === "~") {
+          } else if (
+            /^[\d.]+(e[+-]?\d+)?$/.test(valuePart) ||
+            valuePart === "true" ||
+            valuePart === "false" ||
+            valuePart === "null" ||
+            valuePart === "~"
+          ) {
             parent[cleanKey] = parseYamlScalar(valuePart);
           } else {
             // Could be a reference or plain scalar
@@ -243,9 +261,7 @@ function parseBasicYaml(raw: string, filePath: string): OpenApiDoc {
 
     return root as OpenApiDoc;
   } catch (err) {
-    throw new Error(
-      `Failed to parse YAML spec: ${filePath}. ${(err as Error).message}`,
-    );
+    throw new Error(`Failed to parse YAML spec: ${filePath}. ${(err as Error).message}`);
   }
 }
 
@@ -297,14 +313,10 @@ function extractEndpoints(
   const paths = doc.paths ?? {};
   for (const [path, methods] of Object.entries(paths)) {
     if (!methods || typeof methods !== "object") continue;
-    for (const [method, details] of Object.entries(
-      methods as Record<string, unknown>,
-    )) {
+    for (const [method, details] of Object.entries(methods as Record<string, unknown>)) {
       const normalized = normalizeMethod(method);
       if (
-        ["get", "post", "put", "patch", "delete", "head", "options", "trace"].includes(
-          normalized,
-        )
+        ["get", "post", "put", "patch", "delete", "head", "options", "trace"].includes(normalized)
       ) {
         endpoints.push({
           path,
@@ -332,14 +344,8 @@ function detectResponseChanges(
 ): ApiContractChange[] {
   const changes: ApiContractChange[] = [];
 
-  const beforeResponses = (beforeDetails.responses ?? {}) as Record<
-    string,
-    unknown
-  >;
-  const afterResponses = (afterDetails.responses ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const beforeResponses = (beforeDetails.responses ?? {}) as Record<string, unknown>;
+  const afterResponses = (afterDetails.responses ?? {}) as Record<string, unknown>;
 
   const successCodes = ["200", "201", "default"];
 
@@ -384,9 +390,7 @@ function detectParamChanges(
   const beforeParams = extractParams(beforeDetails);
   const afterParams = extractParams(afterDetails);
 
-  const beforeParamKeys = new Set(
-    beforeParams.map((p) => `${p.in}:${p.name}`),
-  );
+  const beforeParamKeys = new Set(beforeParams.map((p) => `${p.in}:${p.name}`));
   const afterParamKeys = new Set(afterParams.map((p) => `${p.in}:${p.name}`));
 
   for (const param of beforeParams) {
@@ -437,25 +441,20 @@ function extractParams(details: Record<string, unknown>): ParamInfo[] {
 }
 
 /** Resolve a $ref if present, otherwise return the object as-is. */
-function resolveSchemaRef(
-  obj: unknown,
-): Record<string, unknown> | null {
+function resolveSchemaRef(obj: unknown): Record<string, unknown> | null {
   if (!obj || typeof obj !== "object") return null;
   const record = obj as Record<string, unknown>;
 
   // If there's a schema property with $ref, we note the ref but
   // can't dereference without the full spec — just flag it as changed
   if (record.schema) return record.schema as Record<string, unknown>;
-  if (record["$ref"]) return record as Record<string, unknown>;
+  if ("$ref" in record) return record as Record<string, unknown>;
 
   return record;
 }
 
 /** Simple structural comparison of two schema-like objects. */
-function schemasMatch(
-  a: Record<string, unknown>,
-  b: Record<string, unknown>,
-): boolean {
+function schemasMatch(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
   const aType = a.type ?? typeof a;
   const bType = b.type ?? typeof b;
   if (aType !== bType) return false;
@@ -465,7 +464,6 @@ function schemasMatch(
   const aProps = (a.properties ?? {}) as Record<string, unknown>;
   const bProps = (b.properties ?? {}) as Record<string, unknown>;
   const aKeys = Object.keys(aProps);
-  const bKeys = Object.keys(bProps);
 
   // Only flag if keys differ significantly (added keys are non-breaking)
   const removedKeys = aKeys.filter((k) => !(k in bProps));
@@ -477,12 +475,7 @@ function schemasMatch(
     const aVal = aProps[key];
     const bVal = bProps[key];
     if (typeof aVal !== typeof bVal) return false;
-    if (
-      typeof aVal === "object" &&
-      aVal !== null &&
-      bVal !== null &&
-      typeof bVal === "object"
-    ) {
+    if (typeof aVal === "object" && aVal !== null && bVal !== null && typeof bVal === "object") {
       const aObj = aVal as Record<string, unknown>;
       const bObj = bVal as Record<string, unknown>;
       if (aObj.type !== bObj.type) return false;
@@ -507,22 +500,15 @@ function schemasMatch(
  * @param afterPath  Path to the newer version of the spec (JSON or YAML).
  * @returns An ApiContractReport with detected changes and breaking status.
  */
-export function compareOpenApiSpecs(
-  beforePath: string,
-  afterPath: string,
-): ApiContractReport {
+export function compareOpenApiSpecs(beforePath: string, afterPath: string): ApiContractReport {
   const beforeDoc = parseSpecFile(beforePath);
   const afterDoc = parseSpecFile(afterPath);
 
   const beforeEndpoints = extractEndpoints(beforeDoc);
   const afterEndpoints = extractEndpoints(afterDoc);
 
-  const beforeMap = new Map(
-    beforeEndpoints.map((e) => [endpointKey(e.path, e.method), e]),
-  );
-  const afterMap = new Map(
-    afterEndpoints.map((e) => [endpointKey(e.path, e.method), e]),
-  );
+  const beforeMap = new Map(beforeEndpoints.map((e) => [endpointKey(e.path, e.method), e]));
+  const afterMap = new Map(afterEndpoints.map((e) => [endpointKey(e.path, e.method), e]));
 
   const changes: ApiContractChange[] = [];
 
@@ -558,21 +544,11 @@ export function compareOpenApiSpecs(
     const { path, method } = beforeEp;
 
     // Param changes
-    const paramChanges = detectParamChanges(
-      beforeEp.details,
-      afterEp.details,
-      path,
-      method,
-    );
+    const paramChanges = detectParamChanges(beforeEp.details, afterEp.details, path, method);
     changes.push(...paramChanges);
 
     // Response schema changes
-    const responseChanges = detectResponseChanges(
-      beforeEp.details,
-      afterEp.details,
-      path,
-      method,
-    );
+    const responseChanges = detectResponseChanges(beforeEp.details, afterEp.details, path, method);
     changes.push(...responseChanges);
   }
 
@@ -674,12 +650,8 @@ export function diffOpenApiFromGit(
   const beforeEndpoints = extractEndpoints(beforeDoc);
   const afterEndpoints = extractEndpoints(afterDoc);
 
-  const beforeMap = new Map(
-    beforeEndpoints.map((e) => [endpointKey(e.path, e.method), e]),
-  );
-  const afterMap = new Map(
-    afterEndpoints.map((e) => [endpointKey(e.path, e.method), e]),
-  );
+  const beforeMap = new Map(beforeEndpoints.map((e) => [endpointKey(e.path, e.method), e]));
+  const afterMap = new Map(afterEndpoints.map((e) => [endpointKey(e.path, e.method), e]));
 
   const changes: ApiContractChange[] = [];
 
@@ -710,20 +682,10 @@ export function diffOpenApiFromGit(
     if (!afterEp) continue;
     const { path, method } = beforeEp;
 
-    const paramChanges = detectParamChanges(
-      beforeEp.details,
-      afterEp.details,
-      path,
-      method,
-    );
+    const paramChanges = detectParamChanges(beforeEp.details, afterEp.details, path, method);
     changes.push(...paramChanges);
 
-    const responseChanges = detectResponseChanges(
-      beforeEp.details,
-      afterEp.details,
-      path,
-      method,
-    );
+    const responseChanges = detectResponseChanges(beforeEp.details, afterEp.details, path, method);
     changes.push(...responseChanges);
   }
 
@@ -758,9 +720,14 @@ export function formatContractReport(report: ApiContractReport): string {
   lines.push(`# API Contract Report ${statusIcon}`);
   lines.push("");
   lines.push(`**Status:** ${statusLabel}`);
-  lines.push(`**Endpoints (before → after):** ${report.endpointsBefore} → ${report.endpointsAfter}`);
+  lines.push(
+    `**Endpoints (before → after):** ${report.endpointsBefore} → ${report.endpointsAfter}`,
+  );
   if (report.endpointsBefore > 0) {
-    const growth = ((report.endpointsAfter - report.endpointsBefore) / report.endpointsBefore * 100).toFixed(1);
+    const growth = (
+      ((report.endpointsAfter - report.endpointsBefore) / report.endpointsBefore) *
+      100
+    ).toFixed(1);
     const sign = report.endpointsAfter >= report.endpointsBefore ? "+" : "";
     lines.push(`**Endpoint change:** ${sign}${growth}%`);
   }
@@ -775,11 +742,18 @@ export function formatContractReport(report: ApiContractReport): string {
   lines.push("## Summary");
   lines.push("");
   for (const [type, count] of typeCounts) {
-    const icon = type === "endpoint-removed" ? "🗑️" :
-      type === "endpoint-added" ? "✨" :
-      type === "schema-changed" ? "📦" :
-      type === "param-removed" ? "🔧" :
-      type === "response-changed" ? "📨" : "❓";
+    const icon =
+      type === "endpoint-removed"
+        ? "🗑️"
+        : type === "endpoint-added"
+          ? "✨"
+          : type === "schema-changed"
+            ? "📦"
+            : type === "param-removed"
+              ? "🔧"
+              : type === "response-changed"
+                ? "📨"
+                : "❓";
     const label = type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     lines.push(`- ${icon} **${label}:** ${count}`);
   }
@@ -792,11 +766,18 @@ export function formatContractReport(report: ApiContractReport): string {
 
     for (let i = 0; i < report.changes.length; i++) {
       const change = report.changes[i];
-      const icon = change.type === "endpoint-removed" ? "🗑️" :
-        change.type === "endpoint-added" ? "✨" :
-        change.type === "schema-changed" ? "📦" :
-        change.type === "param-removed" ? "🔧" :
-        change.type === "response-changed" ? "📨" : "❓";
+      const icon =
+        change.type === "endpoint-removed"
+          ? "🗑️"
+          : change.type === "endpoint-added"
+            ? "✨"
+            : change.type === "schema-changed"
+              ? "📦"
+              : change.type === "param-removed"
+                ? "🔧"
+                : change.type === "response-changed"
+                  ? "📨"
+                  : "❓";
       const methodTag = `\`${change.method.toUpperCase()}\``;
       const pathTag = `\`${change.path}\``;
       lines.push(`### ${icon} ${methodTag} ${pathTag}`);
@@ -845,11 +826,10 @@ function findSpecFilesInRef(ref: string): string[] {
 /** Read and parse an OpenAPI spec file from a specific git ref. */
 function readSpecFromGit(ref: string, filePath: string): OpenApiDoc {
   try {
-    const raw = execFileSync(
-      "git",
-      ["show", `${ref}:${filePath}`],
-      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
-    );
+    const raw = execFileSync("git", ["show", `${ref}:${filePath}`], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
     const trimmed = raw.trim();
     if (trimmed.length === 0) {
       throw new Error(`Empty file at ${ref}:${filePath}`);

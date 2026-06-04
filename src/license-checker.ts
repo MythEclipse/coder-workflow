@@ -101,7 +101,8 @@ export const KNOWN_LICENSES: Record<string, string[]> = {
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
 const IPC_LICENSE_PATTERN = /^LicenseRef-(.+)/i;
-const SPDX_LIKE_PATTERN = /^\(?(MIT|Apache-2\.0|BSD-\d-Clause|ISC|GPL|LGPL|AGPL|MPL|CC0|Unlicense)/i;
+const SPDX_LIKE_PATTERN =
+  /^\(?(MIT|Apache-2\.0|BSD-\d-Clause|ISC|GPL|LGPL|AGPL|MPL|CC0|Unlicense)/i;
 
 function classifyLicense(license: string): "permissive" | "restrictive" | "copyleft" | "unknown" {
   const normalized = license?.trim() || "";
@@ -221,12 +222,20 @@ function scanNpmLockFile(lockPath: string, root: string): LicenseInfo[] {
     if (depPath === "" || !depInfo || typeof depInfo !== "object") continue;
 
     const info = depInfo as Record<string, unknown>;
-    const name = depPath.replace(/^node_modules\//, "").split("/").pop() || depPath;
+    const name =
+      depPath
+        .replace(/^node_modules\//, "")
+        .split("/")
+        .pop() || depPath;
     const version = typeof info.version === "string" ? info.version : "";
     const license = extractLicenseField(info);
 
     // Resolve actual path where the package lives
-    const pkgPath = join(root, "node_modules", depPath.startsWith("node_modules/") ? depPath.slice("node_modules/".length) : depPath);
+    const pkgPath = join(
+      root,
+      "node_modules",
+      depPath.startsWith("node_modules/") ? depPath.slice("node_modules/".length) : depPath,
+    );
 
     // Deduplicate by name+version
     const key = `${name}@${version}`;
@@ -483,10 +492,7 @@ export function categorizeLicenses(report: LicenseReport): LicenseReport {
   // The report already has restrictive and unknown populated from buildReport.
   // Recompute incompatible with full categorization.
   // Take the results from restrictive + unknown + reconstruct permissive from license counts
-  const allResults: LicenseInfo[] = [
-    ...report.restrictive,
-    ...report.unknown,
-  ];
+  const allResults: LicenseInfo[] = [...report.restrictive, ...report.unknown];
 
   // Rebuild permissive/copyleft from the raw data (we don't have it, so re-derive)
   // For the public API, we need to accept a report and add the incompatible field.
@@ -533,7 +539,8 @@ export function formatLicenseReport(report: LicenseReport): string {
   const sortedLicenses = Object.entries(report.licenses).sort((a, b) => b[1] - a[1]);
   for (const [license, count] of sortedLicenses) {
     const cat = classifyLicense(license);
-    const emoji = cat === "permissive" ? "🟢" : cat === "restrictive" ? "🟡" : cat === "copyleft" ? "🔴" : "⚪";
+    const emoji =
+      cat === "permissive" ? "🟢" : cat === "restrictive" ? "🟡" : cat === "copyleft" ? "🔴" : "⚪";
     lines.push(`    ${emoji} ${license.padEnd(25)} ${count}`);
   }
   lines.push("");
@@ -569,12 +576,18 @@ export function formatLicenseReport(report: LicenseReport): string {
   }
 
   // Summary
-  if (report.incompatible.length === 0 && report.restrictive.length === 0 && report.unknown.length === 0) {
+  if (
+    report.incompatible.length === 0 &&
+    report.restrictive.length === 0 &&
+    report.unknown.length === 0
+  ) {
     lines.push(`  ✅ All licenses are permissive and compatible.`);
   } else {
     lines.push(`  Summary:`);
     if (report.restrictive.length > 0) {
-      const copyleftCount = report.restrictive.filter((p) => classifyLicense(p.license) === "copyleft").length;
+      const copyleftCount = report.restrictive.filter(
+        (p) => classifyLicense(p.license) === "copyleft",
+      ).length;
       lines.push(`    🟡 Restrictive: ${report.restrictive.length - copyleftCount}`);
       lines.push(`    🔴 Copyleft: ${copyleftCount}`);
     }

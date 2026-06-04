@@ -42,11 +42,17 @@ export function generatePRDescription(options?: PRDescriptionOptions): PrDescrip
   const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
 
   // Get commit log since target
-  const log = execSync(`git log ${target}..HEAD --oneline --no-decorate 2>/dev/null || git log --oneline -20`, { encoding: "utf-8" }).trim();
+  const log = execSync(
+    `git log ${target}..HEAD --oneline --no-decorate 2>/dev/null || git log --oneline -20`,
+    { encoding: "utf-8" },
+  ).trim();
   const commits = log.split("\n").filter(Boolean);
 
   // Get diff stat
-  const diffStat = execSync(`git diff ${target}..HEAD --stat 2>/dev/null || git diff --stat HEAD~5`, { encoding: "utf-8" }).trim();
+  const diffStat = execSync(
+    `git diff ${target}..HEAD --stat 2>/dev/null || git diff --stat HEAD~5`,
+    { encoding: "utf-8" },
+  ).trim();
   const filesChanged = diffStat.split("\n").filter((l) => l.includes("|")).length;
 
   // Categorize commits
@@ -66,15 +72,23 @@ export function generatePRDescription(options?: PRDescriptionOptions): PrDescrip
 
   // Generate title
   const firstCommit = commits[0]?.replace(/^[a-f0-9]+\s+/, "") ?? "";
-  const title = firstCommit.length > 80 ? firstCommit.slice(0, 77) + "..." : firstCommit || `Changes from ${branch}`;
+  const title =
+    firstCommit.length > 80
+      ? firstCommit.slice(0, 77) + "..."
+      : firstCommit || `Changes from ${branch}`;
 
   // Build body
   const bodyParts: string[] = [];
 
   if (options?.includeSummary !== false) {
-    bodyParts.push("## Summary", "", commits.length > 0
-      ? `This PR contains **${commits.length} commits** across **${filesChanged} files**.`
-      : "Changes in this branch.", "");
+    bodyParts.push(
+      "## Summary",
+      "",
+      commits.length > 0
+        ? `This PR contains **${commits.length} commits** across **${filesChanged} files**.`
+        : "Changes in this branch.",
+      "",
+    );
   }
 
   if (features.length > 0) {
@@ -116,7 +130,9 @@ export function generatePRDescription(options?: PRDescriptionOptions): PrDescrip
 
 export function generateChangelog(from?: string, to?: string): ChangelogEntry[] {
   // Get tags
-  const tags = execSync("git tag --sort=-version:refname 2>/dev/null || echo 'no tags'", { encoding: "utf-8" })
+  const tags = execSync("git tag --sort=-version:refname 2>/dev/null || echo 'no tags'", {
+    encoding: "utf-8",
+  })
     .trim()
     .split("\n")
     .filter(Boolean);
@@ -156,7 +172,9 @@ function generateSingleChangelog(version: string, previous?: string): ChangelogE
   let log = "";
   try {
     if (previous) {
-      log = execSync(`git log ${previous}..HEAD --oneline --no-decorate 2>/dev/null`, { encoding: "utf-8" });
+      log = execSync(`git log ${previous}..HEAD --oneline --no-decorate 2>/dev/null`, {
+        encoding: "utf-8",
+      });
     } else {
       log = execSync("git log --oneline -30 --no-decorate 2>/dev/null", { encoding: "utf-8" });
     }
@@ -175,9 +193,11 @@ function generateSingleChangelog(version: string, previous?: string): ChangelogE
     const msg = commit.replace(/^[a-f0-9]+\s+/, "");
     if (/^feat/i.test(msg)) features.push(msg.replace(/^feat(\([^)]+\))?:\s*/i, ""));
     else if (/^fix/i.test(msg)) fixes.push(msg.replace(/^fix(\([^)]+\))?:\s*/i, ""));
-    else if (/^breaking/i.test(msg) || /!:/i.test(msg)) breaking.push(msg.replace(/^[^(]*\)?!?:\s*/i, ""));
+    else if (/^breaking/i.test(msg) || /!:/i.test(msg))
+      breaking.push(msg.replace(/^[^(]*\)?!?:\s*/i, ""));
     else if (/^refactor/i.test(msg)) refactors.push(msg.replace(/^refactor(\([^)]+\))?:\s*/i, ""));
-    else if (/^chore|^docs|^test|^build/i.test(msg)) chores.push(msg.replace(/^(chore|docs|test|build)(\([^)]+\))?:\s*/i, ""));
+    else if (/^chore|^docs|^test|^build/i.test(msg))
+      chores.push(msg.replace(/^(chore|docs|test|build)(\([^)]+\))?:\s*/i, ""));
   }
 
   return {
@@ -210,16 +230,28 @@ export function createRelease(bump: "patch" | "minor" | "major"): ReleaseResult 
   const parts = current.split(".").map(Number);
 
   switch (bump) {
-    case "major": parts[0]++; parts[1] = 0; parts[2] = 0; break;
-    case "minor": parts[1]++; parts[2] = 0; break;
-    case "patch": parts[2]++; break;
+    case "major":
+      parts[0]++;
+      parts[1] = 0;
+      parts[2] = 0;
+      break;
+    case "minor":
+      parts[1]++;
+      parts[2] = 0;
+      break;
+    case "patch":
+      parts[2]++;
+      break;
   }
 
   const newVersion = parts.join(".");
   const tag = `v${newVersion}`;
 
   // Generate changelog
-  const changelog = generateSingleChangelog(newVersion, current !== "0.0.0" ? `v${current}` : undefined);
+  const changelog = generateSingleChangelog(
+    newVersion,
+    current !== "0.0.0" ? `v${current}` : undefined,
+  );
 
   return { newVersion, tag, changelog: [changelog] };
 }

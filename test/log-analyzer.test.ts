@@ -3,13 +3,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-
-import {
-  analyzeLogFile,
-  analyzeLogs,
-  formatLogReport,
-} from "../src/log-analyzer.js";
 import type { LogEntry } from "../src/log-analyzer.js";
+import { analyzeLogFile, analyzeLogs, formatLogReport } from "../src/log-analyzer.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "log-analyzer-test-"));
@@ -28,11 +23,31 @@ function fixture(files: Record<string, string>): string {
 test("analyzeLogFile - parses JSONL and produces report with errors and warnings", () => {
   const root = fixture({
     "app.log": [
-      JSON.stringify({ timestamp: "2026-01-01T10:00:00Z", level: "info", message: "Server started" }),
-      JSON.stringify({ timestamp: "2026-01-01T10:01:00Z", level: "error", message: "Connection refused" }),
-      JSON.stringify({ timestamp: "2026-01-01T10:02:00Z", level: "warn", message: "High memory usage" }),
-      JSON.stringify({ timestamp: "2026-01-01T10:03:00Z", level: "error", message: "Connection refused" }),
-      JSON.stringify({ timestamp: "2026-01-01T10:04:00Z", level: "info", message: "Request completed" }),
+      JSON.stringify({
+        timestamp: "2026-01-01T10:00:00Z",
+        level: "info",
+        message: "Server started",
+      }),
+      JSON.stringify({
+        timestamp: "2026-01-01T10:01:00Z",
+        level: "error",
+        message: "Connection refused",
+      }),
+      JSON.stringify({
+        timestamp: "2026-01-01T10:02:00Z",
+        level: "warn",
+        message: "High memory usage",
+      }),
+      JSON.stringify({
+        timestamp: "2026-01-01T10:03:00Z",
+        level: "error",
+        message: "Connection refused",
+      }),
+      JSON.stringify({
+        timestamp: "2026-01-01T10:04:00Z",
+        level: "info",
+        message: "Request completed",
+      }),
     ].join("\n"),
   });
 
@@ -47,8 +62,16 @@ test("analyzeLogFile - parses JSONL and produces report with errors and warnings
 test("analyzeLogFile - groups similar errors by normalised message", () => {
   const root = fixture({
     "app.log": [
-      JSON.stringify({ timestamp: "2026-01-01T10:00:00Z", level: "error", message: "Timeout on port 3000" }),
-      JSON.stringify({ timestamp: "2026-01-01T10:01:00Z", level: "error", message: "Timeout on port 4000" }),
+      JSON.stringify({
+        timestamp: "2026-01-01T10:00:00Z",
+        level: "error",
+        message: "Timeout on port 3000",
+      }),
+      JSON.stringify({
+        timestamp: "2026-01-01T10:01:00Z",
+        level: "error",
+        message: "Timeout on port 4000",
+      }),
     ].join("\n"),
   });
 
@@ -209,9 +232,7 @@ test("formatLogReport - includes top errors table", () => {
     warnCount: 0,
     timeRange: { first: null, last: null },
     errorGroups: [],
-    topErrors: [
-      { message: "DB timeout", count: 2 },
-    ],
+    topErrors: [{ message: "DB timeout", count: 2 }],
     frequencyByMinute: [],
   };
 
@@ -248,9 +269,7 @@ test("formatLogReport - includes frequency bar chart", () => {
     timeRange: { first: null, last: null },
     errorGroups: [],
     topErrors: [],
-    frequencyByMinute: [
-      { time: "2026-01-01T10:00", count: 3 },
-    ],
+    frequencyByMinute: [{ time: "2026-01-01T10:00", count: 3 }],
   };
 
   const output = formatLogReport(report);

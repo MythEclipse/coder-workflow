@@ -31,9 +31,7 @@ export function readRepeatedStringArg(args: string[], name: string): string[] {
   return values;
 }
 
-export function readFailOnThreshold(
-  args: string[],
-): QualityGateThreshold | "invalid" | undefined {
+export function readFailOnThreshold(args: string[]): QualityGateThreshold | "invalid" | undefined {
   const index = args.indexOf("--fail-on");
   if (index === -1) return undefined;
 

@@ -3,15 +3,14 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-
+import type { ExtractedString, LocaleReport } from "../src/i18n-helper.js";
 import {
-  extractHardcodedStrings,
   checkMissingTranslation,
-  formatLocaleReport,
   extractFromI18nFiles,
+  extractHardcodedStrings,
+  formatLocaleReport,
   generateLocaleTemplate,
 } from "../src/i18n-helper.js";
-import type { LocaleReport, ExtractedString } from "../src/i18n-helper.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "i18n-test-"));
@@ -189,8 +188,7 @@ test("extractFromI18nFiles - returns flatted nested keys", () => {
   const report = extractFromI18nFiles(join(root, "locales"));
   assert.ok(report.totalStrings >= 3);
   // Keys should be nested dot-notation
-  const hasNested = report.missingTranslations.length > 0 ||
-    report.totalStrings > 0;
+  const hasNested = report.missingTranslations.length > 0 || report.totalStrings > 0;
   assert.ok(hasNested);
 });
 

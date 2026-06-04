@@ -10,8 +10,15 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from "node:fs";
-import { join, extname } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { extname, join } from "node:path";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -200,7 +207,9 @@ function codeCompressor(input: string, filePath?: string): CompressionResult {
 
   // Truncate to max code chars
   if (compressed.length > CODE_MAX_CHARS) {
-    compressed = compressed.slice(0, CODE_MAX_CHARS) + `\n/* … truncated ${compressed.length - CODE_MAX_CHARS} more bytes */`;
+    compressed =
+      compressed.slice(0, CODE_MAX_CHARS) +
+      `\n/* … truncated ${compressed.length - CODE_MAX_CHARS} more bytes */`;
   }
 
   const compressedBytes = new TextEncoder().encode(compressed).length;
@@ -246,7 +255,21 @@ function languageFromPath(path: string): string | undefined {
 
 function stripComments(input: string, lang: string): string {
   // Only strip for languages with // and /* */ style comments
-  if (["typescript", "javascript", "java", "go", "rust", "c", "cpp", "csharp", "kotlin", "swift", "php"].includes(lang)) {
+  if (
+    [
+      "typescript",
+      "javascript",
+      "java",
+      "go",
+      "rust",
+      "c",
+      "cpp",
+      "csharp",
+      "kotlin",
+      "swift",
+      "php",
+    ].includes(lang)
+  ) {
     return input
       .replace(/\/\/.*$/gm, "") // line comments
       .replace(/\/\*[\s\S]*?\*\//g, ""); // block comments
@@ -289,7 +312,8 @@ function compressProse(input: string): CompressionResult {
   }
 
   if (compressed.length > PROSE_MAX_CHARS) {
-    compressed = compressed.slice(0, PROSE_MAX_CHARS) + `\n… [truncated, original ${originalSize} bytes]`;
+    compressed =
+      compressed.slice(0, PROSE_MAX_CHARS) + `\n… [truncated, original ${originalSize} bytes]`;
     truncated = true;
   }
 
@@ -378,7 +402,11 @@ function retrieveCCR(ccrId: string): DecompressResult | null {
   return null;
 }
 
-function getCCRStats(): { total: number; totalBytes: number; contentTypeBreakdown: Record<string, number> } {
+function getCCRStats(): {
+  total: number;
+  totalBytes: number;
+  contentTypeBreakdown: Record<string, number>;
+} {
   const dir = getCCRDir();
   if (!existsSync(dir)) {
     return { total: 0, totalBytes: 0, contentTypeBreakdown: {} };
@@ -546,7 +574,9 @@ export function printCompressionSummary(stats: CompressionStats): string {
     "╔══════════════════════════ CCR Statistics ══════════════════════════╗",
     `  CCR Entries:  ${stats.ccrCount} files`,
     `  Total Stored: ${(stats.totalOriginalBytes / 1024).toFixed(1)} KB original`,
-    `  Breakdown:    ${Object.entries(stats.contentTypes).map(([k, v]) => `${k}: ${v}`).join(", ")}`,
+    `  Breakdown:    ${Object.entries(stats.contentTypes)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ")}`,
     "╚══════════════════════════════════════════════════════════════════════╝",
   ].join("\n");
 }

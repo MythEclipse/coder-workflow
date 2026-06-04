@@ -3,13 +3,13 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import type { VulnScanReport } from "../src/vuln-sbom.js";
 import {
+  formatVulnReport,
+  generateSBOM,
   scanDependencies,
   scanVulnerabilities,
-  generateSBOM,
-  formatVulnReport,
 } from "../src/vuln-sbom.js";
-import type { VulnScanReport } from "../src/vuln-sbom.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "codegraph-vuln-sbom-test-"));
@@ -68,10 +68,7 @@ test("scanDependencies extracts pip packages from requirements.txt", () => {
   assert.ok(deps.find((d) => d.name === "requests"));
   assert.ok(deps.find((d) => d.name === "numpy"));
   assert.equal(deps.find((d) => d.name === "numpy")?.version, "*");
-  assert.equal(
-    deps.filter((d) => d.type === "pip").length,
-    3,
-  );
+  assert.equal(deps.filter((d) => d.type === "pip").length, 3);
 });
 
 test("scanDependencies extracts cargo packages from Cargo.toml", () => {
@@ -152,12 +149,8 @@ test("scanVulnerabilities detects known CVEs for vulnerable versions", () => {
   const report = scanVulnerabilities(root);
 
   assert.ok(report.totalVulns >= 2);
-  assert.ok(
-    report.vulnerabilities.some((v) => v.packageName === "lodash"),
-  );
-  assert.ok(
-    report.vulnerabilities.some((v) => v.packageName === "cross-spawn"),
-  );
+  assert.ok(report.vulnerabilities.some((v) => v.packageName === "lodash"));
+  assert.ok(report.vulnerabilities.some((v) => v.packageName === "cross-spawn"));
   assert.ok(report.scannedFiles.includes("package.json"));
   assert.equal(report.totalDeps, 2);
 });
@@ -176,14 +169,8 @@ test("scanVulnerabilities returns empty for safe versions", () => {
   const report = scanVulnerabilities(root);
 
   assert.equal(report.totalVulns, 0);
-  assert.equal(
-    report.bySeverity.CRITICAL ?? 0,
-    0,
-  );
-  assert.equal(
-    report.bySeverity.HIGH ?? 0,
-    0,
-  );
+  assert.equal(report.bySeverity.CRITICAL ?? 0, 0);
+  assert.equal(report.bySeverity.HIGH ?? 0, 0);
   assert.equal(report.totalDeps, 2);
 });
 
@@ -236,10 +223,7 @@ test("scanVulnerabilities scans all manifest types and tracks scannedFiles", () 
       dependencies: { lodash: "^4.17.20" },
     }),
     "requirements.txt": "flask==2.3.0\n",
-    "Cargo.toml": [
-      "[dependencies]",
-      'serde = "1.0"',
-    ].join("\n"),
+    "Cargo.toml": ["[dependencies]", 'serde = "1.0"'].join("\n"),
   });
 
   const report = scanVulnerabilities(root);

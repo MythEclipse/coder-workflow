@@ -15,17 +15,17 @@ import {
   queryGraph,
   summarizeArchitecture,
 } from "./analysis.js";
+import { numberArg, stringArg, stringArrayArg } from "./args.js";
 import { exportGraph } from "./exporters.js";
 import { getDirectoryTree } from "./fs-tools.js";
 import { diffGraphs, formatGraphDiff } from "./git-diff.js";
 import { summarizeGraphForBudget } from "./graph/summarize.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { searchCodebase } from "./search.js";
+import { SequentialThinkingEngine } from "./sequential-thinking.js";
 import { loadSettings } from "./settings.js";
 import type { CodeGraph } from "./types.js";
 import { openGraphUi } from "./ui.js";
-import { SequentialThinkingEngine } from "./sequential-thinking.js";
-import { stringArg, numberArg, stringArrayArg } from "./args.js";
 
 let _cachedGraph: CodeGraph | null = null;
 
@@ -145,52 +145,100 @@ const server = new Server(
   { capabilities: { tools: {} } },
 );
 
+import {
+  createADR,
+  formatADRList,
+  generateADRGraph,
+  getADR,
+  initADR,
+  listADRs,
+  updateADRStatus,
+} from "./adr.js";
+import { compareOpenApiSpecs, diffOpenApiFromGit, formatContractReport } from "./api-contract.js";
+import { answerQuestion, formatQAResult, generateOnboardingDocs } from "./codebase-qa.js";
+import { compareStats, formatStats, generateStats, getStatsHistory } from "./codebase-stats.js";
+import {
+  analyzeDirectory,
+  formatComplexityReport,
+  trackComplexityTrend,
+} from "./complexity-tracker.js";
 // ─── Server uptime tracking (for health checks) ───
 import {
+  alignCache,
+  cleanCCR,
   compress,
   decompress,
-  getStats as getCompressionStats,
-  cleanCCR,
-  alignCache,
   getCacheAlignment,
+  getStats as getCompressionStats,
 } from "./compress.js";
 import {
-  logFailure,
+  detectMissingEnvVars,
+  formatValidationReport,
+  validateEnvFile,
+  validateJsonFile,
+} from "./config-validator.js";
+import {
+  aggregateCoverage,
+  checkCoverageThreshold,
+  formatCoverageReport,
+} from "./coverage-aggregator.js";
+import {
+  exportToMarkdown as exportMemoryToMarkdown,
+  getMemoryStats,
+  getSupportedPlatforms,
+  queryMemory,
+  storeMemory,
+  syncWithPlatform,
+} from "./cross-agent-memory.js";
+import {
+  compareSchemas,
+  formatSchemaDiff,
+  formatSchemaReport,
+  parsePrismaSchema,
+} from "./db-schema.js";
+import { detectDeadCodeFromGraph } from "./deadcode.js";
+import { formatDoctorReport, generateDoctorReport } from "./doctor.js";
+import { scaffoldHooks, validateCommitMessage } from "./git-hooks.js";
+import {
+  checkMissingTranslation,
+  extractHardcodedStrings,
+  formatLocaleReport,
+} from "./i18n-helper.js";
+import {
   analyzeFailures,
   applyCorrections,
   getLearnReport,
-  resolveFailure,
+  logFailure,
   matchCorrection,
+  resolveFailure,
 } from "./learn.js";
-import {
-  storeMemory,
-  queryMemory,
-  getMemoryStats,
-  exportToMarkdown as exportMemoryToMarkdown,
-  syncWithPlatform,
-  getSupportedPlatforms,
-} from "./cross-agent-memory.js";
-import { detectDeadCodeFromGraph } from "./deadcode.js";
-import { semanticSearch, buildEmbeddings, getEmbeddingStats } from "./semantic-search.js";
-import { generatePRDescription, generateChangelog, formatChangelogMarkdown, createRelease } from "./release.js";
-import { scanForSecrets, formatSecretsReport } from "./secrets.js";
-import { createADR, listADRs, getADR, updateADRStatus, generateADRGraph, formatADRList, initADR } from "./adr.js";
-import { scanVulnerabilities, generateSBOM, formatVulnReport } from "./vuln-sbom.js";
-import { answerQuestion, generateOnboardingDocs, formatQAResult } from "./codebase-qa.js";
-import { generateSprintReport, getTeamMetrics, checkPRAutoMerge, recordBenchmark, getBenchmarkHistory, detectBenchmarkRegression } from "./tier3.js";
-import { compareOpenApiSpecs, diffOpenApiFromGit, formatContractReport } from "./api-contract.js";
-import { validateEnvFile, validateJsonFile, detectMissingEnvVars, formatValidationReport } from "./config-validator.js";
-import { scanNpmLicenses, categorizeLicenses, formatLicenseReport } from "./license-checker.js";
-import { analyzeDirectory, trackComplexityTrend, formatComplexityReport } from "./complexity-tracker.js";
+import { categorizeLicenses, formatLicenseReport, scanNpmLicenses } from "./license-checker.js";
 import { analyzeLogFile, formatLogReport } from "./log-analyzer.js";
-import { aggregateCoverage, checkCoverageThreshold, formatCoverageReport } from "./coverage-aggregator.js";
-import { scaffoldHooks, validateCommitMessage } from "./git-hooks.js";
-import { scanForTodos, formatTodoReport, getTodoHistory } from "./todo-tracker.js";
-import { analyzeBundleStats, parseBundlePhobia, compareBundles, formatBundleReport, createPerfReport } from "./performance-audit.js";
-import { extractHardcodedStrings, checkMissingTranslation, formatLocaleReport } from "./i18n-helper.js";
-import { parsePrismaSchema, compareSchemas, formatSchemaReport, formatSchemaDiff } from "./db-schema.js";
-import { generateDoctorReport, formatDoctorReport } from "./doctor.js";
-import { generateStats, getStatsHistory, compareStats, formatStats } from "./codebase-stats.js";
+import {
+  analyzeBundleStats,
+  compareBundles,
+  createPerfReport,
+  formatBundleReport,
+  parseBundlePhobia,
+} from "./performance-audit.js";
+import {
+  createRelease,
+  formatChangelogMarkdown,
+  generateChangelog,
+  generatePRDescription,
+} from "./release.js";
+import { formatSecretsReport, scanForSecrets } from "./secrets.js";
+import { buildEmbeddings, getEmbeddingStats, semanticSearch } from "./semantic-search.js";
+import {
+  checkPRAutoMerge,
+  detectBenchmarkRegression,
+  generateSprintReport,
+  getBenchmarkHistory,
+  getTeamMetrics,
+  recordBenchmark,
+} from "./tier3.js";
+import { formatTodoReport, getTodoHistory, scanForTodos } from "./todo-tracker.js";
+import { formatVulnReport, generateSBOM, scanVulnerabilities } from "./vuln-sbom.js";
 
 const _serverStartTime = Date.now();
 let _toolCallCount = 0;
@@ -237,7 +285,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "update_codebase",
-      description: "Update the graph database for only the files that have changed since the last scan.",
+      description:
+        "Update the graph database for only the files that have changed since the last scan.",
       inputSchema: { type: "object", properties: {} },
     },
     {
@@ -268,14 +317,32 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          pattern: { type: "string", description: "The literal string or regex pattern to search for." },
-          regex: { type: "boolean", description: "Set to true if pattern is a regular expression. Default is false (literal)." },
+          pattern: {
+            type: "string",
+            description: "The literal string or regex pattern to search for.",
+          },
+          regex: {
+            type: "boolean",
+            description:
+              "Set to true if pattern is a regular expression. Default is false (literal).",
+          },
           caseSensitive: { type: "boolean", description: "Default is false (case-insensitive)." },
-          contextLines: { type: "number", description: "Number of context lines before and after match." },
+          contextLines: {
+            type: "number",
+            description: "Number of context lines before and after match.",
+          },
           maxResults: { type: "number", description: "Maximum number of results to return." },
           maxFileSizeBytes: { type: "number" },
-          include: { type: "array", items: { type: "string" }, description: "Glob patterns to include" },
-          exclude: { type: "array", items: { type: "string" }, description: "Glob patterns to exclude" },
+          include: {
+            type: "array",
+            items: { type: "string" },
+            description: "Glob patterns to include",
+          },
+          exclude: {
+            type: "array",
+            items: { type: "string" },
+            description: "Glob patterns to exclude",
+          },
         },
         required: ["pattern"],
       },
@@ -371,7 +438,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "ping",
-      description: "Health check — returns server uptime, cache status, and connection state. Use to verify the MCP server is responsive before initiating long-running operations.",
+      description:
+        "Health check — returns server uptime, cache status, and connection state. Use to verify the MCP server is responsive before initiating long-running operations.",
       inputSchema: { type: "object", properties: {} },
     },
     {
@@ -401,7 +469,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             enum: ["auto", "json", "code", "prose"],
             description: "Content type hint. auto = auto-detect.",
           },
-          filePath: { type: "string", description: "File path for code compression (enables AST-aware)" },
+          filePath: {
+            type: "string",
+            description: "File path for code compression (enables AST-aware)",
+          },
         },
         required: ["content"],
       },
@@ -420,16 +491,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "ccr_stats",
-      description: "Headroom CCR — Get compression statistics: total compressed entries, breakdown by type, storage usage.",
+      description:
+        "Headroom CCR — Get compression statistics: total compressed entries, breakdown by type, storage usage.",
       inputSchema: { type: "object", properties: {} },
     },
     {
       name: "clean_ccr",
-      description: "Headroom CCR — Purge expired compressed content older than maxAgeHours (default: 24h).",
+      description:
+        "Headroom CCR — Purge expired compressed content older than maxAgeHours (default: 24h).",
       inputSchema: {
         type: "object",
         properties: {
-          maxAgeHours: { type: "number", description: "Max age in hours before purging (default: 24)" },
+          maxAgeHours: {
+            type: "number",
+            description: "Max age in hours before purging (default: 24)",
+          },
         },
       },
     },
@@ -448,7 +524,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             enum: ["system", "agent", "skill", "default"],
             description: "Prefix category",
           },
-          subType: { type: "string", description: "Specific agent/skill name e.g. 'implementer', 'auditor'" },
+          subType: {
+            type: "string",
+            description: "Specific agent/skill name e.g. 'implementer', 'auditor'",
+          },
           task: { type: "string", description: "Task description for cache tagging" },
         },
         required: ["content"],
@@ -470,14 +549,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           apply: {
             type: "boolean",
-            description: "If true, automatically apply corrections as memory files (default: false)",
+            description:
+              "If true, automatically apply corrections as memory files (default: false)",
           },
         },
       },
     },
     {
       name: "learn_report",
-      description: "Headroom Learn — Get learn report with failure stats, active patterns, and recent failures.",
+      description:
+        "Headroom Learn — Get learn report with failure stats, active patterns, and recent failures.",
       inputSchema: { type: "object", properties: {} },
     },
     {
@@ -533,7 +614,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           name: { type: "string", description: "Memory name/slug" },
           description: { type: "string", description: "One-line summary" },
           content: { type: "string", description: "Memory content body" },
-          agentName: { type: "string", description: "Your agent identifier (e.g. 'alice', 'codex-session-1')" },
+          agentName: {
+            type: "string",
+            description: "Your agent identifier (e.g. 'alice', 'codex-session-1')",
+          },
           platform: {
             type: "string",
             enum: ["claude", "codex", "gemini", "cursor", "other"],
@@ -560,7 +644,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          searchText: { type: "string", description: "Full-text search in name/description/content" },
+          searchText: {
+            type: "string",
+            description: "Full-text search in name/description/content",
+          },
           platforms: {
             type: "array",
             items: { type: "string", enum: ["claude", "codex", "gemini", "cursor", "other"] },
@@ -617,28 +704,39 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "supported_platforms",
-      description: "Cross-Agent Memory — List all supported agent platforms for cross-agent memory sharing.",
+      description:
+        "Cross-Agent Memory — List all supported agent platforms for cross-agent memory sharing.",
       inputSchema: { type: "object", properties: {} },
     },
 
     // ─── Dead Code Detector ────────────────────────────────────────────
     {
       name: "find_dead_code",
-      description: "Detect unused exports, orphan files, and uncalled functions using CodeGraph edge analysis.",
+      description:
+        "Detect unused exports, orphan files, and uncalled functions using CodeGraph edge analysis.",
       inputSchema: { type: "object", properties: {} },
     },
 
     // ─── Semantic Code Search ──────────────────────────────────────────
     {
       name: "semantic_search",
-      description: "Semantic code search by meaning (not just regex). Uses embedding similarity + lexical fallback.",
+      description:
+        "Semantic code search by meaning (not just regex). Uses embedding similarity + lexical fallback.",
       inputSchema: {
         type: "object",
         properties: {
           query: { type: "string", description: "Search query in natural language" },
           maxResults: { type: "number", description: "Max results (default: 20)" },
-          include: { type: "array", items: { type: "string" }, description: "Glob patterns to include" },
-          exclude: { type: "array", items: { type: "string" }, description: "Glob patterns to exclude" },
+          include: {
+            type: "array",
+            items: { type: "string" },
+            description: "Glob patterns to include",
+          },
+          exclude: {
+            type: "array",
+            items: { type: "string" },
+            description: "Glob patterns to exclude",
+          },
           threshold: { type: "number", description: "Similarity threshold 0-1 (default: 0.25)" },
         },
         required: ["query"],
@@ -646,7 +744,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "build_embeddings",
-      description: "Build embedding cache for semantic search. Scans source files and generates hash embeddings.",
+      description:
+        "Build embedding cache for semantic search. Scans source files and generates hash embeddings.",
       inputSchema: { type: "object", properties: {} },
     },
     {
@@ -685,7 +784,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          bump: { type: "string", enum: ["patch", "minor", "major"], description: "Version bump level" },
+          bump: {
+            type: "string",
+            enum: ["patch", "minor", "major"],
+            description: "Version bump level",
+          },
         },
         required: ["bump"],
       },
@@ -694,12 +797,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     // ─── Secrets Scanner ───────────────────────────────────────────────
     {
       name: "scan_secrets",
-      description: "Scan repository for hardcoded secrets: API keys, tokens, passwords, private keys.",
+      description:
+        "Scan repository for hardcoded secrets: API keys, tokens, passwords, private keys.",
       inputSchema: {
         type: "object",
         properties: {
-          paths: { type: "array", items: { type: "string" }, description: "Paths to scan (default: root)" },
-          severity: { type: "string", enum: ["high", "medium", "low"], description: "Minimum severity to report" },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Paths to scan (default: root)",
+          },
+          severity: {
+            type: "string",
+            enum: ["high", "medium", "low"],
+            description: "Minimum severity to report",
+          },
         },
       },
     },
@@ -775,13 +887,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     // ─── Codebase Q&A ──────────────────────────────────────────────────
     {
       name: "answer_question",
-      description: "Answer questions about the codebase by searching docs, code definitions, and CodeGraph.",
+      description:
+        "Answer questions about the codebase by searching docs, code definitions, and CodeGraph.",
       inputSchema: {
         type: "object",
         properties: {
           question: { type: "string", description: "Your question about the codebase" },
           maxSources: { type: "number", description: "Max sources to return" },
-          includeFiles: { type: "array", items: { type: "string" }, description: "Specific files to search" },
+          includeFiles: {
+            type: "array",
+            items: { type: "string" },
+            description: "Specific files to search",
+          },
         },
         required: ["question"],
       },
@@ -799,7 +916,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          since: { type: "string", description: "Git time range (e.g. '7.days.ago', '2024-01-01')" },
+          since: {
+            type: "string",
+            description: "Git time range (e.g. '7.days.ago', '2024-01-01')",
+          },
         },
       },
     },
@@ -810,7 +930,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "pr_auto_merge",
-      description: "Check if a PR meets auto-merge conditions (checks pass, approved, no conflicts).",
+      description:
+        "Check if a PR meets auto-merge conditions (checks pass, approved, no conflicts).",
       inputSchema: {
         type: "object",
         properties: { prNumber: { type: "number", description: "PR number" } },
@@ -907,7 +1028,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          requiredVars: { type: "array", items: { type: "string" }, description: "Required variable names" },
+          requiredVars: {
+            type: "array",
+            items: { type: "string" },
+            description: "Required variable names",
+          },
           envPath: { type: "string", description: "Path to .env file" },
         },
         required: ["requiredVars"],
@@ -1015,7 +1140,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           targetDir: { type: "string", description: "Project directory with .git" },
           hooks: {
             type: "array",
-            items: { type: "string", enum: ["pre-commit", "commit-msg", "pre-push", "post-commit", "post-merge"] },
+            items: {
+              type: "string",
+              enum: ["pre-commit", "commit-msg", "pre-push", "post-commit", "post-merge"],
+            },
           },
           linter: { type: "string", description: "Linter command to run on pre-commit" },
           testCommand: { type: "string", description: "Test command for pre-push" },
@@ -1200,7 +1328,10 @@ Key features:
         type: "object",
         properties: {
           thought: { type: "string", description: "Your current thinking step" },
-          nextThoughtNeeded: { type: "boolean", description: "Whether another thought step is needed" },
+          nextThoughtNeeded: {
+            type: "boolean",
+            description: "Whether another thought step is needed",
+          },
           thoughtNumber: { type: "number", description: "Current thought number (1-based)" },
           totalThoughts: { type: "number", description: "Estimated total thoughts needed" },
           isRevision: { type: "boolean", description: "Whether this revises previous thinking" },
@@ -1218,8 +1349,15 @@ Key features:
       inputSchema: {
         type: "object",
         properties: {
-          sessionId: { type: "string", description: "Optional session ID to load. Defaults to current session." },
-          format: { type: "string", enum: ["markdown", "tree", "mermaid", "summary"], description: "Export format" },
+          sessionId: {
+            type: "string",
+            description: "Optional session ID to load. Defaults to current session.",
+          },
+          format: {
+            type: "string",
+            enum: ["markdown", "tree", "mermaid", "summary"],
+            description: "Export format",
+          },
         },
       },
     },
@@ -1251,9 +1389,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         uptimeSeconds: Math.round((Date.now() - _serverStartTime) / 1000),
         toolCalls: _toolCallCount,
         lastToolCallSecondsAgo:
-          _lastToolCallTime > 0
-            ? Math.round((Date.now() - _lastToolCallTime) / 1000)
-            : null,
+          _lastToolCallTime > 0 ? Math.round((Date.now() - _lastToolCallTime) / 1000) : null,
         cache: {
           loaded: _cachedGraph !== null,
           nodes: _cachedGraph?.nodes.length ?? 0,
@@ -1315,11 +1451,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
 
       // Auto-fallback: if literal search yields 0 results and pattern contains regex syntax, try regex
-      if (
-        !isExplicitlyRegex &&
-        result.stats.totalMatches === 0 &&
-        /[|()[\]*+?^$]/.test(pattern)
-      ) {
+      if (!isExplicitlyRegex && result.stats.totalMatches === 0 && /[|()[\]*+?^$]/.test(pattern)) {
         try {
           const regexResult = searchCodebase(root, settings, {
             pattern,
@@ -1456,7 +1588,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text(getLearnReport());
     case "log_failure": {
       const record = logFailure({
-        type: stringArg(args?.type, "type") as "tool_failure" | "stop_failure" | "session_failure" | "test_failure",
+        type: stringArg(args?.type, "type") as
+          | "tool_failure"
+          | "stop_failure"
+          | "session_failure"
+          | "test_failure",
         tool: args?.tool as string | undefined,
         error: stringArg(args?.error, "error"),
         context: args?.context as string | undefined,
@@ -1481,9 +1617,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         description: stringArg(args?.description, "description"),
         content: stringArg(args?.content, "content"),
         agentName: stringArg(args?.agentName, "agentName"),
-        platform: (args?.platform as "claude" | "codex" | "gemini" | "cursor" | "other") ?? "claude",
+        platform:
+          (args?.platform as "claude" | "codex" | "gemini" | "cursor" | "other") ?? "claude",
         tags: (args?.tags as string[]) ?? [],
-        memoryType: (args?.memoryType as "lesson" | "decision" | "fact" | "reference" | "feedback") ?? "lesson",
+        memoryType:
+          (args?.memoryType as "lesson" | "decision" | "fact" | "reference" | "feedback") ??
+          "lesson",
       });
       return text(entry);
     }
@@ -1508,7 +1647,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text({ markdown: md });
     }
     case "sync_memory_platform": {
-      const platform = stringArg(args?.platform, "platform") as "claude" | "codex" | "gemini" | "cursor" | "other";
+      const platform = stringArg(args?.platform, "platform") as
+        | "claude"
+        | "codex"
+        | "gemini"
+        | "cursor"
+        | "other";
       const result = syncWithPlatform(platform);
       return text(result);
     }
@@ -1581,7 +1725,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "adr_new": {
       const adr = createADR({
         title: stringArg(args?.title, "title"),
-        status: (args?.status as "proposed" | "accepted" | "deprecated" | "superseded") ?? "proposed",
+        status:
+          (args?.status as "proposed" | "accepted" | "deprecated" | "superseded") ?? "proposed",
         supersedes: args?.supersedes as number | undefined,
       });
       return text(adr);
@@ -1597,7 +1742,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "adr_status": {
       const id = Number(args?.id);
-      const status = stringArg(args?.status, "status") as "proposed" | "accepted" | "deprecated" | "superseded";
+      const status = stringArg(args?.status, "status") as
+        | "proposed"
+        | "accepted"
+        | "deprecated"
+        | "superseded";
       const adr = updateADRStatus(id, status);
       if (!adr) throw new Error(`ADR ${id} not found`);
       return text(adr);
@@ -1681,7 +1830,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // ─── Config Validator ─────────────────────────────────────────────────
     case "validate_env_file": {
       const envPath = stringArg(args?.envPath, "envPath");
-      const schema = args?.schema as Record<string, { type: 'string'|'number'|'boolean'|'url', required: boolean; pattern?: string }>;
+      const schema = args?.schema as Record<
+        string,
+        { type: "string" | "number" | "boolean" | "url"; required: boolean; pattern?: string }
+      >;
       const report = validateEnvFile(envPath, schema);
       return text({ ...report, formatted: formatValidationReport(report) });
     }
@@ -1694,7 +1846,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "detect_missing_env_vars": {
       const requiredVars = args?.requiredVars as string[];
       const envPath = args?.envPath as string | undefined;
-      if (!requiredVars || !Array.isArray(requiredVars)) throw new Error("requiredVars must be an array of strings");
+      if (!requiredVars || !Array.isArray(requiredVars))
+        throw new Error("requiredVars must be an array of strings");
       const report = detectMissingEnvVars(requiredVars, envPath);
       return text({ ...report, formatted: formatValidationReport(report) });
     }
@@ -1728,16 +1881,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     // ─── Coverage Aggregator ──────────────────────────────────────────────
     case "aggregate_coverage": {
-      const sources = args?.sources as Array<{ tool: 'jest'|'vitest'|'playwright'|'istanbul'|'nyc'; path: string }>;
+      const sources = args?.sources as Array<{
+        tool: "jest" | "vitest" | "playwright" | "istanbul" | "nyc";
+        path: string;
+      }>;
       if (!sources || !Array.isArray(sources)) throw new Error("sources must be an array");
       const report = aggregateCoverage(sources);
       return text({ ...report, formatted: formatCoverageReport(report) });
     }
     case "check_coverage_threshold": {
-      const sources = args?.sources as Array<{ tool: 'jest'|'vitest'|'playwright'|'istanbul'|'nyc'; path: string }>;
+      const sources = args?.sources as Array<{
+        tool: "jest" | "vitest" | "playwright" | "istanbul" | "nyc";
+        path: string;
+      }>;
       const threshold = Number(args?.threshold);
       if (!sources || !Array.isArray(sources)) throw new Error("sources must be an array");
-      if (!threshold || Number.isNaN(threshold)) throw new Error("threshold must be a valid number");
+      if (!threshold || Number.isNaN(threshold))
+        throw new Error("threshold must be a valid number");
       const report = aggregateCoverage(sources);
       const gate = checkCoverageThreshold(report, threshold);
       return text({ ...report, ...gate, formatted: formatCoverageReport(report) });
@@ -1746,7 +1906,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // ─── Git Hook Scaffolder ──────────────────────────────────────────────
     case "scaffold_git_hooks": {
       const targetDir = stringArg(args?.targetDir, "targetDir");
-      const hooks = args?.hooks as Array<'pre-commit'|'commit-msg'|'pre-push'|'post-commit'|'post-merge'>;
+      const hooks = args?.hooks as Array<
+        "pre-commit" | "commit-msg" | "pre-push" | "post-commit" | "post-merge"
+      >;
       const linter = args?.linter as string | undefined;
       const testCommand = args?.testCommand as string | undefined;
       if (!hooks || !Array.isArray(hooks)) throw new Error("hooks must be an array");
@@ -1789,7 +1951,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const before = analyzeBundleStats(beforeStats);
       const after = analyzeBundleStats(afterStats);
       const diffs = compareBundles(before, after);
-      return text({ diffs, before: { ...before, formatted: formatBundleReport(before) }, after: { ...after, formatted: formatBundleReport(after) } });
+      return text({
+        diffs,
+        before: { ...before, formatted: formatBundleReport(before) },
+        after: { ...after, formatted: formatBundleReport(after) },
+      });
     }
     case "generate_perf_report": {
       const perfRoot = (args?.root as string) || root;
@@ -1851,7 +2017,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (history.reports.length > 0) {
         comparison = compareStats(history.reports[history.reports.length - 1], current);
       }
-      return text({ current: { ...current, formatted: formatStats(current) }, history, comparison });
+      return text({
+        current: { ...current, formatted: formatStats(current) },
+        history,
+        comparison,
+      });
     }
 
     // ─── Sequential Thinking Handlers ─────────────────────────────────────
@@ -1881,7 +2051,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "sequential_thinking_export": {
       const format = (args?.format as string) ?? "markdown";
-      let sessionId = args?.sessionId as string | undefined;
+      const sessionId = args?.sessionId as string | undefined;
 
       if (format === "summary") {
         return text({ summary: _thinkingEngine.getSummary() });

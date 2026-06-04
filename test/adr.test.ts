@@ -3,16 +3,16 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import type { ADR } from "../src/adr.js";
 import {
+  createADR,
   formatADRList,
   generateADRGraph,
-  listADRs,
-  initADR,
-  createADR,
-  updateADRStatus,
   getADR,
+  initADR,
+  listADRs,
+  updateADRStatus,
 } from "../src/adr.js";
-import type { ADR } from "../src/adr.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "codegraph-adr-test-"));
@@ -58,10 +58,38 @@ test("formatADRList formats single ADR entry with all fields", () => {
 
 test("formatADRList formats all four statuses", () => {
   const adrs: ADR[] = [
-    { id: 1, title: "One", status: "accepted", date: "2024-01-01", filename: "0001-one.md", content: "" },
-    { id: 2, title: "Two", status: "proposed", date: "2024-02-01", filename: "0002-two.md", content: "" },
-    { id: 3, title: "Three", status: "deprecated", date: "2024-03-01", filename: "0003-three.md", content: "" },
-    { id: 4, title: "Four", status: "superseded", date: "2024-04-01", filename: "0004-four.md", content: "" },
+    {
+      id: 1,
+      title: "One",
+      status: "accepted",
+      date: "2024-01-01",
+      filename: "0001-one.md",
+      content: "",
+    },
+    {
+      id: 2,
+      title: "Two",
+      status: "proposed",
+      date: "2024-02-01",
+      filename: "0002-two.md",
+      content: "",
+    },
+    {
+      id: 3,
+      title: "Three",
+      status: "deprecated",
+      date: "2024-03-01",
+      filename: "0003-three.md",
+      content: "",
+    },
+    {
+      id: 4,
+      title: "Four",
+      status: "superseded",
+      date: "2024-04-01",
+      filename: "0004-four.md",
+      content: "",
+    },
   ];
 
   const output = formatADRList(adrs);
@@ -75,14 +103,16 @@ test("formatADRList formats all four statuses", () => {
 });
 
 test("formatADRList truncates long titles to 46 chars", () => {
-  const adrs: ADR[] = [{
-    id: 1,
-    title: "This is an extremely long title that should definitely be truncated to fit",
-    status: "proposed",
-    date: "2024-01-01",
-    filename: "0001-long.md",
-    content: "",
-  }];
+  const adrs: ADR[] = [
+    {
+      id: 1,
+      title: "This is an extremely long title that should definitely be truncated to fit",
+      status: "proposed",
+      date: "2024-01-01",
+      filename: "0001-long.md",
+      content: "",
+    },
+  ];
 
   const output = formatADRList(adrs);
 
@@ -93,16 +123,40 @@ test("formatADRList truncates long titles to 46 chars", () => {
       const cells = line.split("│");
       assert.ok(cells.length >= 3, `expected at least 3 cells in line: ${line}`);
       const titleCell = cells[2];
-      assert.ok(titleCell.trim().length <= 46, `long titles should be truncated to 46 chars, got "${titleCell.trim()}" (${titleCell.trim().length})`);
+      assert.ok(
+        titleCell.trim().length <= 46,
+        `long titles should be truncated to 46 chars, got "${titleCell.trim()}" (${titleCell.trim().length})`,
+      );
     }
   }
 });
 
 test("formatADRList preserves the array ordering", () => {
   const adrs: ADR[] = [
-    { id: 10, title: "Ten", status: "accepted", date: "2024-01-01", filename: "0010-ten.md", content: "" },
-    { id: 2, title: "Two", status: "proposed", date: "2024-02-01", filename: "0002-two.md", content: "" },
-    { id: 1, title: "One", status: "accepted", date: "2024-03-01", filename: "0001-one.md", content: "" },
+    {
+      id: 10,
+      title: "Ten",
+      status: "accepted",
+      date: "2024-01-01",
+      filename: "0010-ten.md",
+      content: "",
+    },
+    {
+      id: 2,
+      title: "Two",
+      status: "proposed",
+      date: "2024-02-01",
+      filename: "0002-two.md",
+      content: "",
+    },
+    {
+      id: 1,
+      title: "One",
+      status: "accepted",
+      date: "2024-03-01",
+      filename: "0001-one.md",
+      content: "",
+    },
   ];
 
   const output = formatADRList(adrs);
@@ -453,10 +507,14 @@ test("generateADRGraph renders supersedes relationship as dashed arrow", () => {
 
 test("generateADRGraph uses correct status icons and CSS for all statuses", () => {
   const root = fixture({
-    "docs/adr/0001-a.md": "# 1. Accepted\n**Status:** accepted\n**Date:** 2024-01-01\n**Supersedes:** None\n",
-    "docs/adr/0002-b.md": "# 2. Proposed\n**Status:** proposed\n**Date:** 2024-02-01\n**Supersedes:** None\n",
-    "docs/adr/0003-c.md": "# 3. Deprecated\n**Status:** deprecated\n**Date:** 2024-03-01\n**Supersedes:** None\n",
-    "docs/adr/0004-d.md": "# 4. Superseded\n**Status:** superseded\n**Date:** 2024-04-01\n**Supersedes:** None\n",
+    "docs/adr/0001-a.md":
+      "# 1. Accepted\n**Status:** accepted\n**Date:** 2024-01-01\n**Supersedes:** None\n",
+    "docs/adr/0002-b.md":
+      "# 2. Proposed\n**Status:** proposed\n**Date:** 2024-02-01\n**Supersedes:** None\n",
+    "docs/adr/0003-c.md":
+      "# 3. Deprecated\n**Status:** deprecated\n**Date:** 2024-03-01\n**Supersedes:** None\n",
+    "docs/adr/0004-d.md":
+      "# 4. Superseded\n**Status:** superseded\n**Date:** 2024-04-01\n**Supersedes:** None\n",
   });
   const origCwd = process.cwd();
 

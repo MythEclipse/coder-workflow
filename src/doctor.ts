@@ -135,8 +135,7 @@ export function checkProjectHealth(root: string): DoctorReport["project"] {
     readme: existsSync(join(root, "README.md")) || existsSync(join(root, "README")),
     git: existsSync(join(root, ".git")),
     dockerCompose:
-      existsSync(join(root, "docker-compose.yml")) ||
-      existsSync(join(root, "docker-compose.yaml")),
+      existsSync(join(root, "docker-compose.yml")) || existsSync(join(root, "docker-compose.yaml")),
     ciConfig: existsSync(join(root, ".github", "workflows")),
     mcpConfig: existsSync(join(root, ".mcp.json")),
   };
@@ -300,9 +299,7 @@ export function formatDoctorReport(report: DoctorReport): string {
     lines.push("    No issues found -- your environment looks good.");
   } else {
     for (const issue of report.issues) {
-      const icon = issue.severity === "error"   ? "x" :
-                   issue.severity === "warning" ? "!"  :
-                                                   "i";
+      const icon = issue.severity === "error" ? "x" : issue.severity === "warning" ? "!" : "i";
       const label = issue.severity.toUpperCase();
       lines.push(`    ${icon} [${label}] ${issue.message}`);
       if (issue.fix) {
@@ -321,9 +318,7 @@ function formatToolLine(label: string, tool: ToolInfo): string {
   const icon = formatToolIcon(tool);
   const ver = tool.version ?? "not found";
   const extra =
-    tool.minVersion && tool.meetsRequirement === false
-      ? ` (minimum: ${tool.minVersion})`
-      : "";
+    tool.minVersion && tool.meetsRequirement === false ? ` (minimum: ${tool.minVersion})` : "";
   return `${icon} ${label.padEnd(8)} ${ver}${extra}`;
 }
 

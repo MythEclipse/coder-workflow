@@ -3,10 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import {
-  compareOpenApiSpecs,
-  formatContractReport,
-} from "../src/api-contract.js";
+import { compareOpenApiSpecs, formatContractReport } from "../src/api-contract.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "api-contract-test-"));
@@ -119,10 +116,7 @@ test("compareOpenApiSpecs detects added and removed endpoints from JSON specs", 
     }),
   });
 
-  const report = compareOpenApiSpecs(
-    join(root, "before.json"),
-    join(root, "after.json"),
-  );
+  const report = compareOpenApiSpecs(join(root, "before.json"), join(root, "after.json"));
 
   assert.ok(report.breaking);
   assert.equal(report.endpointsBefore, 2);
@@ -157,10 +151,7 @@ test("compareOpenApiSpecs reports identical specs as non-breaking", () => {
     "after.json": spec,
   });
 
-  const report = compareOpenApiSpecs(
-    join(root, "before.json"),
-    join(root, "after.json"),
-  );
+  const report = compareOpenApiSpecs(join(root, "before.json"), join(root, "after.json"));
   assert.equal(report.breaking, false);
   assert.equal(report.changes.length, 0);
 });
@@ -171,10 +162,7 @@ test("compareOpenApiSpecs handles empty paths in both specs", () => {
     "b.json": JSON.stringify({ openapi: "3.0.0", paths: {} }),
   });
 
-  const report = compareOpenApiSpecs(
-    join(root, "a.json"),
-    join(root, "b.json"),
-  );
+  const report = compareOpenApiSpecs(join(root, "a.json"), join(root, "b.json"));
   assert.equal(report.breaking, false);
   assert.equal(report.changes.length, 0);
   assert.equal(report.endpointsBefore, 0);
@@ -182,15 +170,9 @@ test("compareOpenApiSpecs handles empty paths in both specs", () => {
 });
 
 test("compareOpenApiSpecs throws on missing spec file", () => {
-  assert.throws(
-    () => {
-      compareOpenApiSpecs(
-        "/nonexistent/path/before.json",
-        "/nonexistent/path/after.json",
-      );
-    },
-    /Spec file not found/,
-  );
+  assert.throws(() => {
+    compareOpenApiSpecs("/nonexistent/path/before.json", "/nonexistent/path/after.json");
+  }, /Spec file not found/);
 });
 
 test("compareOpenApiSpecs throws on empty spec file", () => {
@@ -199,15 +181,9 @@ test("compareOpenApiSpecs throws on empty spec file", () => {
     "other.json": JSON.stringify({ openapi: "3.0.0", paths: {} }),
   });
 
-  assert.throws(
-    () => {
-      compareOpenApiSpecs(
-        join(root, "empty.json"),
-        join(root, "other.json"),
-      );
-    },
-    /empty/,
-  );
+  assert.throws(() => {
+    compareOpenApiSpecs(join(root, "empty.json"), join(root, "other.json"));
+  }, /empty/);
 });
 
 test("compareOpenApiSpecs parses basic YAML specs", () => {
@@ -241,10 +217,7 @@ paths:
 `,
   });
 
-  const report = compareOpenApiSpecs(
-    join(root, "before.yaml"),
-    join(root, "after.yaml"),
-  );
+  const report = compareOpenApiSpecs(join(root, "before.yaml"), join(root, "after.yaml"));
   assert.equal(report.endpointsBefore, 1);
   assert.equal(report.endpointsAfter, 2);
 

@@ -3,12 +3,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import {
-  answerQuestion,
-  formatQAResult,
-  generateOnboardingDocs,
-} from "../src/codebase-qa.js";
 import type { QAResult, QASource } from "../src/codebase-qa.js";
+import { answerQuestion, formatQAResult, generateOnboardingDocs } from "../src/codebase-qa.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "codegraph-qa-test-"));
@@ -25,7 +21,9 @@ function fixture(files: Record<string, string>): string {
 test("formatQAResult formats high confidence result with answer", () => {
   const result: QAResult = {
     answer: "## Answer: How does auth work?\n\nFound in auth.ts.",
-    sources: [{ file: "auth.ts", line: 10, text: "export function login()", relevance: 15, type: "code" }],
+    sources: [
+      { file: "auth.ts", line: 10, text: "export function login()", relevance: 15, type: "code" },
+    ],
     confidence: "high",
     tookMs: 150,
   };
@@ -97,12 +95,16 @@ test("answerQuestion answers from documentation files", async () => {
   const result = await answerQuestion(root, { question: "How does authentication work?" });
 
   assert.ok(result.sources.length > 0);
-  assert.notEqual(result.answer, "I couldn't find relevant information about that in the codebase.");
+  assert.notEqual(
+    result.answer,
+    "I couldn't find relevant information about that in the codebase.",
+  );
 });
 
 test("answerQuestion answers from code definitions", async () => {
   const root = fixture({
-    "src/auth.ts": "export function login(username: string, password: string): boolean {\n  return true;\n}\n",
+    "src/auth.ts":
+      "export function login(username: string, password: string): boolean {\n  return true;\n}\n",
   });
 
   const result = await answerQuestion(root, { question: "login function" });
@@ -127,7 +129,8 @@ test("answerQuestion returns low confidence when no matches found", async () => 
 
 test("answerQuestion respects maxSources parameter", async () => {
   const root = fixture({
-    "README.md": "# Project\nAuthentication is handled by JWT tokens.\nAuthorization uses role-based access control.\n",
+    "README.md":
+      "# Project\nAuthentication is handled by JWT tokens.\nAuthorization uses role-based access control.\n",
     "docs/auth.md": "# Auth\nLogin flow uses OAuth2.\n",
   });
 
@@ -141,7 +144,8 @@ test("answerQuestion respects maxSources parameter", async () => {
 
 test("answerQuestion searches documentation with paragraph-level scoring", async () => {
   const root = fixture({
-    "README.md": "# Project\n\nThis is a long paragraph about authentication and authorization using JWT tokens with refresh tokens.\n\nAnother paragraph about deployment.\n",
+    "README.md":
+      "# Project\n\nThis is a long paragraph about authentication and authorization using JWT tokens with refresh tokens.\n\nAnother paragraph about deployment.\n",
   });
 
   const result = await answerQuestion(root, { question: "authentication JWT tokens" });
@@ -253,7 +257,7 @@ test("generateOnboardingDocs creates ARCHITECTURE.md with note when no graph", a
   // Should note that CodeGraph data is not available
   assert.ok(
     arch.content.includes("CodeGraph data not available") ||
-    arch.content.includes("Auto-generated"),
+      arch.content.includes("Auto-generated"),
   );
 });
 

@@ -3,11 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import {
-  checkProjectHealth,
-  diagnoseIssues,
-  formatDoctorReport,
-} from "../src/doctor.js";
+import { checkProjectHealth, diagnoseIssues, formatDoctorReport } from "../src/doctor.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "doctor-test-"));
@@ -55,7 +51,14 @@ test("formatDoctorReport outputs header with generated timestamp", () => {
 test("formatDoctorReport lists all environment tools when present", () => {
   const report = {
     environment: {
-      node: { name: "node", version: "20.0.0", installed: true, path: "/usr/local/bin/node", minVersion: "18.0.0", meetsRequirement: true },
+      node: {
+        name: "node",
+        version: "20.0.0",
+        installed: true,
+        path: "/usr/local/bin/node",
+        minVersion: "18.0.0",
+        meetsRequirement: true,
+      },
       npm: { name: "npm", version: "10.0.0", installed: true, path: "/usr/local/bin/npm" },
       git: { name: "git", version: "2.40.0", installed: true, path: "/usr/bin/git" },
       python: { name: "python", version: "3.11.0", installed: true, path: "/usr/bin/python3" },
@@ -93,13 +96,25 @@ test("formatDoctorReport lists all environment tools when present", () => {
 test("formatDoctorReport only shows installed optional tools", () => {
   const report = {
     environment: {
-      node: { name: "node", version: "18.0.0", installed: true, path: "/usr/local/bin/node", minVersion: "18.0.0", meetsRequirement: true },
+      node: {
+        name: "node",
+        version: "18.0.0",
+        installed: true,
+        path: "/usr/local/bin/node",
+        minVersion: "18.0.0",
+        meetsRequirement: true,
+      },
       npm: { name: "npm", version: null, installed: false, path: null },
       git: { name: "git", version: "2.40.0", installed: true, path: "/usr/bin/git" },
     },
     project: {
-      packageJson: true, tsconfig: true, readme: true, git: true,
-      dockerCompose: false, ciConfig: true, mcpConfig: true,
+      packageJson: true,
+      tsconfig: true,
+      readme: true,
+      git: true,
+      dockerCompose: false,
+      ciConfig: true,
+      mcpConfig: true,
     },
     issues: [],
     generatedAt: new Date().toISOString(),
@@ -113,13 +128,25 @@ test("formatDoctorReport only shows installed optional tools", () => {
 test("formatDoctorReport shows issues with severity icons", () => {
   const report = {
     environment: {
-      node: { name: "node", version: null, installed: false, path: null, minVersion: "18.0.0", meetsRequirement: false },
+      node: {
+        name: "node",
+        version: null,
+        installed: false,
+        path: null,
+        minVersion: "18.0.0",
+        meetsRequirement: false,
+      },
       npm: { name: "npm", version: null, installed: false, path: null },
       git: { name: "git", version: null, installed: false, path: null },
     },
     project: {
-      packageJson: false, tsconfig: false, readme: false, git: false,
-      dockerCompose: false, ciConfig: false, mcpConfig: false,
+      packageJson: false,
+      tsconfig: false,
+      readme: false,
+      git: false,
+      dockerCompose: false,
+      ciConfig: false,
+      mcpConfig: false,
     },
     issues: [
       {
@@ -159,8 +186,13 @@ test("formatDoctorReport shows project file checks", () => {
       git: { name: "git", version: "2.40.0", installed: true, path: "/usr/bin/git" },
     },
     project: {
-      packageJson: true, tsconfig: false, readme: true, git: false,
-      dockerCompose: true, ciConfig: false, mcpConfig: true,
+      packageJson: true,
+      tsconfig: false,
+      readme: true,
+      git: false,
+      dockerCompose: true,
+      ciConfig: false,
+      mcpConfig: true,
     },
     issues: [],
     generatedAt: new Date().toISOString(),
@@ -237,8 +269,13 @@ test("diagnoseIssues reports node not installed as error", () => {
     git: { name: "git", version: "2.40.0", installed: true, path: "/usr/bin/git" },
   };
   const project = {
-    packageJson: true, tsconfig: true, readme: true, git: true,
-    dockerCompose: false, ciConfig: true, mcpConfig: true,
+    packageJson: true,
+    tsconfig: true,
+    readme: true,
+    git: true,
+    dockerCompose: false,
+    ciConfig: true,
+    mcpConfig: true,
   };
 
   const issues = diagnoseIssues(env, project);
@@ -252,8 +289,13 @@ test("diagnoseIssues reports old node version as error", () => {
     git: { name: "git", version: "2.40.0", installed: true, path: "/usr/bin/git" },
   };
   const project = {
-    packageJson: true, tsconfig: true, readme: true, git: true,
-    dockerCompose: false, ciConfig: true, mcpConfig: true,
+    packageJson: true,
+    tsconfig: true,
+    readme: true,
+    git: true,
+    dockerCompose: false,
+    ciConfig: true,
+    mcpConfig: true,
   };
 
   const issues = diagnoseIssues(env, project);
@@ -267,8 +309,13 @@ test("diagnoseIssues reports git not installed", () => {
     git: { name: "git", version: null, installed: false, path: null },
   };
   const project = {
-    packageJson: true, tsconfig: true, readme: true, git: true,
-    dockerCompose: false, ciConfig: true, mcpConfig: true,
+    packageJson: true,
+    tsconfig: true,
+    readme: true,
+    git: true,
+    dockerCompose: false,
+    ciConfig: true,
+    mcpConfig: true,
   };
 
   const issues = diagnoseIssues(env, project);
@@ -282,8 +329,13 @@ test("diagnoseIssues reports missing package.json", () => {
     git: { name: "git", version: "2.40.0", installed: true, path: "/usr/bin/git" },
   };
   const project = {
-    packageJson: false, tsconfig: true, readme: true, git: true,
-    dockerCompose: false, ciConfig: true, mcpConfig: true,
+    packageJson: false,
+    tsconfig: true,
+    readme: true,
+    git: true,
+    dockerCompose: false,
+    ciConfig: true,
+    mcpConfig: true,
   };
 
   const issues = diagnoseIssues(env, project);
@@ -297,8 +349,13 @@ test("diagnoseIssues reports missing git directory", () => {
     git: { name: "git", version: "2.40.0", installed: true, path: "/usr/bin/git" },
   };
   const project = {
-    packageJson: true, tsconfig: true, readme: true, git: false,
-    dockerCompose: false, ciConfig: true, mcpConfig: true,
+    packageJson: true,
+    tsconfig: true,
+    readme: true,
+    git: false,
+    dockerCompose: false,
+    ciConfig: true,
+    mcpConfig: true,
   };
 
   const issues = diagnoseIssues(env, project);
@@ -313,12 +370,21 @@ test("diagnoseIssues reports docker missing when docker-compose present", () => 
     docker: { name: "docker", version: null, installed: false, path: null },
   };
   const project = {
-    packageJson: true, tsconfig: true, readme: true, git: true,
-    dockerCompose: true, ciConfig: true, mcpConfig: true,
+    packageJson: true,
+    tsconfig: true,
+    readme: true,
+    git: true,
+    dockerCompose: true,
+    ciConfig: true,
+    mcpConfig: true,
   };
 
   const issues = diagnoseIssues(env, project);
-  assert.ok(issues.some((i) => i.message.includes("Docker is not installed but a docker-compose.yml exists")));
+  assert.ok(
+    issues.some((i) =>
+      i.message.includes("Docker is not installed but a docker-compose.yml exists"),
+    ),
+  );
 });
 
 test("diagnoseIssues provides info-only suggestions for missing readme/ci/tsconfig", () => {
@@ -328,8 +394,13 @@ test("diagnoseIssues provides info-only suggestions for missing readme/ci/tsconf
     git: { name: "git", version: "2.40.0", installed: true, path: "/usr/bin/git" },
   };
   const project = {
-    packageJson: true, tsconfig: false, readme: false, git: true,
-    dockerCompose: false, ciConfig: false, mcpConfig: false,
+    packageJson: true,
+    tsconfig: false,
+    readme: false,
+    git: true,
+    dockerCompose: false,
+    ciConfig: false,
+    mcpConfig: false,
   };
 
   const issues = diagnoseIssues(env, project);
@@ -341,13 +412,25 @@ test("diagnoseIssues provides info-only suggestions for missing readme/ci/tsconf
 test("formatDoctorReport shows version requirement warning for tools below minimum", () => {
   const report = {
     environment: {
-      node: { name: "node", version: "17.0.0", installed: true, path: "/usr/local/bin/node", minVersion: "18.0.0", meetsRequirement: false },
+      node: {
+        name: "node",
+        version: "17.0.0",
+        installed: true,
+        path: "/usr/local/bin/node",
+        minVersion: "18.0.0",
+        meetsRequirement: false,
+      },
       npm: { name: "npm", version: "9.0.0", installed: true, path: "/usr/local/bin/npm" },
       git: { name: "git", version: "2.40.0", installed: true, path: "/usr/bin/git" },
     },
     project: {
-      packageJson: true, tsconfig: true, readme: true, git: true,
-      dockerCompose: false, ciConfig: true, mcpConfig: true,
+      packageJson: true,
+      tsconfig: true,
+      readme: true,
+      git: true,
+      dockerCompose: false,
+      ciConfig: true,
+      mcpConfig: true,
     },
     issues: [],
     generatedAt: new Date().toISOString(),

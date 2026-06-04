@@ -18,7 +18,10 @@ import { ensureSchema, schemaVersion } from "./db/schema.js";
  *
  * Returns the normalized SQL string and the reordered parameter count.
  */
-export function normalizePlaceholders(sql: string, paramCount: number): { sql: string; count: number } {
+export function normalizePlaceholders(
+  sql: string,
+  paramCount: number,
+): { sql: string; count: number } {
   // Fast path: already uses `?` placeholders
   if (!/\$\d+/.test(sql)) return { sql, count: paramCount };
 
@@ -52,13 +55,13 @@ export function normalizePlaceholders(sql: string, paramCount: number): { sql: s
         if (num < 1 || num > 100) {
           throw new Error(
             `Invalid placeholder index $${num} in SQL — must be 1-100. ` +
-            `SQL fragment: "${sql.slice(Math.max(0, i - 20), i + 30)}"`,
+              `SQL fragment: "${sql.slice(Math.max(0, i - 20), i + 30)}"`,
           );
         }
         if (num > paramCount) {
           throw new Error(
             `Placeholder $${num} exceeds declared param count ${paramCount}. ` +
-            `SQL fragment: "${sql.slice(Math.max(0, i - 20), i + 30)}"`,
+              `SQL fragment: "${sql.slice(Math.max(0, i - 20), i + 30)}"`,
           );
         }
         result += "?";

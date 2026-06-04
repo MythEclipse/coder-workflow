@@ -57,9 +57,7 @@ test("compress auto-detects JSON array and applies crushArray", () => {
 });
 
 test("compress JSON array with 40 items truncates to 30 with _truncated marker", () => {
-  const big = JSON.stringify(
-    Array.from({ length: 40 }, (_, i) => ({ id: i, value: `item-${i}` })),
-  );
+  const big = JSON.stringify(Array.from({ length: 40 }, (_, i) => ({ id: i, value: `item-${i}` })));
   const result = compress(big);
   const parsed = JSON.parse(result.compressed) as Record<string, unknown>;
   assert.equal((parsed._items as unknown[]).length, 30);
@@ -211,7 +209,11 @@ test("compress code with no extension falls through to auto-detect", () => {
   // Without filePath, auto-detect treats this as prose
   const input = `function test() { return 1; }`;
   const result = compress(input);
-  assert.equal(result.contentType, "prose", "no filePath means auto-detect, which defaults to prose");
+  assert.equal(
+    result.contentType,
+    "prose",
+    "no filePath means auto-detect, which defaults to prose",
+  );
 });
 
 test("compress code with unknown extension still processes as code type if explicitly set", () => {
@@ -233,7 +235,10 @@ test("compress prose with >30 lines truncates to head 15 and tail 15", () => {
   assert.equal(result.truncated, true);
   assert.ok(result.compressed.includes("Line 1"));
   assert.ok(result.compressed.includes("Line 15"));
-  assert.ok(result.compressed.includes("[20 lines collapsed]"), "should show collapsed lines count");
+  assert.ok(
+    result.compressed.includes("[20 lines collapsed]"),
+    "should show collapsed lines count",
+  );
   assert.ok(result.compressed.includes("Line 36"));
   assert.ok(result.compressed.includes("Line 50"));
 });

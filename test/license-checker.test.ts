@@ -3,10 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import {
-  categorizeLicenses,
-  formatLicenseReport,
-} from "../src/license-checker.js";
+import { categorizeLicenses, formatLicenseReport } from "../src/license-checker.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "license-checker-test-"));

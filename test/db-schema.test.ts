@@ -363,7 +363,16 @@ test("formatSchemaDiff shows added entities", () => {
 test("formatSchemaDiff shows removed entities", () => {
   const diff = {
     added: [],
-    removed: [{ name: "OldModel", table: "OldModel", fields: [], relations: [], primaryKey: [], indexes: [] }],
+    removed: [
+      {
+        name: "OldModel",
+        table: "OldModel",
+        fields: [],
+        relations: [],
+        primaryKey: [],
+        indexes: [],
+      },
+    ],
     changed: [],
   };
 

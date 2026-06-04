@@ -12,10 +12,7 @@ export function extractComponentUsageEdges(
   for (const symbol of symbols.filter((item) => /^[A-Z]/.test(item.name))) {
     const start = lineOffset(source, symbol.line ?? 1);
     const next = symbols.find((candidate) => (candidate.line ?? 0) > (symbol.line ?? 0));
-    const body = source.slice(
-      start,
-      next ? lineOffset(source, next.line ?? 1) : source.length,
-    );
+    const body = source.slice(start, next ? lineOffset(source, next.line ?? 1) : source.length);
 
     for (const match of body.matchAll(/<([A-Z][A-Za-z_$\d]*)\b/g)) {
       pushComponentUsageEdges(edges, "component-usage", symbol.name, match[1], symbolByName);

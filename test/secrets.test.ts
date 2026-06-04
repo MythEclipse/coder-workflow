@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { scanForSecrets, formatSecretsReport } from "../src/secrets.js";
 import type { SecretsReport } from "../src/secrets.js";
+import { formatSecretsReport, scanForSecrets } from "../src/secrets.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "codegraph-secrets-test-"));
@@ -78,7 +78,8 @@ test("scanForSecrets detects GitHub token", () => {
 
 test("scanForSecrets detects RSA private key", () => {
   const root = fixture({
-    "keys/id_rsa": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\n",
+    "keys/id_rsa":
+      "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\n",
   });
 
   const report = scanForSecrets(root);
@@ -88,7 +89,8 @@ test("scanForSecrets detects RSA private key", () => {
 
 test("scanForSecrets detects SSH private key", () => {
   const root = fixture({
-    "keys/id_ed25519": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAA...\n-----END OPENSSH PRIVATE KEY-----\n",
+    "keys/id_ed25519":
+      "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAA...\n-----END OPENSSH PRIVATE KEY-----\n",
   });
 
   const report = scanForSecrets(root);
@@ -108,7 +110,8 @@ test("scanForSecrets detects Slack token", () => {
 
 test("scanForSecrets detects JWT token", () => {
   const root = fixture({
-    "src/auth.ts": 'const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dkjfhakjshfksjahfkjashfkjashfkjashf";\n',
+    "src/auth.ts":
+      'const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dkjfhakjshfksjahfkjashfkjashfkjashf";\n',
   });
 
   const report = scanForSecrets(root);
@@ -179,10 +182,9 @@ test("scanForSecrets ignores package-lock.json and yarn.lock", () => {
 
 test("scanForSecrets respects severity filter", () => {
   const root = fixture({
-    "src/config.ts": [
-      `const apiKey = "${OPENAI_KEY}";`,
-      'const email = "test@example.com";',
-    ].join("\n"),
+    "src/config.ts": [`const apiKey = "${OPENAI_KEY}";`, 'const email = "test@example.com";'].join(
+      "\n",
+    ),
   });
 
   const reportAll = scanForSecrets(root);
@@ -275,7 +277,8 @@ test("scanForSecrets detects multiple secrets on the same line", () => {
 
 test("scanForSecrets detects PGP private key block", () => {
   const root = fixture({
-    "keys/pgp.asc": "-----BEGIN PGP PRIVATE KEY BLOCK-----\nVersion: BCPG C# v1.6.1.0\n...\n-----END PGP PRIVATE KEY BLOCK-----\n",
+    "keys/pgp.asc":
+      "-----BEGIN PGP PRIVATE KEY BLOCK-----\nVersion: BCPG C# v1.6.1.0\n...\n-----END PGP PRIVATE KEY BLOCK-----\n",
   });
 
   const report = scanForSecrets(root);
@@ -295,7 +298,7 @@ test("scanForSecrets detects GitLab token", () => {
 
 test("scanForSecrets detects npm token", () => {
   const root = fixture({
-    ".npmrc": '//registry.npmjs.org/:_authToken=npm_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789\n',
+    ".npmrc": "//registry.npmjs.org/:_authToken=npm_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789\n",
   });
 
   const report = scanForSecrets(root);
@@ -315,7 +318,8 @@ test("scanForSecrets detects database connection URIs", () => {
 
 test("scanForSecrets detects Slack webhook URL", () => {
   const root = fixture({
-    "src/notify.ts": 'const webhook = "https://hooks.slack.com/services/T00/B00/abc123def456xyz789";\n',
+    "src/notify.ts":
+      'const webhook = "https://hooks.slack.com/services/T00/B00/abc123def456xyz789";\n',
   });
 
   const report = scanForSecrets(root);
@@ -394,12 +398,22 @@ test("formatSecretsReport sorts high severity findings before low", () => {
   const report: SecretsReport = {
     findings: [
       {
-        file: "a.ts", line: 1, column: 1, type: "Email Hardcoded",
-        match: "a@b.com", severity: "low", description: "Email",
+        file: "a.ts",
+        line: 1,
+        column: 1,
+        type: "Email Hardcoded",
+        match: "a@b.com",
+        severity: "low",
+        description: "Email",
       },
       {
-        file: "b.ts", line: 1, column: 1, type: "AWS Access Key",
-        match: "AKIA1234...", severity: "high", description: "AWS key",
+        file: "b.ts",
+        line: 1,
+        column: 1,
+        type: "AWS Access Key",
+        match: "AKIA1234...",
+        severity: "high",
+        description: "AWS key",
       },
     ],
     totalFiles: 2,

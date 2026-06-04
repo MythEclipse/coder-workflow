@@ -322,8 +322,18 @@ test("analyzeFailures suggests corrections for similar errors (2+ occurrences)",
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({ type: "tool_failure", tool: "Bash", error: "Error: request timeout after waiting for the server to respond to the client (attempt 1)" });
-    logFailure({ type: "tool_failure", tool: "Bash", error: "Error: request timeout after waiting for the server to respond to the client (attempt 2)" });
+    logFailure({
+      type: "tool_failure",
+      tool: "Bash",
+      error:
+        "Error: request timeout after waiting for the server to respond to the client (attempt 1)",
+    });
+    logFailure({
+      type: "tool_failure",
+      tool: "Bash",
+      error:
+        "Error: request timeout after waiting for the server to respond to the client (attempt 2)",
+    });
 
     const result = analyzeFailures();
 
@@ -340,15 +350,39 @@ test("analyzeFailures groups by error prefix and suggests fix for different erro
   const tmpDir = process.cwd();
   try {
     // Timeout errors — must have same first 80 chars after digit normalization
-    logFailure({ type: "tool_failure", tool: "Bash", error: "Error: request timeout after waiting for the server to respond to the client (attempt 1)" });
-    logFailure({ type: "tool_failure", tool: "Bash", error: "Error: request timeout after waiting for the server to respond to the client (attempt 2)" });
+    logFailure({
+      type: "tool_failure",
+      tool: "Bash",
+      error:
+        "Error: request timeout after waiting for the server to respond to the client (attempt 1)",
+    });
+    logFailure({
+      type: "tool_failure",
+      tool: "Bash",
+      error:
+        "Error: request timeout after waiting for the server to respond to the client (attempt 2)",
+    });
 
     // Not found errors
-    logFailure({ type: "tool_failure", tool: "Read", error: "Error: file not found while trying to read the requested document from the remote server (path /tmp/test_1)" });
-    logFailure({ type: "tool_failure", tool: "Read", error: "Error: file not found while trying to read the requested document from the remote server (path /tmp/test_2)" });
+    logFailure({
+      type: "tool_failure",
+      tool: "Read",
+      error:
+        "Error: file not found while trying to read the requested document from the remote server (path /tmp/test_1)",
+    });
+    logFailure({
+      type: "tool_failure",
+      tool: "Read",
+      error:
+        "Error: file not found while trying to read the requested document from the remote server (path /tmp/test_2)",
+    });
 
     // Single unique error (should not produce a suggestion)
-    logFailure({ type: "tool_failure", tool: "Write", error: "Error: permission denied accessing system resource without valid credentials" });
+    logFailure({
+      type: "tool_failure",
+      tool: "Write",
+      error: "Error: permission denied accessing system resource without valid credentials",
+    });
 
     const result = analyzeFailures();
 
@@ -365,8 +399,16 @@ test("analyzeFailures rate limit errors produce backoff suggestion", () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({ type: "stop_failure", error: "Error: rate limit exceeded while calling the external API endpoint for fetching user data (req_id: abc_001)" });
-    logFailure({ type: "stop_failure", error: "Error: rate limit exceeded while calling the external API endpoint for fetching user data (req_id: abc_002)" });
+    logFailure({
+      type: "stop_failure",
+      error:
+        "Error: rate limit exceeded while calling the external API endpoint for fetching user data (req_id: abc_001)",
+    });
+    logFailure({
+      type: "stop_failure",
+      error:
+        "Error: rate limit exceeded while calling the external API endpoint for fetching user data (req_id: abc_002)",
+    });
 
     const result = analyzeFailures();
     assert.ok(result.suggestions[0].fix.toLowerCase().includes("backoff"));
@@ -379,8 +421,16 @@ test("analyzeFailures parse/syntax errors produce validation suggestion", () => 
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({ type: "tool_failure", error: "Error: parse error encountered while processing the JSON response from the server during data sync (stream 1)" });
-    logFailure({ type: "tool_failure", error: "Error: parse error encountered while processing the JSON response from the server during data sync (stream 2)" });
+    logFailure({
+      type: "tool_failure",
+      error:
+        "Error: parse error encountered while processing the JSON response from the server during data sync (stream 1)",
+    });
+    logFailure({
+      type: "tool_failure",
+      error:
+        "Error: parse error encountered while processing the JSON response from the server during data sync (stream 2)",
+    });
 
     const result = analyzeFailures();
     assert.ok(result.suggestions[0].fix.toLowerCase().includes("validate"));
@@ -395,9 +445,7 @@ test("applyCorrections writes memory files and creates corrections", () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    const suggestions = [
-      { pattern: "test_timeout", symptom: "timeout", fix: "Increase timeout" },
-    ];
+    const suggestions = [{ pattern: "test_timeout", symptom: "timeout", fix: "Increase timeout" }];
 
     const result = applyCorrections(suggestions);
     assert.equal(result.written, 1);
@@ -416,9 +464,7 @@ test("applyCorrections writes summary file when corrections are applied", () => 
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    const result = applyCorrections([
-      { pattern: "err_a", symptom: "a", fix: "fix a" },
-    ]);
+    const result = applyCorrections([{ pattern: "err_a", symptom: "a", fix: "fix a" }]);
 
     const summaryPath = join(tmpDir, ".claude", "learn", "memory", "_learn-summary.md");
     assert.ok(existsSync(summaryPath), "summary file should exist");

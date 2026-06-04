@@ -3,13 +3,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-
+import type { CoverageReport } from "../src/coverage-aggregator.js";
 import {
   aggregateCoverage,
   checkCoverageThreshold,
   formatCoverageReport,
 } from "../src/coverage-aggregator.js";
-import type { CoverageReport } from "../src/coverage-aggregator.js";
 
 function fixture(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "coverage-test-"));
@@ -43,9 +42,7 @@ test("aggregateCoverage - parses Istanbul JSON coverage file", () => {
     }),
   });
 
-  const report = aggregateCoverage([
-    { tool: "jest", path: join(root, "coverage-final.json") },
-  ]);
+  const report = aggregateCoverage([{ tool: "jest", path: join(root, "coverage-final.json") }]);
 
   assert.equal(report.files.length, 1);
   assert.equal(report.files[0].path, "src/app.ts");
@@ -82,9 +79,7 @@ test("aggregateCoverage - handles all tools using same Istanbul format", () => {
 });
 
 test("aggregateCoverage - returns error for missing file", () => {
-  const report = aggregateCoverage([
-    { tool: "jest", path: "/nonexistent/coverage.json" },
-  ]);
+  const report = aggregateCoverage([{ tool: "jest", path: "/nonexistent/coverage.json" }]);
   assert.ok(report.error);
 });
 
@@ -124,8 +119,22 @@ test("aggregateCoverage - merges multiple sources", () => {
 test("checkCoverageThreshold - passes when all files exceed threshold", () => {
   const report: CoverageReport = {
     files: [
-      { path: "src/app.ts", statements: 95, branches: 90, functions: 100, lines: 92, uncoveredLines: [] },
-      { path: "src/utils.ts", statements: 88, branches: 85, functions: 90, lines: 87, uncoveredLines: [] },
+      {
+        path: "src/app.ts",
+        statements: 95,
+        branches: 90,
+        functions: 100,
+        lines: 92,
+        uncoveredLines: [],
+      },
+      {
+        path: "src/utils.ts",
+        statements: 88,
+        branches: 85,
+        functions: 90,
+        lines: 87,
+        uncoveredLines: [],
+      },
     ],
     totalStatements: 200,
     coveredStatements: 183,
@@ -147,8 +156,22 @@ test("checkCoverageThreshold - passes when all files exceed threshold", () => {
 test("checkCoverageThreshold - fails when files below threshold", () => {
   const report: CoverageReport = {
     files: [
-      { path: "src/app.ts", statements: 95, branches: 90, functions: 100, lines: 92, uncoveredLines: [] },
-      { path: "src/poor.ts", statements: 50, branches: 40, functions: 60, lines: 45, uncoveredLines: [1, 2, 3] },
+      {
+        path: "src/app.ts",
+        statements: 95,
+        branches: 90,
+        functions: 100,
+        lines: 92,
+        uncoveredLines: [],
+      },
+      {
+        path: "src/poor.ts",
+        statements: 50,
+        branches: 40,
+        functions: 60,
+        lines: 45,
+        uncoveredLines: [1, 2, 3],
+      },
     ],
     totalStatements: 150,
     coveredStatements: 120,
@@ -193,7 +216,14 @@ test("checkCoverageThreshold - passes with no files", () => {
 test("checkCoverageThreshold - uses line coverage as metric", () => {
   const report: CoverageReport = {
     files: [
-      { path: "src/test.ts", statements: 100, branches: 100, functions: 100, lines: 70, uncoveredLines: [] },
+      {
+        path: "src/test.ts",
+        statements: 100,
+        branches: 100,
+        functions: 100,
+        lines: 70,
+        uncoveredLines: [],
+      },
     ],
     totalStatements: 10,
     coveredStatements: 10,
@@ -220,7 +250,14 @@ test("checkCoverageThreshold - uses line coverage as metric", () => {
 test("formatCoverageReport - produces formatted output with summary", () => {
   const report: CoverageReport = {
     files: [
-      { path: "src/app.ts", statements: 95, branches: 90, functions: 100, lines: 92, uncoveredLines: [] },
+      {
+        path: "src/app.ts",
+        statements: 95,
+        branches: 90,
+        functions: 100,
+        lines: 92,
+        uncoveredLines: [],
+      },
     ],
     totalStatements: 100,
     coveredStatements: 95,
@@ -286,7 +323,14 @@ test("formatCoverageReport - shows 'No files' when empty", () => {
 test("formatCoverageReport - shows low-coverage file section", () => {
   const report: CoverageReport = {
     files: [
-      { path: "src/poor.ts", statements: 50, branches: 40, functions: 60, lines: 45, uncoveredLines: [1, 2, 3] },
+      {
+        path: "src/poor.ts",
+        statements: 50,
+        branches: 40,
+        functions: 60,
+        lines: 45,
+        uncoveredLines: [1, 2, 3],
+      },
     ],
     totalStatements: 10,
     coveredStatements: 5,
@@ -309,7 +353,14 @@ test("formatCoverageReport - truncates large uncovered line lists", () => {
   const uncoveredLines = Array.from({ length: 20 }, (_, i) => i + 1);
   const report: CoverageReport = {
     files: [
-      { path: "src/huge.ts", statements: 30, branches: 20, functions: 40, lines: 30, uncoveredLines },
+      {
+        path: "src/huge.ts",
+        statements: 30,
+        branches: 20,
+        functions: 40,
+        lines: 30,
+        uncoveredLines,
+      },
     ],
     totalStatements: 100,
     coveredStatements: 30,

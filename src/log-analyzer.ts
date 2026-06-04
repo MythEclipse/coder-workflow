@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 
 export interface LogEntry {
   timestamp?: string;
@@ -20,7 +20,7 @@ export interface LogAnalysisReport {
     pattern: string;
     count: number;
     example: string;
-    severity: 'high' | 'medium' | 'low';
+    severity: "high" | "medium" | "low";
   }>;
   topErrors: Array<{
     message: string;
@@ -43,7 +43,8 @@ export interface AnomalyOptions {
   threshold?: number;
 }
 
-const TIMESTAMP_REGEX = /\b(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\b/;
+const TIMESTAMP_REGEX =
+  /\b(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\b/;
 
 /**
  * Try to extract an ISO-like timestamp from a raw text line.
@@ -59,16 +60,16 @@ function extractTimestamp(line: string): string | undefined {
  */
 export function parseLogFile(filePath: string): LogEntry[] {
   const absolutePath = path.resolve(filePath);
-  const raw = fs.readFileSync(absolutePath, 'utf-8');
+  const raw = fs.readFileSync(absolutePath, "utf-8");
   const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
 
   return lines.map((line, index) => {
     try {
       const parsed = JSON.parse(line);
-      if (typeof parsed === 'object' && parsed !== null) {
+      if (typeof parsed === "object" && parsed !== null) {
         return parsed as LogEntry;
       }
-      throw new Error('Not an object');
+      throw new Error("Not an object");
     } catch {
       const ts = extractTimestamp(line);
       const entry: LogEntry = {
@@ -93,10 +94,10 @@ export function parseLogFile(filePath: string): LogEntry[] {
  */
 function normaliseForGrouping(msg: string): string {
   return msg
-    .replace(/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g, '<TS>')
-    .replace(/\b\d+\b/g, '<N>')
-    .replace(/[^\w\s]/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g, "<TS>")
+    .replace(/\b\d+\b/g, "<N>")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 }
@@ -104,14 +105,14 @@ function normaliseForGrouping(msg: string): string {
 /**
  * Score the severity of an error group based on its frequency and message content.
  */
-function assessSeverity(count: number, example: string): 'high' | 'medium' | 'low' {
+function assessSeverity(count: number, example: string): "high" | "medium" | "low" {
   const lower = example.toLowerCase();
-  const criticalTerms = ['fatal', 'crash', 'out of memory', 'segfault', 'panic', 'emergency'];
+  const criticalTerms = ["fatal", "crash", "out of memory", "segfault", "panic", "emergency"];
   const hasCritical = criticalTerms.some((t) => lower.includes(t));
 
-  if (hasCritical || count >= 50) return 'high';
-  if (count >= 10) return 'medium';
-  return 'low';
+  if (hasCritical || count >= 50) return "high";
+  if (count >= 10) return "medium";
+  return "low";
 }
 
 /**
@@ -126,12 +127,12 @@ export function analyzeLogs(entries: LogEntry[]): LogAnalysisReport {
   const totalLines = entries.length;
 
   const errorEntries = entries.filter((e) => {
-    const level = (e.level || '').toLowerCase();
-    return level === 'error' || level === 'critical' || level === 'fatal';
+    const level = (e.level || "").toLowerCase();
+    return level === "error" || level === "critical" || level === "fatal";
   });
   const warnEntries = entries.filter((e) => {
-    const level = (e.level || '').toLowerCase();
-    return level === 'warn' || level === 'warning';
+    const level = (e.level || "").toLowerCase();
+    return level === "warn" || level === "warning";
   });
 
   const errorCount = errorEntries.length;
@@ -140,7 +141,7 @@ export function analyzeLogs(entries: LogEntry[]): LogAnalysisReport {
   // Time range
   const timestamps = entries
     .map((e) => e.timestamp)
-    .filter((t): t is string => typeof t === 'string' && t.length > 0)
+    .filter((t): t is string => typeof t === "string" && t.length > 0)
     .sort();
 
   const timeRange = {
@@ -149,10 +150,7 @@ export function analyzeLogs(entries: LogEntry[]): LogAnalysisReport {
   };
 
   // Error grouping
-  const groupMap = new Map<
-    string,
-    { count: number; examples: string[]; severities: string[] }
-  >();
+  const groupMap = new Map<string, { count: number; examples: string[]; severities: string[] }>();
 
   for (const err of errorEntries) {
     const rawMsg = err.message || JSON.stringify(err);
@@ -174,10 +172,10 @@ export function analyzeLogs(entries: LogEntry[]): LogAnalysisReport {
     .map(([pattern, g]) => {
       const severityCounts = { high: 0, medium: 0, low: 0 };
       for (const s of g.severities) {
-        severityCounts[s as 'high' | 'medium' | 'low'] += 1;
+        severityCounts[s as "high" | "medium" | "low"] += 1;
       }
-      const dominant: 'high' | 'medium' | 'low' =
-        severityCounts.high > 0 ? 'high' : severityCounts.medium > 0 ? 'medium' : 'low';
+      const dominant: "high" | "medium" | "low" =
+        severityCounts.high > 0 ? "high" : severityCounts.medium > 0 ? "medium" : "low";
 
       return {
         pattern,
@@ -229,18 +227,15 @@ export function analyzeLogs(entries: LogEntry[]): LogAnalysisReport {
  * If the count in the current window exceeds `threshold` times the rolling average
  * of preceding windows, an anomaly is reported.
  */
-export function detectAnomalies(
-  entries: LogEntry[],
-  options?: AnomalyOptions
-): AnomalyResult[] {
+export function detectAnomalies(entries: LogEntry[], options?: AnomalyOptions): AnomalyResult[] {
   const { windowMinutes = 5, threshold = 3 } = options || {};
 
   const errors = entries
     .filter((e) => {
-      const level = (e.level || '').toLowerCase();
+      const level = (e.level || "").toLowerCase();
       return (
-        (level === 'error' || level === 'critical' || level === 'fatal') &&
-        typeof e.timestamp === 'string'
+        (level === "error" || level === "critical" || level === "fatal") &&
+        typeof e.timestamp === "string"
       );
     })
     .map((e) => ({
@@ -257,7 +252,7 @@ export function detectAnomalies(
   const windowMs = windowMinutes * 60 * 1000;
   const baselineWindows: number[] = [];
 
-  let windowStart = 0;
+  const windowStart = 0;
 
   for (let i = 0; i < errors.length; i++) {
     const windowEnd = errors[i].date.getTime() + windowMs;
@@ -272,8 +267,7 @@ export function detectAnomalies(
 
     // Build baseline from previous windows
     if (baselineWindows.length > 0) {
-      const avg =
-        baselineWindows.reduce((sum, c) => sum + c, 0) / baselineWindows.length;
+      const avg = baselineWindows.reduce((sum, c) => sum + c, 0) / baselineWindows.length;
 
       if (count > threshold * Math.max(avg, 1)) {
         anomalies.push({
@@ -312,67 +306,67 @@ export function detectAnomalies(
 export function formatLogReport(report: LogAnalysisReport): string {
   const lines: string[] = [];
 
-  lines.push('# Log Analysis Report');
-  lines.push('');
-  lines.push('## Overview');
-  lines.push('');
+  lines.push("# Log Analysis Report");
+  lines.push("");
+  lines.push("## Overview");
+  lines.push("");
   lines.push(`- **Total lines**: ${report.totalLines}`);
   lines.push(`- **Errors**: ${report.errorCount}`);
   lines.push(`- **Warnings**: ${report.warnCount}`);
-  lines.push('');
+  lines.push("");
 
   if (report.timeRange.first && report.timeRange.last) {
     lines.push(`- **Time range**: ${report.timeRange.first} → ${report.timeRange.last}`);
   } else {
-    lines.push('- **Time range**: _No timestamps found_');
+    lines.push("- **Time range**: _No timestamps found_");
   }
-  lines.push('');
+  lines.push("");
 
   if (report.topErrors.length > 0) {
-    lines.push('## Top Errors');
-    lines.push('');
-    lines.push('| # | Message | Count |');
-    lines.push('|---|---------|-------|');
+    lines.push("## Top Errors");
+    lines.push("");
+    lines.push("| # | Message | Count |");
+    lines.push("|---|---------|-------|");
     report.topErrors.forEach((e, i) => {
       lines.push(`| ${i + 1} | ${escapeMarkdown(e.message)} | ${e.count} |`);
     });
-    lines.push('');
+    lines.push("");
   }
 
   if (report.errorGroups.length > 0) {
-    lines.push('## Error Groups');
-    lines.push('');
-    lines.push('| Pattern | Count | Severity | Example |');
-    lines.push('|---------|-------|----------|---------|');
+    lines.push("## Error Groups");
+    lines.push("");
+    lines.push("| Pattern | Count | Severity | Example |");
+    lines.push("|---------|-------|----------|---------|");
     report.errorGroups.forEach((g) => {
       lines.push(
-        `| ${escapeMarkdown(g.pattern)} | ${g.count} | ${g.severity} | ${escapeMarkdown(g.example)} |`
+        `| ${escapeMarkdown(g.pattern)} | ${g.count} | ${g.severity} | ${escapeMarkdown(g.example)} |`,
       );
     });
-    lines.push('');
+    lines.push("");
   }
 
   if (report.frequencyByMinute.length > 0) {
-    lines.push('## Frequency by Minute');
-    lines.push('');
-    lines.push('| Time | Count |');
-    lines.push('|------|-------|');
+    lines.push("## Frequency by Minute");
+    lines.push("");
+    lines.push("| Time | Count |");
+    lines.push("|------|-------|");
     const maxCount = Math.max(...report.frequencyByMinute.map((f) => f.count), 1);
     const barWidth = 20;
 
     for (const f of report.frequencyByMinute) {
       const barLen = Math.round((f.count / maxCount) * barWidth);
-      const bar = '█'.repeat(Math.max(barLen, 1));
+      const bar = "█".repeat(Math.max(barLen, 1));
       lines.push(`| ${f.time} | ${f.count} ${bar} |`);
     }
-    lines.push('');
+    lines.push("");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 function escapeMarkdown(text: string): string {
-  return text.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  return text.replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
 
 /**

@@ -145,7 +145,15 @@ export class SequentialThinkingEngine {
   // ─── Pretty printer ───────────────────────────────────────────────────────
 
   private formatThought(data: ThoughtData): string {
-    const { thoughtNumber, totalThoughts, thought, isRevision, revisesThought, branchFromThought, branchId } = data;
+    const {
+      thoughtNumber,
+      totalThoughts,
+      thought,
+      isRevision,
+      revisesThought,
+      branchFromThought,
+      branchId,
+    } = data;
 
     let prefix: string;
     let context: string;
@@ -162,7 +170,9 @@ export class SequentialThinkingEngine {
     }
 
     const header = `${prefix} ${thoughtNumber}/${totalThoughts}${context}`;
-    const border = "─".repeat(Math.max(header.replace(/\x1b\[\d+m/g, "").length, thought.length) + 4);
+    const border = "─".repeat(
+      Math.max(header.replace(/\x1b\[\d+m/g, "").length, thought.length) + 4,
+    );
 
     return [
       "",
@@ -195,7 +205,15 @@ export class SequentialThinkingEngine {
       // Also update latest symlink via a "latest.json" pointer
       writeFileSync(
         join(this.stateDir, "latest.json"),
-        JSON.stringify({ sessionId: this.sessionId, updatedAt: session.updatedAt, thoughtCount: this.thoughtHistory.length }, null, 2),
+        JSON.stringify(
+          {
+            sessionId: this.sessionId,
+            updatedAt: session.updatedAt,
+            thoughtCount: this.thoughtHistory.length,
+          },
+          null,
+          2,
+        ),
         "utf8",
       );
     } catch {
@@ -370,7 +388,10 @@ export class SequentialThinkingEngine {
   }
 
   isComplete(): boolean {
-    return this.thoughtHistory.length > 0 && !this.thoughtHistory[this.thoughtHistory.length - 1].nextThoughtNeeded;
+    return (
+      this.thoughtHistory.length > 0 &&
+      !this.thoughtHistory[this.thoughtHistory.length - 1].nextThoughtNeeded
+    );
   }
 
   // ─── Static: Load a previous session ──────────────────────────────────────
@@ -380,7 +401,7 @@ export class SequentialThinkingEngine {
     const file = join(dir, `session-${sessionId}.json`);
     if (!existsSync(file)) {
       // Try finding by prefix
-      const files = this.listSessions(stateDir);
+      const files = SequentialThinkingEngine.listSessions(stateDir);
       const match = files.find((f) => f.startsWith(sessionId));
       if (!match) return null;
       const matchFile = join(dir, `session-${match}.json`);

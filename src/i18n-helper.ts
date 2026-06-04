@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve, extname } from "node:path";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { extname, join, relative, resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -212,7 +212,8 @@ export function extractHardcodedStrings(
       }
 
       // --- console.log / console.message / throw string literals ---
-      const consoleOrThrowRE = /(?:console\.(?:log|message|warn|error|info|debug)|throw)\s*\(?\s*(["'`])([A-Z][\s\S]*?)\1/;
+      const consoleOrThrowRE =
+        /(?:console\.(?:log|message|warn|error|info|debug)|throw)\s*\(?\s*(["'`])([A-Z][\s\S]*?)\1/;
       const consoleMatch = line.match(consoleOrThrowRE);
       if (consoleMatch) {
         const text = consoleMatch[2];
@@ -347,10 +348,7 @@ function extractExportMap(source: string): Record<string, string> {
 }
 
 /** Flatten a nested object into dot-notation keys. */
-function flattenObject(
-  obj: Record<string, unknown>,
-  prefix = "",
-): Record<string, string> {
+function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(obj)) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
@@ -422,10 +420,7 @@ export function extractFromI18nFiles(localesDir: string): LocaleReport {
   for (const lf of localeFiles) {
     try {
       localeData[lf.lang] = loadLocaleFile(lf.path);
-    } catch {
-      // Skip unreadable files
-      continue;
-    }
+    } catch {}
   }
 
   const languages = Object.keys(localeData).sort();
@@ -492,10 +487,7 @@ export function extractFromI18nFiles(localesDir: string): LocaleReport {
  * - For `vue-i18n`, similar to i18next (nested by prefix).
  * - For `raw`, simple flat JSON.
  */
-export function generateLocaleTemplate(
-  extracted: ExtractedString[],
-  format: LocaleFormat,
-): string {
+export function generateLocaleTemplate(extracted: ExtractedString[], format: LocaleFormat): string {
   if (extracted.length === 0) {
     return "{}";
   }
@@ -559,9 +551,7 @@ export function generateLocaleTemplate(
   return JSON.stringify(template, null, 2);
 }
 
-function groupByPrefix(
-  entries: Array<[string, string]>,
-): Record<string, Array<[string, string]>> {
+function groupByPrefix(entries: Array<[string, string]>): Record<string, Array<[string, string]>> {
   const groups: Record<string, Array<[string, string]>> = {};
   for (const entry of entries) {
     const [key] = entry;
@@ -581,22 +571,14 @@ function groupByPrefix(
  * Combine extraction of hardcoded strings with existing locale data to
  * produce a report that highlights which strings are not yet translated.
  */
-export function checkMissingTranslation(
-  root: string,
-  localesDir: string,
-): LocaleReport {
+export function checkMissingTranslation(root: string, localesDir: string): LocaleReport {
   const extracted = extractHardcodedStrings(root);
   const existing = extractFromI18nFiles(localesDir);
 
-  const extractedKeys = new Set(
-    extracted.map((s) => toKebabCaseKey(s.value)),
-  );
+  const extractedKeys = new Set(extracted.map((s) => toKebabCaseKey(s.value)));
 
   const localeKeys = new Set(existing.untranslatedKeys);
-  const allFiles = new Set([
-    ...extracted.map((s) => s.file),
-    ...existing.files,
-  ]);
+  const allFiles = new Set([...extracted.map((s) => s.file), ...existing.files]);
 
   const allLangSet = new Set(existing.languages);
   const missingTranslations: LocaleReport["missingTranslations"] = [];
@@ -604,9 +586,7 @@ export function checkMissingTranslation(
   // For each extracted key, check if it exists in all locale files
   for (const key of extractedKeys) {
     for (const lang of allLangSet) {
-      const sourceFile = extracted.find(
-        (s) => toKebabCaseKey(s.value) === key,
-      )?.file ?? "";
+      const sourceFile = extracted.find((s) => toKebabCaseKey(s.value) === key)?.file ?? "";
       // A key is missing if it's untranslated in the existing report or
       // simply not present at all
       if (localeKeys.has(key)) {
@@ -652,9 +632,7 @@ export function scanForHardcodedStrings(root: string): LocaleReport {
         localesDir = testDir;
         break;
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   const extractedKeys = extracted.map((s) => toKebabCaseKey(s.value));
@@ -665,9 +643,7 @@ export function scanForHardcodedStrings(root: string): LocaleReport {
   // If we found a locale directory, cross-reference
   if (localesDir) {
     const existing = extractFromI18nFiles(localesDir);
-    const localeKeySet = new Set(
-      existing.missingTranslations.map((m) => m.key),
-    );
+    const localeKeySet = new Set(existing.missingTranslations.map((m) => m.key));
 
     const missingTranslations: LocaleReport["missingTranslations"] = [];
     const untranslatedKeys: string[] = [];
@@ -719,7 +695,9 @@ export function formatLocaleReport(report: LocaleReport): string {
   lines.push("");
   lines.push(`  Total strings found:  ${report.totalStrings}`);
   lines.push(`  Files scanned:        ${report.files.length}`);
-  lines.push(`  Languages detected:   ${report.languages.length > 0 ? report.languages.join(", ") : "none"}`);
+  lines.push(
+    `  Languages detected:   ${report.languages.length > 0 ? report.languages.join(", ") : "none"}`,
+  );
   lines.push("");
 
   if (report.missingTranslations.length > 0) {

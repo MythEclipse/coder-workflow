@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Semantic Code Search — Embedding-Based Code Search
  *
@@ -8,12 +9,12 @@
  * Embeddings stored in .codegraph/embeddings/ as JSON for fast lookup.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
 import { createHash } from "node:crypto";
-import type { CodeGraphSettings } from "./types.js";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { listSourceFiles } from "./graph/files.js";
 import { languageForPath } from "./graph/languages.js";
+import type { CodeGraphSettings } from "./types.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -56,7 +57,11 @@ const DEFAULT_THRESHOLD = 0.25;
 function hashEmbedding(text: string): number[] {
   // Fast minhash-style embedding
   const dims = new Array(EMBEDDING_DIM).fill(0);
-  const words = text.toLowerCase().replace(/[^a-z0-9_\s]/g, " ").split(/\s+/).filter(Boolean);
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z0-9_\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
 
   for (const word of words) {
     const hash = hashString(word);
@@ -79,7 +84,7 @@ function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash |= 0;
   }
   return hash;
@@ -149,7 +154,10 @@ function getFileContentHash(content: string): string {
 
 // ─── Chunking ────────────────────────────────────────────────────────────
 
-function chunkFile(text: string, _file: string): Array<{ text: string; startLine: number; endLine: number }> {
+function chunkFile(
+  text: string,
+  _file: string,
+): Array<{ text: string; startLine: number; endLine: number }> {
   void _file;
   const lines = text.split("\n");
   const chunks: Array<{ text: string; startLine: number; endLine: number }> = [];
@@ -171,7 +179,10 @@ function chunkFile(text: string, _file: string): Array<{ text: string; startLine
 
 // ─── Build / Update Embeddings ──────────────────────────────────────────
 
-export function buildEmbeddings(root: string, settings: CodeGraphSettings): { files: number; chunks: number } {
+export function buildEmbeddings(
+  root: string,
+  settings: CodeGraphSettings,
+): { files: number; chunks: number } {
   const files = listSourceFiles(root, settings);
   let totalChunks = 0;
   let totalFiles = 0;
@@ -278,7 +289,8 @@ export function semanticSearch(
   const results = allResults.slice(0, maxResults);
 
   const tookMs = Date.now() - start;
-  const method: SemanticSearchOutput["method"] = results.length > 0 ? "semantic" : "lexical_fallback";
+  const method: SemanticSearchOutput["method"] =
+    results.length > 0 ? "semantic" : "lexical_fallback";
 
   return { results, query, totalFiles, tookMs, method };
 }
@@ -326,7 +338,13 @@ function passesScopeFilter(file: string, options: SemanticSearchOptions): boolea
 
 function globMatch(file: string, pattern: string): boolean {
   const regex = new RegExp(
-    "^" + pattern.replace(/\./g, "\\.").replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*").replace(/\?/g, ".") + "$",
+    "^" +
+      pattern
+        .replace(/\./g, "\\.")
+        .replace(/\*\*/g, ".*")
+        .replace(/\*/g, "[^/]*")
+        .replace(/\?/g, ".") +
+      "$",
   );
   return regex.test(file);
 }

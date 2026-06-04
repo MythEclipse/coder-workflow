@@ -2,6 +2,15 @@
 import { readFileSync } from "node:fs";
 import { cwd } from "node:process";
 import {
+  createADR,
+  formatADRList,
+  generateADRGraph,
+  getADR,
+  initADR,
+  listADRs,
+  updateADRStatus,
+} from "./adr.js";
+import {
   analyzeGraphQuality,
   analyzeImpact,
   evaluateQualityGate,
@@ -10,63 +19,109 @@ import {
   queryGraph,
   summarizeArchitecture,
 } from "./analysis.js";
-import { exportGraph } from "./exporters.js";
-import { diffGraphs, formatGraphDiff } from "./git-diff.js";
-import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
-import { searchCodebase } from "./search.js";
-import { loadSettings } from "./settings.js";
-import { openGraphUi } from "./ui.js";
+import { compareOpenApiSpecs, diffOpenApiFromGit, formatContractReport } from "./api-contract.js";
+import { readFailOnThreshold, readFlag, readSearchOptions } from "./args.js";
+import { answerQuestion, formatQAResult, generateOnboardingDocs } from "./codebase-qa.js";
 import {
+  compareStats,
+  formatStats,
+  formatStatsHistory,
+  generateStats,
+  getStatsHistory,
+  recordStats,
+} from "./codebase-stats.js";
+import {
+  analyzeDirectory,
+  formatComplexityReport,
+  trackComplexityTrend,
+} from "./complexity-tracker.js";
+import {
+  alignCache,
+  cleanCCR,
   compress,
   decompress,
-  getStats as getCompressionStats,
-  cleanCCR,
-  alignCache,
   getCacheAlignment,
+  getStats as getCompressionStats,
 } from "./compress.js";
 import {
-  logFailure,
+  detectMissingEnvVars,
+  formatValidationReport,
+  validateEnvFile,
+  validateJsonFile,
+} from "./config-validator.js";
+import {
+  aggregateCoverage,
+  checkCoverageThreshold,
+  formatCoverageReport,
+} from "./coverage-aggregator.js";
+import {
+  exportToMarkdown as exportMemoryToMarkdown,
+  getMemoryStats,
+  getSupportedPlatforms,
+  queryMemory,
+  storeMemory,
+  syncWithPlatform,
+} from "./cross-agent-memory.js";
+import {
+  compareSchemas,
+  formatSchemaDiff,
+  formatSchemaReport,
+  parsePrismaSchema,
+} from "./db-schema.js";
+import { detectDeadCodeFromGraph } from "./deadcode.js";
+import { formatDoctorReport, generateDoctorReport } from "./doctor.js";
+import { exportGraph } from "./exporters.js";
+import { diffGraphs, formatGraphDiff } from "./git-diff.js";
+import {
+  detectExistingHooks,
+  formatHookError,
+  scaffoldHooks,
+  validateCommitMessage,
+} from "./git-hooks.js";
+import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
+import {
+  checkMissingTranslation,
+  extractHardcodedStrings,
+  formatLocaleReport,
+} from "./i18n-helper.js";
+import {
   analyzeFailures,
   applyCorrections,
   getLearnReport,
-  resolveFailure,
+  logFailure,
   matchCorrection,
+  resolveFailure,
 } from "./learn.js";
-import {
-  storeMemory,
-  queryMemory,
-  getMemoryStats,
-  exportToMarkdown as exportMemoryToMarkdown,
-  syncWithPlatform,
-  getSupportedPlatforms,
-} from "./cross-agent-memory.js";
-import { detectDeadCodeFromGraph } from "./deadcode.js";
-import { semanticSearch, buildEmbeddings, getEmbeddingStats } from "./semantic-search.js";
-import { generatePRDescription, generateChangelog, formatChangelogMarkdown, createRelease } from "./release.js";
-import { scanForSecrets, formatSecretsReport } from "./secrets.js";
-import { createADR, listADRs, getADR, updateADRStatus, generateADRGraph, formatADRList, initADR } from "./adr.js";
-import { scanVulnerabilities, generateSBOM, formatVulnReport } from "./vuln-sbom.js";
-import { answerQuestion, generateOnboardingDocs, formatQAResult } from "./codebase-qa.js";
-import { generateSprintReport, getTeamMetrics, checkPRAutoMerge, recordBenchmark, getBenchmarkHistory, detectBenchmarkRegression } from "./tier3.js";
-import { compareOpenApiSpecs, diffOpenApiFromGit, formatContractReport } from "./api-contract.js";
-import { validateEnvFile, validateJsonFile, detectMissingEnvVars, formatValidationReport } from "./config-validator.js";
-import { scanNpmLicenses, categorizeLicenses, formatLicenseReport } from "./license-checker.js";
-import { analyzeDirectory, trackComplexityTrend, formatComplexityReport } from "./complexity-tracker.js";
+import { categorizeLicenses, formatLicenseReport, scanNpmLicenses } from "./license-checker.js";
 import { analyzeLogFile, formatLogReport } from "./log-analyzer.js";
-import { aggregateCoverage, checkCoverageThreshold, formatCoverageReport } from "./coverage-aggregator.js";
-import { scaffoldHooks, validateCommitMessage, formatHookError, detectExistingHooks } from "./git-hooks.js";
-import { scanForTodos, formatTodoReport, getTodoHistory } from "./todo-tracker.js";
-import { analyzeBundleStats, parseBundlePhobia, compareBundles, formatBundleReport, createPerfReport } from "./performance-audit.js";
-import { extractHardcodedStrings, checkMissingTranslation, formatLocaleReport } from "./i18n-helper.js";
-import { parsePrismaSchema, compareSchemas, formatSchemaReport, formatSchemaDiff } from "./db-schema.js";
-import { generateDoctorReport, formatDoctorReport } from "./doctor.js";
-import { generateStats, getStatsHistory, recordStats, compareStats, formatStats, formatStatsHistory } from "./codebase-stats.js";
-
 import {
-  readFlag,
-  readSearchOptions,
-  readFailOnThreshold,
-} from "./args.js";
+  analyzeBundleStats,
+  compareBundles,
+  createPerfReport,
+  formatBundleReport,
+  parseBundlePhobia,
+} from "./performance-audit.js";
+import {
+  createRelease,
+  formatChangelogMarkdown,
+  generateChangelog,
+  generatePRDescription,
+} from "./release.js";
+import { searchCodebase } from "./search.js";
+import { formatSecretsReport, scanForSecrets } from "./secrets.js";
+import { buildEmbeddings, getEmbeddingStats, semanticSearch } from "./semantic-search.js";
+import { loadSettings } from "./settings.js";
+import {
+  checkPRAutoMerge,
+  detectBenchmarkRegression,
+  generateSprintReport,
+  getBenchmarkHistory,
+  getTeamMetrics,
+  recordBenchmark,
+} from "./tier3.js";
+import { formatTodoReport, getTodoHistory, scanForTodos } from "./todo-tracker.js";
+import { openGraphUi } from "./ui.js";
+import { formatVulnReport, generateSBOM, scanVulnerabilities } from "./vuln-sbom.js";
 
 const root = cwd();
 const settings = loadSettings(root);
@@ -269,7 +324,13 @@ switch (command) {
       process.exitCode = 1;
       break;
     }
-    const ct = args.includes("--json") ? "json" : args.includes("--code") ? "code" : args.includes("--prose") ? "prose" : "auto";
+    const ct = args.includes("--json")
+      ? "json"
+      : args.includes("--code")
+        ? "code"
+        : args.includes("--prose")
+          ? "prose"
+          : "auto";
     console.log(JSON.stringify(compress(stdin, { contentType: ct }), null, 2));
     break;
   }
@@ -304,14 +365,22 @@ switch (command) {
   case "align-cache": {
     const stdin = await readStdin();
     if (!stdin) {
-      console.error("Usage: coder-workflow align-cache [--type system|agent|skill] [--sub-type <name>] [--task <desc>] < input.txt");
+      console.error(
+        "Usage: coder-workflow align-cache [--type system|agent|skill] [--sub-type <name>] [--task <desc>] < input.txt",
+      );
       process.exitCode = 1;
       break;
     }
     const type = readFlag(args, "--type") || undefined;
     const subType = readFlag(args, "--sub-type") || undefined;
     const task = readFlag(args, "--task") || undefined;
-    console.log(JSON.stringify(alignCache(stdin, { taskType: type, mode: subType, projectName: task }), null, 2));
+    console.log(
+      JSON.stringify(
+        alignCache(stdin, { taskType: type, mode: subType, projectName: task }),
+        null,
+        2,
+      ),
+    );
     break;
   }
   case "cache-stats": {
@@ -324,7 +393,13 @@ switch (command) {
     const analysis = analyzeFailures();
     if (args.includes("--apply")) {
       const applied = applyCorrections(analysis.suggestions);
-      console.log(JSON.stringify({ ...analysis, applied: applied.written, memoryFiles: applied.memoryFiles }, null, 2));
+      console.log(
+        JSON.stringify(
+          { ...analysis, applied: applied.written, memoryFiles: applied.memoryFiles },
+          null,
+          2,
+        ),
+      );
     } else {
       console.log(JSON.stringify(analysis, null, 2));
     }
@@ -338,7 +413,9 @@ switch (command) {
     const type = readFlag(args, "--type");
     const error = readFlag(args, "--error");
     if (!type || !error) {
-      console.error("Usage: coder-workflow learn-log --type <tool_failure|stop_failure|session_failure|test_failure> --error <message>");
+      console.error(
+        "Usage: coder-workflow learn-log --type <tool_failure|stop_failure|session_failure|test_failure> --error <message>",
+      );
       process.exitCode = 1;
       break;
     }
@@ -370,7 +447,9 @@ switch (command) {
       break;
     }
     const match = matchCorrection(error);
-    console.log(JSON.stringify({ matched: match !== undefined, correction: match ?? null }, null, 2));
+    console.log(
+      JSON.stringify({ matched: match !== undefined, correction: match ?? null }, null, 2),
+    );
     break;
   }
 
@@ -381,14 +460,34 @@ switch (command) {
     const content = readFlag(args, "--content");
     const agentName = readFlag(args, "--agent");
     if (!name || !desc || !content || !agentName) {
-      console.error("Usage: coder-workflow memory-store --name <slug> --description <text> --content <text> --agent <name> [--platform claude|codex|gemini|cursor] [--type lesson|decision|fact|reference|feedback] [--tags a,b,c]");
+      console.error(
+        "Usage: coder-workflow memory-store --name <slug> --description <text> --content <text> --agent <name> [--platform claude|codex|gemini|cursor] [--type lesson|decision|fact|reference|feedback] [--tags a,b,c]",
+      );
       process.exitCode = 1;
       break;
     }
-    const platform = (readFlag(args, "--platform") || "claude") as "claude" | "codex" | "gemini" | "cursor" | "other";
-    const memoryType = (readFlag(args, "--type") || "lesson") as "lesson" | "decision" | "fact" | "reference" | "feedback";
+    const platform = (readFlag(args, "--platform") || "claude") as
+      | "claude"
+      | "codex"
+      | "gemini"
+      | "cursor"
+      | "other";
+    const memoryType = (readFlag(args, "--type") || "lesson") as
+      | "lesson"
+      | "decision"
+      | "fact"
+      | "reference"
+      | "feedback";
     const tags = (readFlag(args, "--tags") || "").split(",").filter(Boolean);
-    const entry = storeMemory({ name, description: desc, content, agentName, platform, tags, memoryType });
+    const entry = storeMemory({
+      name,
+      description: desc,
+      content,
+      agentName,
+      platform,
+      tags,
+      memoryType,
+    });
     console.log(JSON.stringify(entry, null, 2));
     break;
   }
@@ -409,7 +508,9 @@ switch (command) {
     break;
   }
   case "memory-export": {
-    const platforms = readFlag(args, "--platforms")?.split(",").filter(Boolean) as string[] | undefined;
+    const platforms = readFlag(args, "--platforms")?.split(",").filter(Boolean) as
+      | string[]
+      | undefined;
     const memoryType = readFlag(args, "--type") || undefined;
     console.log(exportMemoryToMarkdown({ platforms, memoryType }));
     break;
@@ -447,7 +548,9 @@ switch (command) {
     try {
       const query = args.join(" ").trim();
       if (!query && !args.includes("--build")) {
-        console.error("Usage: coder-workflow semantic-search <query> [--max-results 20] or coder-workflow semantic-search --build");
+        console.error(
+          "Usage: coder-workflow semantic-search <query> [--max-results 20] or coder-workflow semantic-search --build",
+        );
         process.exitCode = 1;
         break;
       }
@@ -520,32 +623,66 @@ switch (command) {
       break;
     }
     switch (sub) {
-      case "init": console.log(JSON.stringify(initADR(), null, 2)); break;
+      case "init":
+        console.log(JSON.stringify(initADR(), null, 2));
+        break;
       case "new": {
         const title = readFlag(args, "--title");
-        if (!title) { console.error("Usage: coder-workflow adr new --title <title> [--status proposed|accepted]"); process.exitCode = 1; break; }
-        console.log(JSON.stringify(createADR({ title, status: (readFlag(args, "--status") || "proposed") as any }), null, 2));
+        if (!title) {
+          console.error(
+            "Usage: coder-workflow adr new --title <title> [--status proposed|accepted]",
+          );
+          process.exitCode = 1;
+          break;
+        }
+        console.log(
+          JSON.stringify(
+            createADR({ title, status: (readFlag(args, "--status") || "proposed") as any }),
+            null,
+            2,
+          ),
+        );
         break;
       }
-      case "list": console.log(formatADRList(listADRs())); break;
+      case "list":
+        console.log(formatADRList(listADRs()));
+        break;
       case "get": {
         const id = parseInt(args[1] ?? "0");
         const adr = getADR(id);
-        if (!adr) { console.error(`ADR ${id} not found`); process.exitCode = 1; break; }
+        if (!adr) {
+          console.error(`ADR ${id} not found`);
+          process.exitCode = 1;
+          break;
+        }
         console.log(adr.content);
         break;
       }
       case "status": {
         const id = parseInt(args[1] ?? "0");
         const status = readFlag(args, "--status");
-        if (!status) { console.error("Usage: coder-workflow adr status <id> --status <accepted|proposed|deprecated|superseded>"); process.exitCode = 1; break; }
+        if (!status) {
+          console.error(
+            "Usage: coder-workflow adr status <id> --status <accepted|proposed|deprecated|superseded>",
+          );
+          process.exitCode = 1;
+          break;
+        }
         const updated = updateADRStatus(id, status as any);
-        if (!updated) { console.error(`ADR ${id} not found`); process.exitCode = 1; break; }
+        if (!updated) {
+          console.error(`ADR ${id} not found`);
+          process.exitCode = 1;
+          break;
+        }
         console.log(`ADR ${id} status updated to: ${status}`);
         break;
       }
-      case "graph": console.log(generateADRGraph()); break;
-      default: console.error("Unknown adr subcommand. Use: new, list, get, status, graph, init"); process.exitCode = 1;
+      case "graph":
+        console.log(generateADRGraph());
+        break;
+      default:
+        console.error("Unknown adr subcommand. Use: new, list, get, status, graph, init");
+        process.exitCode = 1;
     }
     break;
   }
@@ -557,7 +694,7 @@ switch (command) {
     break;
   }
   case "sbom": {
-    const format = (readFlag(args, "--format") || "spdx");
+    const format = readFlag(args, "--format") || "spdx";
     const sbom = generateSBOM(root, format as "spdx" | "cyclonedx");
     console.log(sbom.content);
     break;
@@ -597,35 +734,57 @@ switch (command) {
   }
   case "pr-check": {
     const prNum = parseInt(args[0] ?? "0");
-    if (!prNum) { console.error("Usage: coder-workflow pr-check <pr-number>"); process.exitCode = 1; break; }
+    if (!prNum) {
+      console.error("Usage: coder-workflow pr-check <pr-number>");
+      process.exitCode = 1;
+      break;
+    }
     console.log(JSON.stringify(await checkPRAutoMerge(prNum), null, 2));
     break;
   }
   case "benchmark": {
     const sub = args[0];
-    if (!sub) { console.error("Usage: coder-workflow benchmark <record|history|regression>"); process.exitCode = 1; break; }
+    if (!sub) {
+      console.error("Usage: coder-workflow benchmark <record|history|regression>");
+      process.exitCode = 1;
+      break;
+    }
     switch (sub) {
       case "record": {
         const name = readFlag(args, "--name");
         const duration = parseFloat(readFlag(args, "--duration") ?? "0");
-        if (!name || !duration) { console.error("Usage: coder-workflow benchmark record --name <name> --duration <ms>"); process.exitCode = 1; break; }
+        if (!name || !duration) {
+          console.error("Usage: coder-workflow benchmark record --name <name> --duration <ms>");
+          process.exitCode = 1;
+          break;
+        }
         console.log(JSON.stringify(recordBenchmark(name, duration), null, 2));
         break;
       }
       case "history": {
         const name = readFlag(args, "--name");
-        if (!name) { console.error("Usage: coder-workflow benchmark history --name <name>"); process.exitCode = 1; break; }
+        if (!name) {
+          console.error("Usage: coder-workflow benchmark history --name <name>");
+          process.exitCode = 1;
+          break;
+        }
         const limit = parseInt(readFlag(args, "--limit") ?? "20", 10);
         console.log(JSON.stringify({ history: getBenchmarkHistory(name, limit) }, null, 2));
         break;
       }
       case "regression": {
         const name = readFlag(args, "--name");
-        if (!name) { console.error("Usage: coder-workflow benchmark regression --name <name>"); process.exitCode = 1; break; }
+        if (!name) {
+          console.error("Usage: coder-workflow benchmark regression --name <name>");
+          process.exitCode = 1;
+          break;
+        }
         console.log(JSON.stringify({ regression: detectBenchmarkRegression(name) }, null, 2));
         break;
       }
-      default: console.error("Unknown benchmark subcommand"); process.exitCode = 1;
+      default:
+        console.error("Unknown benchmark subcommand");
+        process.exitCode = 1;
     }
     break;
   }
@@ -638,8 +797,11 @@ switch (command) {
         const before = readFlag(args, "--before");
         const after = readFlag(args, "--after");
         if (!before || !after) {
-          console.error("Usage: coder-workflow api-contract diff --before <openapi-before.json> --after <openapi-after.json>");
-          process.exitCode = 1; break;
+          console.error(
+            "Usage: coder-workflow api-contract diff --before <openapi-before.json> --after <openapi-after.json>",
+          );
+          process.exitCode = 1;
+          break;
         }
         const report = compareOpenApiSpecs(before, after);
         console.log(formatContractReport(report));
@@ -669,7 +831,8 @@ switch (command) {
         const envPath = readFlag(args, "--env");
         if (!schemaPath) {
           console.error("Usage: coder-workflow validate env --schema <schema.json> [--env .env]");
-          process.exitCode = 1; break;
+          process.exitCode = 1;
+          break;
         }
         const schema = JSON.parse(readFileSync(schemaPath, "utf-8"));
         const report = validateEnvFile(envPath || ".env", schema);
@@ -678,8 +841,11 @@ switch (command) {
         const filePath = readFlag(args, "--file");
         const schemaPath = readFlag(args, "--schema");
         if (!filePath || !schemaPath) {
-          console.error("Usage: coder-workflow validate json --file <file.json> --schema <schema.json>");
-          process.exitCode = 1; break;
+          console.error(
+            "Usage: coder-workflow validate json --file <file.json> --schema <schema.json>",
+          );
+          process.exitCode = 1;
+          break;
         }
         const schema = JSON.parse(readFileSync(schemaPath, "utf-8"));
         const report = validateJsonFile(filePath, schema);
@@ -688,7 +854,8 @@ switch (command) {
         const required = readFlag(args, "--required")?.split(",") || [];
         if (required.length === 0) {
           console.error("Usage: coder-workflow validate missing-env --required KEY1,KEY2");
-          process.exitCode = 1; break;
+          process.exitCode = 1;
+          break;
         }
         const report = detectMissingEnvVars(required, readFlag(args, "--env") || undefined);
         console.log(formatValidationReport(report));
@@ -746,7 +913,8 @@ switch (command) {
       const filePath = args[0];
       if (!filePath) {
         console.error("Usage: coder-workflow logs <filepath>");
-        process.exitCode = 1; break;
+        process.exitCode = 1;
+        break;
       }
       const report = analyzeLogFile(filePath);
       console.log(formatLogReport(report));
@@ -771,8 +939,11 @@ switch (command) {
         if (vitestPath) sources.push({ tool: "vitest" as const, path: vitestPath });
         if (lcovPath) sources.push({ tool: "istanbul" as const, path: lcovPath });
         if (sources.length === 0) {
-          console.error("Usage: coder-workflow coverage check --threshold 80 [--jest <file>] [--vitest <file>] [--lcov <file>]");
-          process.exitCode = 1; break;
+          console.error(
+            "Usage: coder-workflow coverage check --threshold 80 [--jest <file>] [--vitest <file>] [--lcov <file>]",
+          );
+          process.exitCode = 1;
+          break;
         }
         const report = aggregateCoverage(sources);
         const gate = checkCoverageThreshold(report, threshold);
@@ -796,22 +967,29 @@ switch (command) {
     try {
       const sub = args[0];
       if (sub === "scaffold") {
-        const hooks = readFlag(args, "--hooks")?.split(",") as Array<"pre-commit"|"commit-msg"|"pre-push"|"post-commit"|"post-merge"> | undefined;
+        const hooks = readFlag(args, "--hooks")?.split(",") as
+          | Array<"pre-commit" | "commit-msg" | "pre-push" | "post-commit" | "post-merge">
+          | undefined;
         const linter = readFlag(args, "--linter") || undefined;
         const testCmd = readFlag(args, "--test") || undefined;
         if (!hooks || hooks.length === 0) {
-          console.error("Usage: coder-workflow hooks scaffold --hooks pre-commit,commit-msg,pre-push [--linter eslint] [--test \"npm test\"]");
-          process.exitCode = 1; break;
+          console.error(
+            'Usage: coder-workflow hooks scaffold --hooks pre-commit,commit-msg,pre-push [--linter eslint] [--test "npm test"]',
+          );
+          process.exitCode = 1;
+          break;
         }
         const existing = detectExistingHooks(process.cwd(), hooks);
-        if (existing.length > 0) console.warn(`⚠️  Overwriting existing hooks: ${existing.join(", ")}`);
+        if (existing.length > 0)
+          console.warn(`⚠️  Overwriting existing hooks: ${existing.join(", ")}`);
         const result = scaffoldHooks(process.cwd(), { hooks, linter, testCommand: testCmd });
         console.log(JSON.stringify(result, null, 2));
       } else if (sub === "validate-msg") {
         const msg = args.slice(1).join(" ");
         if (!msg) {
           console.error("Usage: coder-workflow hooks validate-msg <commit-message>");
-          process.exitCode = 1; break;
+          process.exitCode = 1;
+          break;
         }
         const result = validateCommitMessage(msg);
         if (result.valid) console.log("✅ Valid commit message");
@@ -837,7 +1015,12 @@ switch (command) {
           include: readFlag(args, "--include")?.split(","),
           exclude: readFlag(args, "--exclude")?.split(","),
         });
-        console.log(formatTodoReport(report, { showAge: true, groupBy: readFlag(args, "--group-by") as 'type'|'file'|'author'|undefined }));
+        console.log(
+          formatTodoReport(report, {
+            showAge: true,
+            groupBy: readFlag(args, "--group-by") as "type" | "file" | "author" | undefined,
+          }),
+        );
       } else if (sub === "history") {
         const reports = getTodoHistory(root);
         console.log(JSON.stringify(reports, null, 2));
@@ -963,7 +1146,9 @@ switch (command) {
         if (history.reports.length > 0) {
           const comparison = compareStats(history.reports[history.reports.length - 1], stats);
           console.log(formatStats(stats));
-          console.log(`\n📊 vs Last Snapshot: +${comparison.linesDiff} lines, ${comparison.filesDiff > 0 ? "+" : ""}${comparison.filesDiff} files`);
+          console.log(
+            `\n📊 vs Last Snapshot: +${comparison.linesDiff} lines, ${comparison.filesDiff > 0 ? "+" : ""}${comparison.filesDiff} files`,
+          );
         } else {
           console.log(formatStats(stats));
           console.log("(No previous snapshot to compare against)");

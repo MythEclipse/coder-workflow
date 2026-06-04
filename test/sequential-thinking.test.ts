@@ -1,9 +1,9 @@
-import { describe, it, before } from "node:test";
 import { strict as assert } from "node:assert";
-import { existsSync, mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SequentialThinkingEngine, type PersistedSession } from "../src/sequential-thinking.js";
+import { before, describe, it } from "node:test";
+import { type PersistedSession, SequentialThinkingEngine } from "../src/sequential-thinking.js";
 
 describe("SequentialThinkingEngine", () => {
   let engine: SequentialThinkingEngine;
@@ -268,7 +268,10 @@ describe("SequentialThinkingEngine", () => {
   });
 
   it("should loadSession return null for non-existent session", () => {
-    const loaded = SequentialThinkingEngine.loadSession("nonexistent-session-id", "/tmp/nonexistent-dir");
+    const loaded = SequentialThinkingEngine.loadSession(
+      "nonexistent-session-id",
+      "/tmp/nonexistent-dir",
+    );
     assert.equal(loaded, null);
   });
 
@@ -282,7 +285,7 @@ describe("SequentialThinkingEngine", () => {
       nextThoughtNeeded: false,
     });
 
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 50));
     const fresh2 = new SequentialThinkingEngine({ stateDir: dir, disableLogging: false });
     fresh2.processThought({
       thought: "Second session",
@@ -299,7 +302,9 @@ describe("SequentialThinkingEngine", () => {
   });
 
   it("should listSessions return empty for non-existent dir", () => {
-    const sessions = SequentialThinkingEngine.listSessions("/tmp/definitely-nonexistent-path-12345");
+    const sessions = SequentialThinkingEngine.listSessions(
+      "/tmp/definitely-nonexistent-path-12345",
+    );
     assert.deepEqual(sessions, []);
   });
 
@@ -693,7 +698,10 @@ describe("SequentialThinkingEngine", () => {
   // ─── loadSession edge cases ────────────────────────────────────────────────
 
   it("should loadSession return null when stateDir does not exist", () => {
-    const loaded = SequentialThinkingEngine.loadSession("test", "/tmp/nonexistent-dir-for-load-test");
+    const loaded = SequentialThinkingEngine.loadSession(
+      "test",
+      "/tmp/nonexistent-dir-for-load-test",
+    );
     assert.equal(loaded, null);
   });
 

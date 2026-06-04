@@ -167,7 +167,12 @@ test("queryMemory filters by platform", () => {
   const tmpDir = process.cwd();
   try {
     storeMemory(sampleEntry());
-    storeMemory({ ...sampleEntry(), name: "codex-entry", content: "codex content", platform: "codex" });
+    storeMemory({
+      ...sampleEntry(),
+      name: "codex-entry",
+      content: "codex content",
+      platform: "codex",
+    });
 
     const claude = queryMemory({ platforms: ["claude"] });
     assert.equal(claude.length, 1);
@@ -239,7 +244,12 @@ test("queryMemory filters by searchText across name, description, content", () =
   const tmpDir = process.cwd();
   try {
     storeMemory(sampleEntry());
-    storeMemory({ ...sampleEntry(), name: "other", description: "Unrelated entry", content: "something unrelated" });
+    storeMemory({
+      ...sampleEntry(),
+      name: "other",
+      description: "Unrelated entry",
+      content: "something unrelated",
+    });
 
     const results = queryMemory({ searchText: "timeout" });
     assert.equal(results.length, 1);
@@ -483,7 +493,9 @@ test("syncWithPlatform reads platform-specific files", () => {
         name: "cursor-fact",
         description: "From cursor",
         content: "cursor-specific knowledge",
-        agentProvenance: [{ agent: "cursor-agent", platform: "cursor", timestamp: new Date().toISOString() }],
+        agentProvenance: [
+          { agent: "cursor-agent", platform: "cursor", timestamp: new Date().toISOString() },
+        ],
         tags: ["cursor"],
         platform: "cursor",
         memoryType: "fact",
@@ -523,7 +535,9 @@ test("syncWithPlatform merges provenance on content hash conflict", () => {
       join(platformDir, "entry.json"),
       JSON.stringify({
         ...entry,
-        agentProvenance: [{ agent: "cursor-agent", platform: "cursor", timestamp: new Date().toISOString() }],
+        agentProvenance: [
+          { agent: "cursor-agent", platform: "cursor", timestamp: new Date().toISOString() },
+        ],
       }),
       "utf-8",
     );

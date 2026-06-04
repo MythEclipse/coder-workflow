@@ -63,11 +63,16 @@ function extractNPMPackages(root: string): Dependency[] {
   const pkg = readJsonFile(join(root, "package.json"));
   if (pkg) {
     const allDeps = {
-      ...(pkg.dependencies as Record<string, string> ?? {}),
-      ...(pkg.devDependencies as Record<string, string> ?? {}),
+      ...((pkg.dependencies as Record<string, string>) ?? {}),
+      ...((pkg.devDependencies as Record<string, string>) ?? {}),
     };
     for (const [name, version] of Object.entries(allDeps)) {
-      deps.push({ name, version: version.replace(/^\^|~|>=|<=/, ""), type: "npm", path: "package.json" });
+      deps.push({
+        name,
+        version: version.replace(/^\^|~|>=|<=/, ""),
+        type: "npm",
+        path: "package.json",
+      });
     }
   }
 
@@ -86,7 +91,12 @@ function extractPipPackages(root: string): Dependency[] {
       if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("-")) continue;
       const match = trimmed.match(/^([a-zA-Z0-9_.-]+)\s*(?:[=~><]+\s*([0-9a-zA-Z.*]+))?/);
       if (match) {
-        deps.push({ name: match[1], version: match[2] ?? "*", type: "pip", path: "requirements.txt" });
+        deps.push({
+          name: match[1],
+          version: match[2] ?? "*",
+          type: "pip",
+          path: "requirements.txt",
+        });
       }
     }
   }
@@ -124,8 +134,14 @@ function extractCargoPackages(root: string): Dependency[] {
     const content = readFileSync(cargoPath, "utf-8");
     let inDeps = false;
     for (const line of content.split("\n")) {
-      if (line.trim().startsWith("[dependencies]")) { inDeps = true; continue; }
-      if (line.trim().startsWith("[")) { inDeps = false; continue; }
+      if (line.trim().startsWith("[dependencies]")) {
+        inDeps = true;
+        continue;
+      }
+      if (line.trim().startsWith("[")) {
+        inDeps = false;
+        continue;
+      }
       if (!inDeps) continue;
 
       const match = line.trim().match(/^(\S+)\s*=\s*["]([^"]+)["]/);
@@ -165,22 +181,214 @@ interface VulnMatch {
 }
 
 const VULN_MATCHES: VulnMatch[] = [
-  { name: "lodash", maxVersion: "4.17.21", vuln: { id: "CVE-2021-23337", packageName: "lodash", severity: "CRITICAL", title: "Prototype Pollution", description: "lodash versions prior to 4.17.21 are vulnerable to Prototype Pollution", fixedIn: "4.17.21", cvss: 9.1 } },
-  { name: "nodemailer", maxVersion: "6.9.9", vuln: { id: "CVE-2024-26485", packageName: "nodemailer", severity: "CRITICAL", title: "Command Injection", description: "nodemailer < 6.9.9 vulnerable to command injection", fixedIn: "6.9.9", cvss: 9.8 } },
-  { name: "next", maxVersion: "14.2.21", vuln: { id: "CVE-2024-46982", packageName: "next", severity: "CRITICAL", title: "Denial of Service", description: "Next.js prior to 14.2.21 vulnerable to denial of service", fixedIn: "14.2.21", cvss: 7.5 } },
-  { name: "express", maxVersion: "4.20.0", vuln: { id: "CVE-2024-29041", packageName: "express", severity: "HIGH", title: "Path Traversal", description: "Express.js < 4.20.0 vulnerable to path traversal", fixedIn: "4.20.0", cvss: 7.5 } },
-  { name: "axios", maxVersion: "1.7.4", vuln: { id: "CVE-2024-39338", packageName: "axios", severity: "HIGH", title: "SSRF Vulnerability", description: "axios < 1.7.4 vulnerable to server-side request forgery", fixedIn: "1.7.4", cvss: 7.5 } },
-  { name: "fast-xml-parser", maxVersion: "4.4.1", vuln: { id: "CVE-2024-37460", packageName: "fast-xml-parser", severity: "HIGH", title: "Prototype Pollution", description: "fast-xml-parser < 4.4.1 vulnerable to prototype pollution", fixedIn: "4.4.1", cvss: 7.5 } },
-  { name: "tar", maxVersion: "6.2.1", vuln: { id: "CVE-2024-28863", packageName: "tar", severity: "HIGH", title: "Arbitrary File Creation", description: "tar < 6.2.1 vulnerable to arbitrary file creation", fixedIn: "6.2.1", cvss: 7.5 } },
-  { name: "follow-redirects", maxVersion: "1.15.6", vuln: { id: "CVE-2024-28849", packageName: "follow-redirects", severity: "HIGH", title: "Credentials Leak", description: "follow-redirects < 1.15.6 leaks credentials on redirect", fixedIn: "1.15.6", cvss: 7.5 } },
-  { name: "undici", maxVersion: "6.19.2", vuln: { id: "CVE-2024-30260", packageName: "undici", severity: "HIGH", title: "HTTP Request Smuggling", description: "undici < 6.19.2 vulnerable to HTTP request smuggling", fixedIn: "6.19.2", cvss: 7.5 } },
-  { name: "cookiejar", maxVersion: "2.1.4", vuln: { id: "CVE-2023-26136", packageName: "cookiejar", severity: "HIGH", title: "ReDoS", description: "cookiejar < 2.1.4 vulnerable to ReDoS", fixedIn: "2.1.4", cvss: 7.5 } },
-  { name: "ws", maxVersion: "8.17.1", vuln: { id: "CVE-2024-37890", packageName: "ws", severity: "HIGH", title: "Heap Overflow", description: "ws < 8.17.1 vulnerable to heap overflow", fixedIn: "8.17.1", cvss: 7.5 } },
-  { name: "semver", maxVersion: "7.6.2", vuln: { id: "CVE-2024-4068", packageName: "semver", severity: "MEDIUM", title: "ReDoS", description: "semver < 7.6.2 vulnerable to ReDoS", fixedIn: "7.6.2", cvss: 5.3 } },
-  { name: "path-to-regexp", maxVersion: "3.3.0", vuln: { id: "CVE-2024-52798", packageName: "path-to-regexp", severity: "HIGH", title: "ReDoS", description: "path-to-regexp < 3.3.0 vulnerable to ReDoS", fixedIn: "3.3.0", cvss: 7.5 } },
-  { name: "minimatch", maxVersion: "9.0.0", vuln: { id: "CVE-2022-3517", packageName: "minimatch", severity: "HIGH", title: "ReDoS", description: "minimatch < 9.0.0 vulnerable to ReDoS", fixedIn: "9.0.0", cvss: 7.5 } },
-  { name: "cross-spawn", maxVersion: "7.0.5", vuln: { id: "CVE-2024-21538", packageName: "cross-spawn", severity: "CRITICAL", title: "Shell Injection", description: "cross-spawn < 7.0.5 vulnerable to shell injection", fixedIn: "7.0.5", cvss: 9.1 } },
-  { name: "http-proxy-middleware", maxVersion: "3.0.3", vuln: { id: "CVE-2024-21536", packageName: "http-proxy-middleware", severity: "HIGH", title: "Path Traversal", description: "http-proxy-middleware < 3.0.3 vulnerable to path traversal", fixedIn: "3.0.3", cvss: 7.5 } },
+  {
+    name: "lodash",
+    maxVersion: "4.17.21",
+    vuln: {
+      id: "CVE-2021-23337",
+      packageName: "lodash",
+      severity: "CRITICAL",
+      title: "Prototype Pollution",
+      description: "lodash versions prior to 4.17.21 are vulnerable to Prototype Pollution",
+      fixedIn: "4.17.21",
+      cvss: 9.1,
+    },
+  },
+  {
+    name: "nodemailer",
+    maxVersion: "6.9.9",
+    vuln: {
+      id: "CVE-2024-26485",
+      packageName: "nodemailer",
+      severity: "CRITICAL",
+      title: "Command Injection",
+      description: "nodemailer < 6.9.9 vulnerable to command injection",
+      fixedIn: "6.9.9",
+      cvss: 9.8,
+    },
+  },
+  {
+    name: "next",
+    maxVersion: "14.2.21",
+    vuln: {
+      id: "CVE-2024-46982",
+      packageName: "next",
+      severity: "CRITICAL",
+      title: "Denial of Service",
+      description: "Next.js prior to 14.2.21 vulnerable to denial of service",
+      fixedIn: "14.2.21",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "express",
+    maxVersion: "4.20.0",
+    vuln: {
+      id: "CVE-2024-29041",
+      packageName: "express",
+      severity: "HIGH",
+      title: "Path Traversal",
+      description: "Express.js < 4.20.0 vulnerable to path traversal",
+      fixedIn: "4.20.0",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "axios",
+    maxVersion: "1.7.4",
+    vuln: {
+      id: "CVE-2024-39338",
+      packageName: "axios",
+      severity: "HIGH",
+      title: "SSRF Vulnerability",
+      description: "axios < 1.7.4 vulnerable to server-side request forgery",
+      fixedIn: "1.7.4",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "fast-xml-parser",
+    maxVersion: "4.4.1",
+    vuln: {
+      id: "CVE-2024-37460",
+      packageName: "fast-xml-parser",
+      severity: "HIGH",
+      title: "Prototype Pollution",
+      description: "fast-xml-parser < 4.4.1 vulnerable to prototype pollution",
+      fixedIn: "4.4.1",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "tar",
+    maxVersion: "6.2.1",
+    vuln: {
+      id: "CVE-2024-28863",
+      packageName: "tar",
+      severity: "HIGH",
+      title: "Arbitrary File Creation",
+      description: "tar < 6.2.1 vulnerable to arbitrary file creation",
+      fixedIn: "6.2.1",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "follow-redirects",
+    maxVersion: "1.15.6",
+    vuln: {
+      id: "CVE-2024-28849",
+      packageName: "follow-redirects",
+      severity: "HIGH",
+      title: "Credentials Leak",
+      description: "follow-redirects < 1.15.6 leaks credentials on redirect",
+      fixedIn: "1.15.6",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "undici",
+    maxVersion: "6.19.2",
+    vuln: {
+      id: "CVE-2024-30260",
+      packageName: "undici",
+      severity: "HIGH",
+      title: "HTTP Request Smuggling",
+      description: "undici < 6.19.2 vulnerable to HTTP request smuggling",
+      fixedIn: "6.19.2",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "cookiejar",
+    maxVersion: "2.1.4",
+    vuln: {
+      id: "CVE-2023-26136",
+      packageName: "cookiejar",
+      severity: "HIGH",
+      title: "ReDoS",
+      description: "cookiejar < 2.1.4 vulnerable to ReDoS",
+      fixedIn: "2.1.4",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "ws",
+    maxVersion: "8.17.1",
+    vuln: {
+      id: "CVE-2024-37890",
+      packageName: "ws",
+      severity: "HIGH",
+      title: "Heap Overflow",
+      description: "ws < 8.17.1 vulnerable to heap overflow",
+      fixedIn: "8.17.1",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "semver",
+    maxVersion: "7.6.2",
+    vuln: {
+      id: "CVE-2024-4068",
+      packageName: "semver",
+      severity: "MEDIUM",
+      title: "ReDoS",
+      description: "semver < 7.6.2 vulnerable to ReDoS",
+      fixedIn: "7.6.2",
+      cvss: 5.3,
+    },
+  },
+  {
+    name: "path-to-regexp",
+    maxVersion: "3.3.0",
+    vuln: {
+      id: "CVE-2024-52798",
+      packageName: "path-to-regexp",
+      severity: "HIGH",
+      title: "ReDoS",
+      description: "path-to-regexp < 3.3.0 vulnerable to ReDoS",
+      fixedIn: "3.3.0",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "minimatch",
+    maxVersion: "9.0.0",
+    vuln: {
+      id: "CVE-2022-3517",
+      packageName: "minimatch",
+      severity: "HIGH",
+      title: "ReDoS",
+      description: "minimatch < 9.0.0 vulnerable to ReDoS",
+      fixedIn: "9.0.0",
+      cvss: 7.5,
+    },
+  },
+  {
+    name: "cross-spawn",
+    maxVersion: "7.0.5",
+    vuln: {
+      id: "CVE-2024-21538",
+      packageName: "cross-spawn",
+      severity: "CRITICAL",
+      title: "Shell Injection",
+      description: "cross-spawn < 7.0.5 vulnerable to shell injection",
+      fixedIn: "7.0.5",
+      cvss: 9.1,
+    },
+  },
+  {
+    name: "http-proxy-middleware",
+    maxVersion: "3.0.3",
+    vuln: {
+      id: "CVE-2024-21536",
+      packageName: "http-proxy-middleware",
+      severity: "HIGH",
+      title: "Path Traversal",
+      description: "http-proxy-middleware < 3.0.3 vulnerable to path traversal",
+      fixedIn: "3.0.3",
+      cvss: 7.5,
+    },
+  },
 ];
 
 // ─── Scan ───────────────────────────────────────────────────────────────
@@ -196,12 +404,9 @@ export function scanDependencies(root: string): Dependency[] {
 
 export function scanVulnerabilities(root: string): VulnScanReport {
   const deps = scanDependencies(root);
-  const scannedFiles = [
-    "package.json",
-    "requirements.txt",
-    "go.mod",
-    "Cargo.toml",
-  ].filter((f) => existsSync(join(root, f)));
+  const scannedFiles = ["package.json", "requirements.txt", "go.mod", "Cargo.toml"].filter((f) =>
+    existsSync(join(root, f)),
+  );
 
   const vulnerabilities: Vulnerability[] = [];
   const bySeverity: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
@@ -281,19 +486,23 @@ function generateSPDX(pkgName: string, deps: Dependency[]): string {
 }
 
 function generateCycloneDX(pkgName: string, deps: Dependency[]): string {
-  return JSON.stringify({
-    bomFormat: "CycloneDX",
-    specVersion: "1.5",
-    version: 1,
-    metadata: { component: { type: "application", name: pkgName } },
-    components: deps.map((dep, i) => ({
-      type: "library",
-      name: dep.name,
-      version: dep.version === "*" ? "0.0.0" : dep.version,
-      purl: `pkg:${dep.type}/${dep.name}@${dep.version === "*" ? "0.0.0" : dep.version}`,
-      "bom-ref": `pkg-${i + 1}`,
-    })),
-  }, null, 2);
+  return JSON.stringify(
+    {
+      bomFormat: "CycloneDX",
+      specVersion: "1.5",
+      version: 1,
+      metadata: { component: { type: "application", name: pkgName } },
+      components: deps.map((dep, i) => ({
+        type: "library",
+        name: dep.name,
+        version: dep.version === "*" ? "0.0.0" : dep.version,
+        purl: `pkg:${dep.type}/${dep.name}@${dep.version === "*" ? "0.0.0" : dep.version}`,
+        "bom-ref": `pkg-${i + 1}`,
+      })),
+    },
+    null,
+    2,
+  );
 }
 
 // ─── Report Formatting ─────────────────────────────────────────────────
@@ -325,7 +534,14 @@ export function formatVulnReport(report: VulnScanReport): string {
   });
 
   for (const vuln of sorted) {
-    const icon = vuln.severity === "CRITICAL" ? "🔴" : vuln.severity === "HIGH" ? "🟠" : vuln.severity === "MEDIUM" ? "🟡" : "🟢";
+    const icon =
+      vuln.severity === "CRITICAL"
+        ? "🔴"
+        : vuln.severity === "HIGH"
+          ? "🟠"
+          : vuln.severity === "MEDIUM"
+            ? "🟡"
+            : "🟢";
     lines.push(`  ${icon} ${vuln.id} — ${vuln.packageName}`);
     lines.push(`      ${vuln.title}`);
     lines.push(`      Fix: upgrade to ${vuln.fixedIn}${vuln.cvss ? ` (CVSS: ${vuln.cvss})` : ""}`);

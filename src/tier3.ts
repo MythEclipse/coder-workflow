@@ -23,7 +23,9 @@ export function generateSprintReport(since?: string): SprintReport {
   const from = since ?? "7.days.ago";
   const to = "now";
 
-  const logRaw = execSync(`git log --since="${from}" --until="${to}" --format="%an" --shortstat`, { encoding: "utf-8" });
+  const logRaw = execSync(`git log --since="${from}" --until="${to}" --format="%an" --shortstat`, {
+    encoding: "utf-8",
+  });
   const authors: string[] = [];
   const authorStats = new Map<string, { commits: number; insertions: number; deletions: number }>();
   let totalCommits = 0;
@@ -33,10 +35,16 @@ export function generateSprintReport(since?: string): SprintReport {
   let currentAuthor = "";
 
   for (const line of logRaw.split("\n")) {
-    if (line.trim() && !line.includes("changed") && !line.includes("insertion") && !line.includes("deletion")) {
+    if (
+      line.trim() &&
+      !line.includes("changed") &&
+      !line.includes("insertion") &&
+      !line.includes("deletion")
+    ) {
       currentAuthor = line.trim();
       if (!authors.includes(currentAuthor)) authors.push(currentAuthor);
-      if (!authorStats.has(currentAuthor)) authorStats.set(currentAuthor, { commits: 0, insertions: 0, deletions: 0 });
+      if (!authorStats.has(currentAuthor))
+        authorStats.set(currentAuthor, { commits: 0, insertions: 0, deletions: 0 });
       authorStats.get(currentAuthor)!.commits++;
       totalCommits++;
     }
@@ -85,17 +93,25 @@ export function getTeamMetrics(): TeamMetrics {
   let openPRs = 0;
   let unreviewedPRs = 0;
   try {
-    const prs = execSync("gh pr list --state open --json number,reviewRequests 2>/dev/null", { encoding: "utf-8" });
+    const prs = execSync("gh pr list --state open --json number,reviewRequests 2>/dev/null", {
+      encoding: "utf-8",
+    });
     const parsed = JSON.parse(prs) as Array<{ number: number; reviewRequests?: unknown[] }>;
     openPRs = parsed.length;
     unreviewedPRs = parsed.filter((p) => (p.reviewRequests?.length ?? 0) > 0).length;
-  } catch { /* gh not installed */ }
+  } catch {
+    /* gh not installed */
+  }
 
   let staleBranches = 0;
   try {
-    const branches = execSync("git branch -r --merged origin/main 2>/dev/null | wc -l", { encoding: "utf-8" });
+    const branches = execSync("git branch -r --merged origin/main 2>/dev/null | wc -l", {
+      encoding: "utf-8",
+    });
     staleBranches = parseInt(branches.trim()) || 0;
-  } catch { /* not a git repo */ }
+  } catch {
+    /* not a git repo */
+  }
 
   return {
     sprint,
@@ -131,23 +147,35 @@ export async function checkPRAutoMerge(prNumber: number): Promise<PRStatus> {
   let noConflict = true;
 
   try {
-    const checks = execSync(`gh pr checks ${prNumber} --json state 2>/dev/null`, { encoding: "utf-8" });
+    const checks = execSync(`gh pr checks ${prNumber} --json state 2>/dev/null`, {
+      encoding: "utf-8",
+    });
     const parsed = JSON.parse(checks) as Array<{ state: string }>;
     checksPass = parsed.every((c) => c.state === "SUCCESS" || c.state === "PASS");
-  } catch { /* assume pass */ }
+  } catch {
+    /* assume pass */
+  }
 
   try {
-    const reviews = execSync(`gh pr view ${prNumber} --json reviews 2>/dev/null`, { encoding: "utf-8" });
+    const reviews = execSync(`gh pr view ${prNumber} --json reviews 2>/dev/null`, {
+      encoding: "utf-8",
+    });
     const parsed = JSON.parse(reviews) as { reviews?: Array<{ state: string }> };
     reviewsApproved = (parsed.reviews ?? []).some((r) => r.state === "APPROVED");
-  } catch { /* assume not approved */ }
+  } catch {
+    /* assume not approved */
+  }
 
   try {
-    const mergeable = execSync(`gh pr view ${prNumber} --json mergeable 2>/dev/null`, { encoding: "utf-8" });
+    const mergeable = execSync(`gh pr view ${prNumber} --json mergeable 2>/dev/null`, {
+      encoding: "utf-8",
+    });
     const parsed = JSON.parse(mergeable) as { mergeable?: string };
     noConflict = parsed.mergeable !== "CONFLICTING";
     upToDate = parsed.mergeable === "MERGEABLE";
-  } catch { /* assume ok */ }
+  } catch {
+    /* assume ok */
+  }
 
   return {
     number: prNumber,
@@ -175,7 +203,9 @@ export function recordBenchmark(name: string, duration: number): BenchmarkResult
   const dir = join(process.cwd(), BENCH_DIR);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  const commit = execSync("git rev-parse --short HEAD 2>/dev/null || echo 'unknown'", { encoding: "utf-8" }).trim();
+  const commit = execSync("git rev-parse --short HEAD 2>/dev/null || echo 'unknown'", {
+    encoding: "utf-8",
+  }).trim();
   const result: BenchmarkResult = { name, duration, timestamp: new Date().toISOString(), commit };
 
   const logPath = join(dir, `${name.replace(/[^a-z0-9]/gi, "_")}.jsonl`);
@@ -192,12 +222,15 @@ export function getBenchmarkHistory(name: string, limit = 20): BenchmarkResult[]
   return lines.map((l) => JSON.parse(l) as BenchmarkResult);
 }
 
-export function detectBenchmarkRegression(name: string): { regressed: boolean; change: number; current: number; previous: number } | null {
+export function detectBenchmarkRegression(
+  name: string,
+): { regressed: boolean; change: number; current: number; previous: number } | null {
   const history = getBenchmarkHistory(name, 10);
   if (history.length < 2) return null;
 
   const current = history[history.length - 1].duration;
-  const previousAvg = history.slice(0, -1).reduce((s, h) => s + h.duration, 0) / (history.length - 1);
+  const previousAvg =
+    history.slice(0, -1).reduce((s, h) => s + h.duration, 0) / (history.length - 1);
   const change = ((current - previousAvg) / previousAvg) * 100;
 
   return {

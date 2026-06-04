@@ -6,7 +6,7 @@
  * https://adr.github.io/madr/
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // ─── Types ───────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ export function initADR(): { dir: string } {
         "## How to use",
         "",
         "```bash",
-        "coder-workflow adr new \"<decision title>\"",
+        'coder-workflow adr new "<decision title>"',
         "coder-workflow adr list",
         "coder-workflow adr status <id> --status accepted",
         "coder-workflow adr graph",
@@ -122,8 +122,7 @@ export function createADR(options: ADRCreateOptions): ADR {
   const filename = `${String(nextId).padStart(4, "0")}-${slug}.md`;
   const filePath = join(dir, filename);
 
-  const content = ADR_TEMPLATE
-    .replace(/{id}/g, String(nextId))
+  const content = ADR_TEMPLATE.replace(/{id}/g, String(nextId))
     .replace(/{title}/g, options.title)
     .replace(/{status}/g, options.status ?? "proposed")
     .replace(/{date}/g, date)
@@ -156,7 +155,14 @@ export function listADRs(): ADR[] {
       const status = extractStatus(content);
       const date = extractDate(content);
 
-      adrs.push({ id: Number.isNaN(id) ? adrs.length + 1 : id, title, status, date, filename: file, content });
+      adrs.push({
+        id: Number.isNaN(id) ? adrs.length + 1 : id,
+        title,
+        status,
+        date,
+        filename: file,
+        content,
+      });
     } catch {
       // skip corrupted files
     }
@@ -177,8 +183,7 @@ export function updateADRStatus(id: number, status: ADR["status"]): ADR | undefi
   const dir = getADRDir();
   const filePath = join(dir, adr.filename);
 
-  const updated = adr.content
-    .replace(/\*\*Status:\*\* .+/, `**Status:** ${status}`);
+  const updated = adr.content.replace(/\*\*Status:\*\* .+/, `**Status:** ${status}`);
 
   writeFileSync(filePath, updated, "utf-8");
 
@@ -191,13 +196,17 @@ export function generateADRGraph(): string {
   const adrs = listADRs();
   if (adrs.length === 0) return "No ADRs found.";
 
-  const lines = [
-    "```mermaid",
-    "graph LR",
-  ];
+  const lines = ["```mermaid", "graph LR"];
 
   for (const adr of adrs) {
-    const statusIcon = adr.status === "accepted" ? "✅" : adr.status === "proposed" ? "💡" : adr.status === "deprecated" ? "❌" : "➡️";
+    const statusIcon =
+      adr.status === "accepted"
+        ? "✅"
+        : adr.status === "proposed"
+          ? "💡"
+          : adr.status === "deprecated"
+            ? "❌"
+            : "➡️";
     const label = `${statusIcon} ${adr.id}: ${adr.title.slice(0, 40)}`;
     lines.push(`  ADR${adr.id}["${label}"]`);
     lines.push(`  style ADR${adr.id} fill:${statusColor(adr.status)}`);
@@ -217,10 +226,14 @@ export function generateADRGraph(): string {
 
 function statusColor(status: ADR["status"]): string {
   switch (status) {
-    case "accepted": return "#d4edda";
-    case "proposed": return "#fff3cd";
-    case "deprecated": return "#f8d7da";
-    case "superseded": return "#e2e3e5";
+    case "accepted":
+      return "#d4edda";
+    case "proposed":
+      return "#fff3cd";
+    case "deprecated":
+      return "#f8d7da";
+    case "superseded":
+      return "#e2e3e5";
   }
 }
 
@@ -259,9 +272,12 @@ function extractSupersedes(content: string): number | undefined {
 // ─── CLI Formatting ────────────────────────────────────────────────────
 
 export function formatADRList(adrs: ADR[]): string {
-  if (adrs.length === 0) return "No ADRs found. Use 'coder-workflow adr new <title>' to create one.";
+  if (adrs.length === 0)
+    return "No ADRs found. Use 'coder-workflow adr new <title>' to create one.";
 
-  const lines = ["┌──────┬────────────────────────────────────────────────┬────────────┬────────────┐"];
+  const lines = [
+    "┌──────┬────────────────────────────────────────────────┬────────────┬────────────┐",
+  ];
   lines.push("│  ID  │ Title                                          │ Status     │ Date       │");
   lines.push("├──────┼────────────────────────────────────────────────┼────────────┼────────────┤");
 
