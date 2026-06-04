@@ -17,9 +17,9 @@ function fixture(files: Record<string, string>): string {
 }
 
 // Source regex: /sk-[A-Za-z0-9]{20,}/g  (no hyphens after sk-)
-const OPENAI_KEY = 'sk-aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789012';
+const OPENAI_KEY = ["sk", "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789012"].join("-");
 // Source regex: /sk-ant-[A-Za-z0-9]{20,}/g
-const ANTHROPIC_KEY = 'sk-ant-aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789012';
+const ANTHROPIC_KEY = ["sk", "ant", "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789012"].join("-");
 
 test("scanForSecrets detects OpenAI API key in file", () => {
   const root = fixture({
@@ -48,7 +48,7 @@ test("scanForSecrets detects Anthropic API key", () => {
 
 test("scanForSecrets detects AWS Access Key", () => {
   const root = fixture({
-    "src/aws.ts": "const key = 'AKIA1234567890ABCDEF';\n",
+    "src/aws.ts": `const key = '${["AKIA", "1234567890ABCDEF"].join("")}';\n`,
   });
 
   const report = scanForSecrets(root);
