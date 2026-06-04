@@ -119,7 +119,7 @@ export function parsePrismaSchema(schemaPath: string): SchemaReport {
       if (currentEntity && currentEntity.name) {
         entities.push({
           name: currentEntity.name,
-          table: currentEntity.table,
+          table: currentEntity.table ?? '',
           fields: currentFields,
           relations: currentRelations,
           primaryKey: currentPrimaryKey,
@@ -433,7 +433,7 @@ function parseTypeOrmEntityContent(
       /@(ManyToOne|OneToMany|OneToOne|ManyToMany)\s*\(\s*(?:\(?\s*\)?\s*)?[^)]*\)/
     );
     if (relationDecMatch) {
-      const relType = relationDecMatch[1] as EntityField['relation']['type'];
+      const relType = relationDecMatch[1] as NonNullable<EntityField['relation']>['type'];
       const nextLine = (lines[i + 1] || '').trim();
 
       // Extract the related entity from the decorator argument
@@ -457,7 +457,7 @@ function parseTypeOrmEntityContent(
         // The declared type might be the related entity or Promise<Entity>
         const rawFieldType = fieldDecl[2].replace(/^Promise</, '').replace(/>$/, '');
 
-        let mappedRelType: EntityField['relation']['type'];
+        let mappedRelType: NonNullable<EntityField['relation']>['type'];
         switch (relType.toLowerCase()) {
           case 'onetomany':
             mappedRelType = 'one-to-many';

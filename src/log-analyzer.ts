@@ -174,7 +174,7 @@ export function analyzeLogs(entries: LogEntry[]): LogAnalysisReport {
     .map(([pattern, g]) => {
       const severityCounts = { high: 0, medium: 0, low: 0 };
       for (const s of g.severities) {
-        severityCounts[s] += 1;
+        severityCounts[s as 'high' | 'medium' | 'low'] += 1;
       }
       const dominant: 'high' | 'medium' | 'low' =
         severityCounts.high > 0 ? 'high' : severityCounts.medium > 0 ? 'medium' : 'low';
