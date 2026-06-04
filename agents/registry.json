@@ -113,6 +113,34 @@
       "description": "Cross-repository API contracts and multi-workspace synchronization",
       "tools": ["Read", "Edit", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
+    },
+    "codebase-qa-agent": {
+      "file": "agents/codebase-qa-agent.md",
+      "role": "qa",
+      "description": "Answer codebase questions by searching docs, code, and CodeGraph",
+      "tools": ["Read", "Grep", "Glob", "Bash"],
+      "model": "fast"
+    },
+    "secret-scanner": {
+      "file": "agents/secret-scanner.md",
+      "role": "security",
+      "description": "Scan for hardcoded secrets, API keys, tokens, and passwords",
+      "tools": ["Read", "Grep", "Glob", "Bash"],
+      "model": "fast"
+    },
+    "vulnerability-scanner": {
+      "file": "agents/vulnerability-scanner.md",
+      "role": "security",
+      "description": "Scan dependencies for known CVEs and generate SBOM",
+      "tools": ["Read", "Grep", "Glob", "Bash"],
+      "model": "fast"
+    },
+    "docs-generator": {
+      "file": "agents/docs-generator.md",
+      "role": "docs",
+      "description": "Generate CONTRIBUTING.md, ARCHITECTURE.md, ADRs, PRs, changelogs",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash"],
+      "model": "complex"
     }
   }
 }
