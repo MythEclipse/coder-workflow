@@ -23,3 +23,21 @@ export function listSourceFiles(root: string, settings: CodeGraphSettings): stri
   walk(root);
   return result;
 }
+
+export function listSearchableFiles(root: string, settings: CodeGraphSettings): string[] {
+  const result: string[] = [];
+  const isIgnored = createIgnoreMatcher(root, settings);
+
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = join(dir, entry.name);
+      const rel = relative(root, fullPath);
+      if (isIgnored(rel, entry.isDirectory())) continue;
+      if (entry.isDirectory()) walk(fullPath);
+      else if (entry.isFile()) result.push(fullPath);
+    }
+  };
+
+  walk(root);
+  return result;
+}

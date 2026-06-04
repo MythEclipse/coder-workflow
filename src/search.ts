@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from "node:fs";
 import { relative } from "node:path";
-import { listSourceFiles } from "./graph/files.js";
+import { listSourceFiles, listSearchableFiles } from "./graph/files.js";
 import { rankHybridSearchResults } from "./search/semantic.js";
 import type { CodeGraphSettings } from "./types.js";
 import { escapeRegex } from "./utils/escape.js";
@@ -82,7 +82,7 @@ export function searchCodebase(
     truncated: false,
   };
 
-  for (const file of listSourceFiles(root, settings)) {
+  for (const file of listSearchableFiles(root, settings)) {
     const rel = relative(root, file);
     if (!matchesSearchScope(rel, normalized)) {
       stats.filesSkipped += 1;
