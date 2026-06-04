@@ -139,6 +139,36 @@ const server = new Server(
 );
 
 // ─── Server uptime tracking (for health checks) ───
+import {
+  compress,
+  decompress,
+  getStats as getCompressionStats,
+  cleanCCR,
+  alignCache,
+  getCacheAlignment,
+} from "./compress.js";
+import {
+  logFailure,
+  getFailures,
+  analyzeFailures,
+  applyCorrections,
+  getLearnReport,
+  resolveFailure,
+  addCorrection,
+  matchCorrection,
+} from "./learn.js";
+import {
+  storeMemory,
+  queryMemory,
+  getAllMemories,
+  getMemoryById,
+  deleteMemory as deleteAgentMemory,
+  getMemoryStats,
+  exportToMarkdown as exportMemoryToMarkdown,
+  syncWithPlatform,
+  getSupportedPlatforms,
+} from "./cross-agent-memory.js";
+
 const _serverStartTime = Date.now();
 let _toolCallCount = 0;
 let _lastToolCallTime = 0;
@@ -333,6 +363,240 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["beforePath", "afterPath"],
       },
     },
+
+    // ─── Headroom: CCR Compression Tools ───────────────────────────────
+    {
+      name: "compress_content",
+      description:
+        "Headroom CCR — Compress content (json/code/prose) to reduce token usage by 60-95%. Supports reversible compression. Store original to .claude/ccr/ for on-demand retrieval.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "The content to compress" },
+          contentType: {
+            type: "string",
+            enum: ["auto", "json", "code", "prose"],
+            description: "Content type hint. auto = auto-detect.",
+          },
+          filePath: { type: "string", description: "File path for code compression (enables AST-aware)" },
+        },
+        required: ["content"],
+      },
+    },
+    {
+      name: "decompress_content",
+      description:
+        "Headroom CCR — Retrieve original content that was compressed. Restores content stored in .claude/ccr/ by its CCR ID.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ccrId: { type: "string", description: "The CCR ID returned by compress_content" },
+        },
+        required: ["ccrId"],
+      },
+    },
+    {
+      name: "ccr_stats",
+      description: "Headroom CCR — Get compression statistics: total compressed entries, breakdown by type, storage usage.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "clean_ccr",
+      description: "Headroom CCR — Purge expired compressed content older than maxAgeHours (default: 24h).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          maxAgeHours: { type: "number", description: "Max age in hours before purging (default: 24)" },
+        },
+      },
+    },
+
+    // ─── Headroom: CacheAligner Tools ──────────────────────────────────
+    {
+      name: "align_cache",
+      description:
+        "Headroom CacheAligner — Wrap content with a standardized prefix for KV cache optimization. Use before sending prompts to LLM to increase cache hit rates.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "Content to align with cache-friendly prefix" },
+          type: {
+            type: "string",
+            enum: ["system", "agent", "skill", "default"],
+            description: "Prefix category",
+          },
+          subType: { type: "string", description: "Specific agent/skill name e.g. 'implementer', 'auditor'" },
+          task: { type: "string", description: "Task description for cache tagging" },
+        },
+        required: ["content"],
+      },
+    },
+    {
+      name: "cache_alignment_stats",
+      description: "Headroom CacheAligner — Get current cache alignment prefix and warmup status.",
+      inputSchema: { type: "object", properties: {} },
+    },
+
+    // ─── Headroom: Learn (Self-Improving Failure Analysis) ─────────────
+    {
+      name: "analyze_failures",
+      description:
+        "Headroom Learn — Analyze recent failures and suggest corrections. Detects recurring error patterns and generates fix suggestions.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          apply: {
+            type: "boolean",
+            description: "If true, automatically apply corrections as memory files (default: false)",
+          },
+        },
+      },
+    },
+    {
+      name: "learn_report",
+      description: "Headroom Learn — Get learn report with failure stats, active patterns, and recent failures.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "log_failure",
+      description: "Headroom Learn — Log a failure event for analysis. Used by StopFailure hooks.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            enum: ["tool_failure", "stop_failure", "session_failure", "test_failure"],
+            description: "Type of failure",
+          },
+          tool: { type: "string", description: "Tool name that failed" },
+          error: { type: "string", description: "Error message" },
+          context: { type: "string", description: "Additional context" },
+        },
+        required: ["type", "error"],
+      },
+    },
+    {
+      name: "resolve_failure",
+      description: "Headroom Learn — Mark a failure as resolved.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Failure ID from learn_report" },
+          resolution: { type: "string", description: "How the failure was resolved" },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: "match_correction",
+      description: "Headroom Learn — Find a correction that matches a given error string.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          error: { type: "string", description: "Error message to match against known patterns" },
+        },
+        required: ["error"],
+      },
+    },
+
+    // ─── Headroom: Cross-Agent Memory ──────────────────────────────────
+    {
+      name: "store_memory",
+      description:
+        "Cross-Agent Memory — Store a memory entry. Platform-agnostic; accessible by Claude, Codex, Gemini, Cursor. Auto-deduplicates by content hash.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Memory name/slug" },
+          description: { type: "string", description: "One-line summary" },
+          content: { type: "string", description: "Memory content body" },
+          agentName: { type: "string", description: "Your agent identifier (e.g. 'alice', 'codex-session-1')" },
+          platform: {
+            type: "string",
+            enum: ["claude", "codex", "gemini", "cursor", "other"],
+            description: "Source platform (default: claude)",
+          },
+          tags: {
+            type: "array",
+            items: { type: "string" },
+            description: "Tags for categorization",
+          },
+          memoryType: {
+            type: "string",
+            enum: ["lesson", "decision", "fact", "reference", "feedback"],
+            description: "Type of memory (default: lesson)",
+          },
+        },
+        required: ["name", "description", "content", "agentName"],
+      },
+    },
+    {
+      name: "query_memory",
+      description:
+        "Cross-Agent Memory — Query memory entries across platforms. Supports filters by platform, agent, type, tags, and full-text search.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          searchText: { type: "string", description: "Full-text search in name/description/content" },
+          platforms: {
+            type: "array",
+            items: { type: "string", enum: ["claude", "codex", "gemini", "cursor", "other"] },
+          },
+          agentName: { type: "string", description: "Filter by agent name" },
+          memoryType: {
+            type: "string",
+            enum: ["lesson", "decision", "fact", "reference", "feedback"],
+          },
+          tags: { type: "array", items: { type: "string" } },
+          limit: { type: "number", description: "Max results" },
+        },
+      },
+    },
+    {
+      name: "memory_stats",
+      description:
+        "Cross-Agent Memory — Get memory statistics: total entries, breakdown by platform/type, top tags, involved agents.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "export_memory_markdown",
+      description:
+        "Cross-Agent Memory — Export memory store as platform-agnostic Markdown. Other agents (Codex, Gemini, Cursor) can read this directly.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          platforms: {
+            type: "array",
+            items: { type: "string", enum: ["claude", "codex", "gemini", "cursor", "other"] },
+          },
+          memoryType: {
+            type: "string",
+            enum: ["lesson", "decision", "fact", "reference", "feedback"],
+          },
+        },
+      },
+    },
+    {
+      name: "sync_memory_platform",
+      description:
+        "Cross-Agent Memory — Sync with another platform's memory directory. Imports entries from platform-specific subdirectory.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          platform: {
+            type: "string",
+            enum: ["claude", "codex", "gemini", "cursor", "other"],
+            description: "Platform to sync from",
+          },
+        },
+        required: ["platform"],
+      },
+    },
+    {
+      name: "supported_platforms",
+      description: "Cross-Agent Memory — List all supported agent platforms for cross-agent memory sharing.",
+      inputSchema: { type: "object", properties: {} },
+    },
   ],
 }));
 
@@ -506,6 +770,115 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "check_graph_freshness":
       return text(await getGraphFreshness(root));
+
+    // ─── Headroom: CCR Compression Handlers ────────────────────────────
+    case "compress_content": {
+      const content = stringArg(args?.content, "content");
+      const result = compress(content, {
+        contentType: (args?.contentType as "auto" | "json" | "code" | "prose") ?? "auto",
+        filePath: args?.filePath as string | undefined,
+      });
+      return text(result);
+    }
+    case "decompress_content": {
+      const ccrId = stringArg(args?.ccrId, "ccrId");
+      const result = decompress(ccrId);
+      if (!result) throw new Error(`CCR ID not found: ${ccrId}`);
+      return text(result);
+    }
+    case "ccr_stats":
+      return text(getCompressionStats());
+    case "clean_ccr": {
+      const maxAge = Number(args?.maxAgeHours) || 24;
+      return text({ purged: cleanCCR(maxAge) });
+    }
+
+    // ─── Headroom: CacheAligner Handlers ───────────────────────────────
+    case "align_cache": {
+      const rawContent = stringArg(args?.content, "content");
+      const result = alignCache(rawContent, {
+        taskType: args?.type as string | undefined,
+        mode: args?.subType as string | undefined,
+        projectName: args?.task as string | undefined,
+      });
+      return text(result);
+    }
+    case "cache_alignment_stats":
+      return text(getCacheAlignment());
+
+    // ─── Headroom: Learn Handlers ──────────────────────────────────────
+    case "analyze_failures": {
+      const analysis = analyzeFailures();
+      const shouldApply = args?.apply === true;
+      if (shouldApply && analysis.suggestions.length > 0) {
+        const applied = applyCorrections(analysis.suggestions);
+        return text({ ...analysis, applied: applied.written, memoryFiles: applied.memoryFiles });
+      }
+      return text(analysis);
+    }
+    case "learn_report":
+      return text(getLearnReport());
+    case "log_failure": {
+      const record = logFailure({
+        type: stringArg(args?.type, "type") as "tool_failure" | "stop_failure" | "session_failure" | "test_failure",
+        tool: args?.tool as string | undefined,
+        error: stringArg(args?.error, "error"),
+        context: args?.context as string | undefined,
+      });
+      return text(record);
+    }
+    case "resolve_failure": {
+      const id = stringArg(args?.id, "id");
+      const success = resolveFailure(id, args?.resolution as string | undefined);
+      return text({ resolved: success, id });
+    }
+    case "match_correction": {
+      const err = stringArg(args?.error, "error");
+      const match = matchCorrection(err);
+      return text({ matched: match !== undefined, correction: match ?? null });
+    }
+
+    // ─── Headroom: Cross-Agent Memory Handlers ─────────────────────────
+    case "store_memory": {
+      const entry = storeMemory({
+        name: stringArg(args?.name, "name"),
+        description: stringArg(args?.description, "description"),
+        content: stringArg(args?.content, "content"),
+        agentName: stringArg(args?.agentName, "agentName"),
+        platform: (args?.platform as "claude" | "codex" | "gemini" | "cursor" | "other") ?? "claude",
+        tags: (args?.tags as string[]) ?? [],
+        memoryType: (args?.memoryType as "lesson" | "decision" | "fact" | "reference" | "feedback") ?? "lesson",
+      });
+      return text(entry);
+    }
+    case "query_memory": {
+      const results = queryMemory({
+        searchText: args?.searchText as string | undefined,
+        platforms: args?.platforms as string[] | undefined,
+        agentName: args?.agentName as string | undefined,
+        memoryType: args?.memoryType as string | undefined,
+        tags: args?.tags as string[] | undefined,
+        limit: Number(args?.limit) || undefined,
+      });
+      return text({ results, count: results.length });
+    }
+    case "memory_stats":
+      return text(getMemoryStats());
+    case "export_memory_markdown": {
+      const md = exportMemoryToMarkdown({
+        platforms: args?.platforms as string[] | undefined,
+        memoryType: args?.memoryType as string | undefined,
+      });
+      return text({ markdown: md });
+    }
+    case "sync_memory_platform": {
+      const platform = stringArg(args?.platform, "platform") as "claude" | "codex" | "gemini" | "cursor" | "other";
+      const result = syncWithPlatform(platform);
+      return text(result);
+    }
+    case "supported_platforms":
+      return text({ platforms: getSupportedPlatforms() });
+
     default:
       throw new Error(`Unknown tool: ${request.params.name}`);
   }

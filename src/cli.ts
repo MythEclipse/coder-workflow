@@ -18,6 +18,31 @@ import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { searchCodebase } from "./search.js";
 import { loadSettings } from "./settings.js";
 import { openGraphUi } from "./ui.js";
+import {
+  compress,
+  decompress,
+  getStats as getCompressionStats,
+  cleanCCR,
+  alignCache,
+  getCacheAlignment,
+} from "./compress.js";
+import {
+  logFailure,
+  getFailures,
+  analyzeFailures,
+  applyCorrections,
+  getLearnReport,
+  resolveFailure,
+  matchCorrection,
+} from "./learn.js";
+import {
+  storeMemory,
+  queryMemory,
+  getMemoryStats,
+  exportToMarkdown as exportMemoryToMarkdown,
+  syncWithPlatform,
+  getSupportedPlatforms,
+} from "./cross-agent-memory.js";
 
 const root = cwd();
 const settings = loadSettings(root);
@@ -222,6 +247,176 @@ switch (command) {
     await import("./mcp-server.js");
     break;
   }
+  // ─── Headroom: CCR ────────────────────────────────────────────────
+  case "compress": {
+    const stdin = await readStdin();
+    if (!stdin) {
+      console.error("Usage: coder-workflow compress [--json|--code|--prose] < input.txt");
+      process.exitCode = 1;
+      break;
+    }
+    const ct = args.includes("--json") ? "json" : args.includes("--code") ? "code" : args.includes("--prose") ? "prose" : "auto";
+    console.log(JSON.stringify(compress(stdin, { contentType: ct }), null, 2));
+    break;
+  }
+  case "decompress": {
+    const ccrId = args.join(" ").trim();
+    if (!ccrId) {
+      console.error("Usage: coder-workflow decompress <ccr-id>");
+      process.exitCode = 1;
+      break;
+    }
+    const result = decompress(ccrId);
+    if (result) {
+      console.log(result.original);
+    } else {
+      console.error(`CCR ID not found: ${ccrId}`);
+      process.exitCode = 1;
+    }
+    break;
+  }
+  case "ccr-stats": {
+    const stats = getCompressionStats();
+    console.log(JSON.stringify(stats, null, 2));
+    break;
+  }
+  case "ccr-clean": {
+    const maxAge = parseInt(args[0] ?? "24", 10);
+    console.log(JSON.stringify({ purged: cleanCCR(maxAge) }, null, 2));
+    break;
+  }
+
+  // ─── Headroom: CacheAligner ───────────────────────────────────────
+  case "align-cache": {
+    const stdin = await readStdin();
+    if (!stdin) {
+      console.error("Usage: coder-workflow align-cache [--type system|agent|skill] [--sub-type <name>] [--task <desc>] < input.txt");
+      process.exitCode = 1;
+      break;
+    }
+    const type = readFlag(args, "--type") || undefined;
+    const subType = readFlag(args, "--sub-type") || undefined;
+    const task = readFlag(args, "--task") || undefined;
+    console.log(JSON.stringify(alignCache(stdin, { taskType: type, mode: subType, projectName: task }), null, 2));
+    break;
+  }
+  case "cache-stats": {
+    console.log(JSON.stringify(getCacheAlignment(), null, 2));
+    break;
+  }
+
+  // ─── Headroom: Learn ──────────────────────────────────────────────
+  case "learn-analyze": {
+    const analysis = analyzeFailures();
+    if (args.includes("--apply")) {
+      const applied = applyCorrections(analysis.suggestions);
+      console.log(JSON.stringify({ ...analysis, applied: applied.written, memoryFiles: applied.memoryFiles }, null, 2));
+    } else {
+      console.log(JSON.stringify(analysis, null, 2));
+    }
+    break;
+  }
+  case "learn-report": {
+    console.log(JSON.stringify(getLearnReport(), null, 2));
+    break;
+  }
+  case "learn-log": {
+    const type = readFlag(args, "--type");
+    const error = readFlag(args, "--error");
+    if (!type || !error) {
+      console.error("Usage: coder-workflow learn-log --type <tool_failure|stop_failure|session_failure|test_failure> --error <message>");
+      process.exitCode = 1;
+      break;
+    }
+    const record = logFailure({
+      type: type as "tool_failure" | "stop_failure" | "session_failure" | "test_failure",
+      tool: readFlag(args, "--tool") || undefined,
+      error,
+      context: readFlag(args, "--context") || undefined,
+    });
+    console.log(JSON.stringify(record, null, 2));
+    break;
+  }
+  case "learn-resolve": {
+    const id = args[0];
+    if (!id) {
+      console.error("Usage: coder-workflow learn-resolve <failure-id> [--resolution <text>]");
+      process.exitCode = 1;
+      break;
+    }
+    const success = resolveFailure(id, readFlag(args, "--resolution") || undefined);
+    console.log(JSON.stringify({ resolved: success, id }, null, 2));
+    break;
+  }
+  case "learn-match": {
+    const error = args.join(" ");
+    if (!error) {
+      console.error("Usage: coder-workflow learn-match <error-message>");
+      process.exitCode = 1;
+      break;
+    }
+    const match = matchCorrection(error);
+    console.log(JSON.stringify({ matched: match !== undefined, correction: match ?? null }, null, 2));
+    break;
+  }
+
+  // ─── Headroom: Cross-Agent Memory ─────────────────────────────────
+  case "memory-store": {
+    const name = readFlag(args, "--name");
+    const desc = readFlag(args, "--description");
+    const content = readFlag(args, "--content");
+    const agentName = readFlag(args, "--agent");
+    if (!name || !desc || !content || !agentName) {
+      console.error("Usage: coder-workflow memory-store --name <slug> --description <text> --content <text> --agent <name> [--platform claude|codex|gemini|cursor] [--type lesson|decision|fact|reference|feedback] [--tags a,b,c]");
+      process.exitCode = 1;
+      break;
+    }
+    const platform = (readFlag(args, "--platform") || "claude") as "claude" | "codex" | "gemini" | "cursor" | "other";
+    const memoryType = (readFlag(args, "--type") || "lesson") as "lesson" | "decision" | "fact" | "reference" | "feedback";
+    const tags = (readFlag(args, "--tags") || "").split(",").filter(Boolean);
+    const entry = storeMemory({ name, description: desc, content, agentName, platform, tags, memoryType });
+    console.log(JSON.stringify(entry, null, 2));
+    break;
+  }
+  case "memory-query": {
+    const results = queryMemory({
+      searchText: readFlag(args, "--search") || undefined,
+      platforms: readFlag(args, "--platforms")?.split(",").filter(Boolean) as string[] | undefined,
+      agentName: readFlag(args, "--agent") || undefined,
+      memoryType: readFlag(args, "--type") || undefined,
+      tags: readFlag(args, "--tags")?.split(",").filter(Boolean),
+      limit: parseInt(readFlag(args, "--limit") ?? "20", 10),
+    });
+    console.log(JSON.stringify({ results, count: results.length }, null, 2));
+    break;
+  }
+  case "memory-stats": {
+    console.log(JSON.stringify(getMemoryStats(), null, 2));
+    break;
+  }
+  case "memory-export": {
+    const platforms = readFlag(args, "--platforms")?.split(",").filter(Boolean) as string[] | undefined;
+    const memoryType = readFlag(args, "--type") || undefined;
+    console.log(exportMemoryToMarkdown({ platforms, memoryType }));
+    break;
+  }
+  case "memory-sync": {
+    const platform = args[0];
+    if (!platform) {
+      console.error("Usage: coder-workflow memory-sync <claude|codex|gemini|cursor|other>");
+      process.exitCode = 1;
+      break;
+    }
+    const result = syncWithPlatform(platform as "claude" | "codex" | "gemini" | "cursor" | "other");
+    console.log(JSON.stringify(result, null, 2));
+    break;
+  }
+  case "memory-platforms": {
+    console.log(JSON.stringify({ platforms: getSupportedPlatforms() }, null, 2));
+    break;
+  }
+
+  // ─── Dashboard ────────────────────────────────────────────────────
   case "dashboard": {
     try {
       startDashboard();
@@ -231,6 +426,10 @@ switch (command) {
     }
     break;
   }
+
+  /**
+   * usage() called below this case.
+   */
   case "help":
   case "--help":
   case "-h":
@@ -277,11 +476,15 @@ EXAMPLES:
   coder-workflow search "TODO|FIXME" --regex --context 2
   coder-workflow quality --fail-on high
   coder-workflow export json mermaid html
+  coder-workflow compress --json < response.json    # Headroom CCR
+  coder-workflow decompress <ccr-id>                  # Headroom CCR
+  coder-workflow learn-analyze --apply                # Headroom Learn
+  coder-workflow memory-store --name <slug> ...       # Cross-Agent Memory
 `);
     break;
   default:
     console.log(
-      "Usage: coder-workflow <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|dashboard|mcp|help>",
+      "Usage: coder-workflow <scan|update|search|query|impact|cycles|orphans|summary|quality [--fail-on high|medium|low]|export|diff|ui|dashboard|mcp|compress|decompress|ccr-stats|ccr-clean|align-cache|cache-stats|learn-analyze|learn-report|learn-log|learn-resolve|learn-match|memory-store|memory-query|memory-stats|memory-export|memory-sync|memory-platforms|help>",
     );
     console.log("Quick start: coder-workflow scan && coder-workflow summary");
     console.log("Full help:   coder-workflow help");
@@ -340,4 +543,29 @@ function readRepeatedStringArg(args: string[], name: string): string[] {
     values.push(value);
   }
   return values;
+}
+
+/**
+ * Read stdin as a string. Returns null if stdin is a TTY.
+ */
+async function readStdin(): Promise<string | null> {
+  const isTTY = process.stdin.isTTY ?? false;
+  if (isTTY) return null;
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks).toString("utf-8");
+}
+
+/**
+ * Read a named flag from the args list.
+ */
+function readFlag(args: string[], name: string): string | undefined {
+  const index = args.indexOf(name);
+  if (index === -1) return undefined;
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) return undefined;
+  return value;
 }
