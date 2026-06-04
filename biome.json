@@ -28,21 +28,12 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "recommended": false,
       "suspicious": {
         "noExplicitAny": "off"
       },
       "style": {
-        "noNonNullAssertion": "off",
-        "useTemplate": "off"
-      },
-      "correctness": {
-        "noUnusedFunctionParameters": "off",
-        "noUnusedImports": "warn",
-        "noUnusedVariables": "warn"
-      },
-      "complexity": {
-        "useOptionalChain": "warn"
+        "noNonNullAssertion": "off"
       }
     }
   }
