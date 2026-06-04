@@ -320,7 +320,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TOOL=$(jq -r \".tool_name // empty\" <<< \"$INPUT\" 2>/dev/null); ERR=$(jq -r \".tool_error // .error // empty\" <<< \"$INPUT\" 2>/dev/null | head -c 200); mkdir -p .claude 2>/dev/null || true; printf \"[%s] FAIL [%s]: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" \"$ERR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); TOOL=$(jq -r \".tool_name // empty\" <<< \"$INPUT\" 2>/dev/null); ERR=$(jq -r \".tool_error // .error // empty\" <<< \"$INPUT\" 2>/dev/null | head -c 200); mkdir -p .claude 2>/dev/null || true; printf \"[%s] FAIL [%s]: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" \"$ERR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; if [ -n \"$TOOL\" ] && [ -n \"$ERR\" ]; then command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type tool_failure --tool \"$TOOL\" --error \"$ERR\" 2>/dev/null || true; fi; exit 0'",
             "timeout": 5,
             "async": true
           }
@@ -364,6 +364,12 @@
             "type": "command",
             "command": "echo 'Rate limited. Wait 60+ seconds before retrying. Consider breaking the work into smaller incremental steps to reduce per-turn token load.'",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --error rate_limit 2>/dev/null || true; exit 0'",
+            "timeout": 5,
+            "async": true
           }
         ]
       },
@@ -374,6 +380,12 @@
             "type": "command",
             "command": "echo 'Output token limit hit. Break the response into smaller steps — ask for one piece at a time rather than generating everything at once.'",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --error max_output_tokens 2>/dev/null || true; exit 0'",
+            "timeout": 5,
+            "async": true
           }
         ]
       },
@@ -384,6 +396,12 @@
             "type": "command",
             "command": "bash -c 'INPUT=$(cat); ERR=$(jq -r \".error_type // unknown\" <<< \"$INPUT\" 2>/dev/null); printf \"[%s] STOP FAILURE: %s\\n\" \"$(date -u +%T)\" \"$ERR\" >> /tmp/cw-session.log 2>/dev/null; echo \"API error ($ERR) — session ended unexpectedly. Resume with /resume and re-read task state before continuing.\"; exit 0'",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); ERR=$(jq -r \".error_type // empty\" <<< \"$INPUT\" 2>/dev/null); if [ -n \"$ERR\" ]; then command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --error \"$ERR\" 2>/dev/null || true; fi; exit 0'",
+            "timeout": 5,
+            "async": true
           }
         ]
       }

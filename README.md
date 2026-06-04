@@ -51,6 +51,13 @@ CodeGraph MCP tools
   └─ ping
   ↓
 .codegraph/graph.db
+
+─── Headroom Context Layers (new) ───
+
+CCR Compression ─► Compress tool outputs 60-95%
+CacheAligner    ─► Prefix stabilization for KV cache hits
+Learn           ─► Auto-analyze failures, write corrections
+Cross-Agent Mem ─► Shared memory across Claude/Codex/Gemini/Cursor
 ```
 
 ---
@@ -170,6 +177,32 @@ coder-workflow diff before.json after.json
 # UI / dashboard
 coder-workflow ui
 coder-workflow dashboard
+
+# ── Headroom Features ──────────────────────────────────────────────
+
+# Compress JSON/code/prose output (60-95% token reduction)
+echo '{"long": "json..."}' | coder-workflow compress --json
+coder-workflow ccr-stats
+coder-workflow ccr-clean 24
+
+# Align content for KV cache optimization
+echo "prompt text" | coder-workflow align-cache --type agent --sub-type implementer
+coder-workflow cache-stats
+
+# Analyze failures and auto-generate corrections
+coder-workflow learn-analyze
+coder-workflow learn-analyze --apply   # write corrections to memory
+coder-workflow learn-report
+
+# Cross-agent memory operations
+coder-workflow memory-store --name "bug-pattern" \
+  --description "How to fix X" \
+  --content "Fix steps here..." \
+  --agent "alice" --type lesson --tags "bug,pattern"
+coder-workflow memory-query --search "bug"
+coder-workflow memory-stats
+coder-workflow memory-export
+coder-workflow memory-platforms
 ```
 
 ---
@@ -267,6 +300,28 @@ Major hook capabilities:
 | `open_graph_ui` | Start local graph UI. |
 | `ping` | MCP server health check. |
 
+### Headroom MCP Tools (Context Optimization)
+
+| Tool | Purpose |
+|---|---|
+| `compress_content` | CCR compress JSON/code/prose, store original for retrieval. |
+| `decompress_content` | Restore original content by CCR ID. |
+| `ccr_stats` | Compression statistics and storage usage. |
+| `clean_ccr` | Purge expired compressed content. |
+| `align_cache` | Wrap content in stable prefix for KV cache optimization. |
+| `cache_alignment_stats` | Current prefix and warmup status. |
+| `analyze_failures` | Detect recurring error patterns, suggest corrections. |
+| `learn_report` | Failure stats, active patterns, recent failures. |
+| `log_failure` | Log a failure event for pattern mining. |
+| `resolve_failure` | Mark failure as resolved. |
+| `match_correction` | Find correction matching an error string. |
+| `store_memory` | Cross-agent memory entry (Claude/Codex/Gemini/Cursor). |
+| `query_memory` | Search memory by platform, agent, type, tags, text. |
+| `memory_stats` | Memory store statistics and breakdown. |
+| `export_memory_markdown` | Platform-agnostic Markdown export. |
+| `sync_memory_platform` | Sync entries from another platform's directory. |
+| `supported_platforms` | List supported agent platforms. |
+
 ---
 
 ## Development
@@ -336,6 +391,10 @@ coder-workflow/
 ├── src/
 │   ├── cli.ts
 │   ├── mcp-server.ts
+│   ├── compress.ts          🆕 Headroom CCR compression engine
+│   ├── learn.ts             🆕 Headroom failure analysis & correction
+│   ├── cache-aligner.ts     🆕 CacheAligner prefix stabilization
+│   ├── cross-agent-memory.ts 🆕 Cross-platform memory store
 │   ├── graph.ts
 │   ├── graph/
 │   ├── analysis/
