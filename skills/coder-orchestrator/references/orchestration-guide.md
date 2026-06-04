@@ -1,14 +1,27 @@
 # Orchestration Guide
 
-## Single-Agent Continual Flow
+## Swarm Dispatch Flow
 
-Every standard coding session follows this streamlined flow to prevent context degradation:
+Every standard coding session follows this parallel-first flow:
 
 ```
-Request → workflow-planner (Decompose) → Sequential Implementation (Main Agent) → Targeted Verification → Impact Radius Quarantine
+Request → workflow-planner (Decompose into N tasks) → Swarm Dispatch (N subagents) → Synthesis → Verification → Bug Fix Phase
 ```
 
-*Note: The `architecture-auditor` and `test-engineer` are invoked as sub-agents ONLY when explicitly required by the user or when the task demands strict external validation.*
+The key architectural shift: **1 task = 1 subagent**. After planning produces N atomic tasks, the orchestrator spawns N subagents simultaneously — each receiving exactly one task with clear boundaries. No single agent handles multiple tasks.
+
+### Flow Steps
+
+1. **Decompose** → `workflow-planner` breaks request into N Atomic Committable Units
+2. **Swarm** → Orchestrator spawns N subagents using `Agent` tool with `run_in_background: true`
+   - Each subagent declares FILE_MANIFEST before execution
+   - Orchestrator cross-checks manifests for write conflicts before dispatch
+3. **Execute** → All N subagents run in parallel; each handles exactly 1 task
+4. **Synthesis** → Orchestrator collects results, resolves conflicts, merges
+5. **Verify** → Targeted verification on changed files
+6. **Bug Fix** → Fix discovered bugs (each bug = 1 subagent task)
+
+*Architecture-auditor and test-engineer are invoked as swarm members when the decomposition calls for them.*
 
 ## Agent Input Templates
 

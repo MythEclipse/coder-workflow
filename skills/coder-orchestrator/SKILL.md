@@ -87,13 +87,23 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 ## Workflow Sequence
 
-1. **Fast-Path**: Trivial → `code-implementer` directly
+1. **Fast-Path**: Trivial (1-2 line fix) → `code-implementer` directly
 2. **Memory**: Complex/recurring → `memory-librarian`
 3. **Multi-Repo**: Cross-service → `multi-repo-orchestrator`
 4. **Brainstorming**: Underspecified → `brainstorming` skill
 5. **Planning**: Full decomposition via `workflow-planner` with parallel recon
-6. **Implementation**: Parallel agents (isolated domains only; sequential for shared state)
-7. **Review**: `code-reviewer` or `architecture-auditor` as needed
+6. **Swarm Dispatch (CRITICAL)**: After planning, orchestrator MUST spawn **1 subagent per task** using the `Agent` tool with `run_in_background: true`. Do NOT send multiple tasks to a single agent. If planner produced 10 tasks, spawn 10 subagents simultaneously. Each subagent receives exactly 1 task with clear FILE_MANIFEST boundaries.
+7. **Synthesis & Conflict Resolution**: Wait for all subagents to complete. Identify overlaps/conflicts. Resolve them.
+8. **Review**: `code-reviewer` or `architecture-auditor` as needed
+9. **Bug Fix Phase**: Fix discovered bugs using Impact Radius Protocol
+
+### Swarm Dispatch Rules
+
+- **1 task = 1 subagent**. Never batch tasks into one agent.
+- Isolated domains (different files/modules) → FULLY parallel, all spawned at once.
+- Shared state (same file/config) → Still parallel, but agents MUST declare FILE_MANIFEST upfront so orchestrator can detect conflicts before merging.
+- Use `Agent` tool (not `invoke_subagent`) for top-level swarm dispatch — `invoke_subagent` is for depth-2 calls inside a worker agent.
+- After all complete, run synthesis: collect outputs, detect conflicts, resolve.
 
 ## Depth Limit
 

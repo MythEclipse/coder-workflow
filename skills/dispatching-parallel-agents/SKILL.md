@@ -5,9 +5,17 @@ description: Instructs Claude Code to ALWAYS decompose tasks into parallel subag
 
 # Parallel Subagents — Always On
 
-## Core Directive
+## Core Directive — 1 Task = 1 Subagent
 
-Token cost is not a constraint. Speed and parallelism are the priority. Whenever a task can be split into independent units of work, spawn multiple subagents in parallel using the Task tool. Do NOT work sequentially unless tasks have hard dependencies on each other.
+Token cost is not a constraint. **If you have N independent tasks, you MUST spawn N subagents — one per task.** Do NOT give multiple tasks to a single agent. Do NOT execute tasks sequentially inside one agent. Each task gets its own dedicated subagent.
+
+This is the fundamental rule: **parallelism = multiple subagents, not multiple tasks in one agent.**
+
+```
+✅ CORRECT: 10 tasks → 10 subagents (each runs independently)
+❌ WRONG:   10 tasks → 1 subagent with 10 steps (sequential bottleneck)
+❌ WRONG:   10 tasks → main agent does them all (defeats parallelism)
+```
 
 ## When to Parallelize (default: always)
 
@@ -17,35 +25,31 @@ Split into parallel subagents for ANY of these patterns:
 - **Code + tests + docs**: Implement feature, write tests, update docs — all at once
 - **Multi-directory exploration**: Explore frontend/, backend/, infra/ simultaneously
 - **Review + fix**: Code review agent + fix agent run together
+- **Multiple bugs to fix**: 5 bugs → 5 subagents, one per bug
 - **Multiple competitors / items**: Research 5 libs in parallel, one agent each
 
-## How to Spawn Parallel Subagents
+## How to Spawn the Swarm
 
-### Basic parallel spawn
-When the user gives a task, immediately decompose and spawn:
+### Orchestrator-level (main session)
+Use the `Agent` tool with `run_in_background: true` for each task:
+
 ```
-I'll break this into parallel tasks:
-
-- Task 1: [description] → subagent A
-- Task 2: [description] → subagent B  
-- Task 3: [description] → subagent C
-
-Starting all three simultaneously...
+Agent 1: "Implement User Repository"           → code-implementer (background)
+Agent 2: "Implement Auth Service"               → code-implementer (background)
+Agent 3: "Write tests for User module"          → test-engineer (background)
+Agent 4: "Update API docs for User endpoints"   → docs-engineer (background)
 ```
 
-### Explicit Task tool usage
-Use the Task tool to spawn agents. Example prompt structure:
-```
-"Use the Task tool to spawn N subagents in parallel.
-Agent 1: [specific task]. Agent 2: [specific task].
-Start all simultaneously. Synthesize results when done."
-```
+Start ALL simultaneously. Do not wait between spawns. Use `run_in_background: true` for each.
 
-## Predefined Agent Roles
+### Subagent-level (inside a worker)
+A subagent that needs help from another specialist uses `invoke_subagent` and **waits** for the result. This is for depth-2 delegation, NOT for spawning parallel work.
 
-Use these specialist roles when relevant — run them in parallel:
+### Predefined Agent Roles
+
+Use these specialist roles when relevant — each role handles **exactly 1 task**:
 - **explorer** — reads and maps codebase structure, finds relevant files
-- **implementer** — writes or edits code
+- **implementer** — writes or edits code (1 task per implementer)
 - **test-writer** — writes unit/integration tests for changed code
 - **docs-updater** — updates README, inline docs, or API docs
 - **reviewer** — reviews code for quality, bugs, security issues
@@ -55,47 +59,53 @@ Use these specialist roles when relevant — run them in parallel:
 
 Only serialize when there is a hard data dependency:
 
-✅ **Parallelize:**
-- Reading different files
-- Writing to different files
+✅ **Fully parallel (spawn all at once):**
+- Writing to entirely different files/modules
 - Independent research tasks
-- Tests + docs (after implementation is scoped)
+- Reading different files
+- Tests + docs (after implementation spec is known)
 
-❌ **Must serialize:**
-- Agent B needs Agent A's output as input
-- Two agents writing to the same file simultaneously
+✅ **Parallel with FILE_MANIFEST conflict detection:**
+- Two agents may touch the same file → Each declares FILE_MANIFEST upfront
+- Orchestrator collects manifests BEFORE spawning to detect conflicts
+- If no overlap in write targets → spawn in parallel
 
-When in doubt → parallelize first, merge results after.
+❌ **Must serialize (spawn sequentially):**
+- Agent B literally needs Agent A's output as its starting point
+- Writing to the same file (merge conflicts expected)
 
-## Default Decomposition Patterns
+When in doubt → parallelize with FILE_MANIFEST pre-check first. Only serialize when proven necessary.
+
+## Default Decomposition → Swarm Patterns
 
 - **"Explore this codebase"**
-  Spawn one agent per top-level directory or concern:
+  Swarm: one agent per directory:
   - Agent 1: explore src/auth/
   - Agent 2: explore src/api/
   - Agent 3: explore src/db/
   - Agent 4: explore tests/
-- **"Implement feature X"**
-  - Agent 1: implement the feature
-  - Agent 2: write tests (based on spec, not waiting for Agent 1)
-  - Agent 3: update docs/changelog
+- **"Implement feature X across modules"**
+  Swarm: one implementer per module:
+  - Agent 1: implement user module
+  - Agent 2: implement order module
+  - Agent 3: implement payment module
+  - Agent 4: write tests (parallel, based on spec)
+  - Agent 5: update docs
 - **"Fix bugs in multiple files"**
-  - One agent per file or per bug — all in parallel
+  Swarm: one agent per bug — all in parallel
 - **"Research topic X"**
-  - Agent 1: search recent docs/articles
-  - Agent 2: explore existing codebase for related patterns
-  - Agent 3: check for prior art / similar implementations
+  Swarm: one agent per search angle
 
 ## Synthesis
 
 After all subagents complete:
-1. Collect all summaries
-2. Identify conflicts or overlaps
-3. Present unified result to user
-4. Ask if further parallel work is needed
+1. Collect all outputs
+2. Identify conflicts or overlaps (use FILE_MANIFEST to cross-check)
+3. Resolve any merge conflicts
+4. Present unified result to user
 
 ## Reminder
-Never say "I'll do this one at a time." Always ask: can this be parallelized? If yes → spawn subagents. This is the default behavior, not the exception.
+Never say "I'll do this one at a time." Never batch tasks into a single agent. **N tasks = N subagents.** This is the default behavior, not the exception.
 
 
 ---
