@@ -62,6 +62,7 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | `/doctor` | `Explore` | Dev environment and project health check |
 | `/stats` | `Explore` | Codebase statistics (LOC, languages, trends) |
 | `/api-contract` | `Explore` | Compare OpenAPI specs for breaking changes |
+| `/think` | Custom MCP | Structured sequential reasoning with branching & revision |
 
 ## Agent Coordination
 

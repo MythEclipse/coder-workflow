@@ -42,6 +42,7 @@ await build({
     "test/parsers/python.test.ts",
     "test/parsers/go.test.ts",
     "test/parsers/rust.test.ts",
+    "test/sequential-thinking.test.ts",
   ],
   outdir: "dist/test",
   packages: "external",

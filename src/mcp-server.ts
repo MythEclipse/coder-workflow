@@ -24,8 +24,14 @@ import { searchCodebase } from "./search.js";
 import { loadSettings } from "./settings.js";
 import type { CodeGraph } from "./types.js";
 import { openGraphUi } from "./ui.js";
+import { SequentialThinkingEngine } from "./sequential-thinking.js";
 
 let _cachedGraph: CodeGraph | null = null;
+
+// ─── Sequential Thinking Engine (session-level singleton) ─────────────────
+const _thinkingEngine = new SequentialThinkingEngine({
+  stateDir: join(cwd(), ".claude", "sequential-thinking"),
+});
 let _cachedGraphMtime = 0;
 
 // ─── RW Lock (prevents cache serving while scan/update is in-flight) ───
@@ -1167,6 +1173,70 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: { root: { type: "string" } },
       },
     },
+
+    // ─── Sequential Thinking ────────────────────────────────────────────────
+    {
+      name: "sequential_thinking",
+      description: `A detailed tool for dynamic and reflective problem-solving through structured thoughts.
+This tool helps analyze problems through a flexible thinking process that can adapt and evolve.
+Each thought can build on, question, or revise previous insights as understanding deepens.
+
+When to use this tool:
+- Breaking down complex problems into steps
+- Planning and design with room for revision
+- Analysis that might need course correction
+- Problems where the full scope might not be clear initially
+- Problems that require a multi-step solution
+- Tasks that need to maintain context over multiple steps
+- Situations where irrelevant information needs to be filtered out
+
+Key features:
+- You can adjust total_thoughts up or down as you progress
+- You can question or revise previous thoughts
+- You can add more thoughts even after reaching what seemed like the end
+- You can express uncertainty and explore alternative approaches
+- Not every thought needs to build linearly - you can branch or backtrack
+- Generates a solution hypothesis
+- Verifies the hypothesis based on the Chain of Thought steps
+- Repeats the process until satisfied
+- Provides a correct answer`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          thought: { type: "string", description: "Your current thinking step" },
+          nextThoughtNeeded: { type: "boolean", description: "Whether another thought step is needed" },
+          thoughtNumber: { type: "number", description: "Current thought number (1-based)" },
+          totalThoughts: { type: "number", description: "Estimated total thoughts needed" },
+          isRevision: { type: "boolean", description: "Whether this revises previous thinking" },
+          revisesThought: { type: "number", description: "Which thought is being reconsidered" },
+          branchFromThought: { type: "number", description: "Branching point thought number" },
+          branchId: { type: "string", description: "Branch identifier" },
+          needsMoreThoughts: { type: "boolean", description: "If more thoughts are needed" },
+        },
+        required: ["thought", "nextThoughtNeeded", "thoughtNumber", "totalThoughts"],
+      },
+    },
+    {
+      name: "sequential_thinking_export",
+      description: "Export the current sequential thinking session as Markdown.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sessionId: { type: "string", description: "Optional session ID to load. Defaults to current session." },
+          format: { type: "string", enum: ["markdown", "tree", "mermaid", "summary"], description: "Export format" },
+        },
+      },
+    },
+    {
+      name: "sequential_thinking_list",
+      description: "List all persisted sequential thinking sessions.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "sequential_thinking_reset",
+      description: "Reset (clear) the current sequential thinking session.",
+      inputSchema: { type: "object", properties: {} },
+    },
   ],
 }));
 
@@ -1788,10 +1858,92 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text({ current: { ...current, formatted: formatStats(current) }, history, comparison });
     }
 
+    // ─── Sequential Thinking Handlers ─────────────────────────────────────
+    case "sequential_thinking": {
+      const thought = stringArg(args?.thought, "thought");
+      const nextThoughtNeeded = args?.nextThoughtNeeded === true;
+      const thoughtNumber = Number(args?.thoughtNumber) || 1;
+      const totalThoughts = Number(args?.totalThoughts) || 1;
+
+      const result = _thinkingEngine.processThought({
+        thought,
+        nextThoughtNeeded,
+        thoughtNumber,
+        totalThoughts,
+        isRevision: args?.isRevision === true || undefined,
+        revisesThought: args?.revisesThought ? Number(args.revisesThought) : undefined,
+        branchFromThought: args?.branchFromThought ? Number(args.branchFromThought) : undefined,
+        branchId: args?.branchId as string | undefined,
+        needsMoreThoughts: args?.needsMoreThoughts === true || undefined,
+      });
+
+      if (result.isError) return result;
+
+      return {
+        content: result.content,
+      };
+    }
+    case "sequential_thinking_export": {
+      const format = (args?.format as string) ?? "markdown";
+      let sessionId = args?.sessionId as string | undefined;
+
+      if (format === "summary") {
+        return text({ summary: _thinkingEngine.getSummary() });
+      }
+
+      // If sessionId is provided, load that session's thoughts via the engine
+      if (sessionId && sessionId !== _thinkingEngine.getSessionId()) {
+        const loaded = SequentialThinkingEngine.loadSession(sessionId);
+        if (!loaded) throw new Error(`Session not found: ${sessionId}`);
+        // Create a temporary engine for the loaded session
+        const tempEngine = new SequentialThinkingEngine({ disableLogging: true });
+        for (const t of loaded.thoughtHistory) {
+          tempEngine.processThought(t);
+        }
+        return text(exportFromEngine(tempEngine, format));
+      }
+
+      return text(exportFromEngine(_thinkingEngine, format));
+    }
+    case "sequential_thinking_list": {
+      const sessions = SequentialThinkingEngine.listSessions(
+        join(cwd(), ".claude", "sequential-thinking"),
+      );
+      return text({ sessions, count: sessions.length });
+    }
+    case "sequential_thinking_reset": {
+      const result = _thinkingEngine.reset();
+      return text({
+        reset: true,
+        previousThoughts: result.previousThoughtCount,
+        message: "Reset complete. New sequential_thinking calls start fresh.",
+      });
+    }
+
     default:
       throw new Error(`Unknown tool: ${request.params.name}`);
   }
 });
+
+// ─── Sequential Thinking Export Helper ────────────────────────────────────────
+
+function exportFromEngine(
+  engine: SequentialThinkingEngine,
+  format: string,
+): Record<string, unknown> {
+  switch (format) {
+    case "markdown":
+      return { format: "markdown", content: engine.exportMarkdown() };
+    case "tree": {
+      const tree = engine.exportBranchTree();
+      return { format: "ascii", content: tree.ascii };
+    }
+    case "mermaid":
+      return { format: "mermaid", content: engine.exportBranchTree().mermaid };
+    default:
+      return { format: "markdown", content: engine.exportMarkdown() };
+  }
+}
 
 await server.connect(new StdioServerTransport());
 

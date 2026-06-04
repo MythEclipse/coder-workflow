@@ -987,6 +987,31 @@ switch (command) {
   }
 
   // ─── Dashboard ────────────────────────────────────────────────────
+  // ─── Sequential Thinking ──────────────────────────────────────────
+  case "think": {
+    try {
+      const thoughtText = args.join(" ");
+      if (!thoughtText) {
+        console.error("Usage: coder-workflow think <your thought>");
+        process.exitCode = 1;
+        break;
+      }
+      const { SequentialThinkingEngine } = await import("./sequential-thinking.js");
+      const engine = new SequentialThinkingEngine();
+      const result = engine.processThought({
+        thought: thoughtText,
+        thoughtNumber: 1,
+        totalThoughts: 1,
+        nextThoughtNeeded: false,
+      });
+      const parsed = JSON.parse(result.content[0].text);
+      console.log(JSON.stringify(parsed, null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
   case "dashboard": {
     try {
       startDashboard();
@@ -1063,6 +1088,7 @@ EXAMPLES:
   coder-workflow decompress <ccr-id>                  # Headroom CCR
   coder-workflow learn-analyze --apply                # Headroom Learn
   coder-workflow memory-store --name <slug> ...       # Cross-Agent Memory
+	  coder-workflow think <thought>                      # Quick sequential thought
 `);
     break;
   default:

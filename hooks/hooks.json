@@ -303,6 +303,17 @@
         ]
       },
       {
+        "matcher": "mcp__codegraph__sequential_thinking.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); mkdir -p .claude 2>/dev/null || true; printf \"[%s] SEQUENTIAL_THINKING: call\\n\" \"$(date -u +%T)\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
         "matcher": "Agent",
         "hooks": [
           {
