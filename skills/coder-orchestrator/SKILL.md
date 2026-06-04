@@ -29,6 +29,35 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 | Deploy/setup | CI/CD, Docker, VPS |
 | Explore | Codebase exploration, session start |
 | Cross-Repo | Multi-workspace/microservice changes |
+| **Secrets scan** | Find hardcoded API keys, tokens, passwords |
+| **Vulnerability scan** | Check deps for known CVEs, generate SBOM |
+| **Codebase Q&A** | "How does X work?", "Where is Y defined?" |
+| **Doc generation** | Generate CONTRIBUTING.md, ARCHITECTURE.md |
+| **Sprint/report** | Sprint report, team metrics, benchmark |
+| **ADR** | Architecture Decision Records (create/list/graph) |
+| **PR/Changelog** | Generate PR description, changelog, release |
+| **Dead code** | Find unused exports, orphans, uncalled functions |
+| **Semantic search** | Search code by meaning (not just regex) |
+
+## Headroom Feature-Agent Mapping
+
+| Feature | CLI command | MCP tool | Best Agent |
+|---|---|---|---|
+| Dead Code | `dead-code` | `find_dead_code` | `architecture-auditor` |
+| Semantic Search | `semantic-search` | `semantic_search` | `Explore` (via `explorer` agent) |
+| PR Description | `pr` | `generate_pr` | `docs-engineer` |
+| Changelog | `changelog` | `generate_changelog` | `docs-engineer` |
+| Release | `release` | `create_release` | `devops-engineer` |
+| Secrets Scan | `secrets` | `scan_secrets` | `code-reviewer` |
+| ADR | `adr` | `adr_new/list/get/graph` | `docs-engineer` |
+| Vuln Scan | `vuln-scan` | `scan_vulnerabilities` | `devops-engineer` |
+| SBOM | `sbom` | `generate_sbom` | `devops-engineer` |
+| Codebase QA | `qa` | `answer_question` | `codebase-qa-agent` |
+| Onboarding Docs | `onboarding-docs` | `generate_onboarding_docs` | `docs-engineer` |
+| Sprint Report | `sprint` | `sprint_report` | `devops-engineer` |
+| Team Metrics | `team-metrics` | `team_metrics` | `devops-engineer` |
+| Auto-Merge | `pr-check` | `pr_auto_merge` | `devops-engineer` |
+| Benchmark | `benchmark` | `record_benchmark` | `devops-engineer` |
 
 ## Workflow Sequence
 
