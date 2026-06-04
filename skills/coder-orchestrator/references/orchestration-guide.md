@@ -5,14 +5,14 @@
 Every standard coding session follows this parallel-first flow:
 
 ```
-Request → workflow-planner (Decompose into N tasks) → Swarm Dispatch (N subagents) → Synthesis → Verification → Bug Fix Phase
+Request → coder-workflow:workflow-planner (Decompose into N tasks) → Swarm Dispatch (N subagents) → Synthesis → Verification → Bug Fix Phase
 ```
 
 The key architectural shift: **1 task = 1 subagent**. After planning produces N atomic tasks, the orchestrator spawns N subagents simultaneously — each receiving exactly one task with clear boundaries. No single agent handles multiple tasks.
 
 ### Flow Steps
 
-1. **Decompose** → `workflow-planner` breaks request into N Atomic Committable Units
+1. **Decompose** → `coder-workflow:workflow-planner` breaks request into N Atomic Committable Units
 2. **Swarm** → Orchestrator spawns N subagents using `Agent` tool with `run_in_background: true`
    - Each subagent declares FILE_MANIFEST before execution
    - Orchestrator cross-checks manifests for write conflicts before dispatch
@@ -21,11 +21,11 @@ The key architectural shift: **1 task = 1 subagent**. After planning produces N 
 5. **Verify** → Targeted verification on changed files
 6. **Bug Fix** → Fix discovered bugs (each bug = 1 subagent task)
 
-*Architecture-auditor and test-engineer are invoked as swarm members when the decomposition calls for them.*
+*Architecture-auditor and coder-workflow:test-engineer are invoked as swarm members when the decomposition calls for them.*
 
 ## Agent Input Templates
 
-### workflow-planner
+### coder-workflow:workflow-planner
 
 ```
 Decompose this request into Atomic Committable Units:
@@ -35,7 +35,7 @@ Decompose this request into Atomic Committable Units:
 - Expected output: [what success looks like]
 ```
 
-### architecture-auditor (Only when requested)
+### coder-workflow:architecture-auditor (Only when requested)
 
 ```
 Audit this scope for layer violations:

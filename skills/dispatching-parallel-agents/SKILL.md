@@ -34,10 +34,10 @@ Split into parallel subagents for ANY of these patterns:
 Use the `Agent` tool with `run_in_background: true` for each task:
 
 ```
-Agent 1: "Implement User Repository"           → code-implementer (background)
-Agent 2: "Implement Auth Service"               → code-implementer (background)
-Agent 3: "Write tests for User module"          → test-engineer (background)
-Agent 4: "Update API docs for User endpoints"   → docs-engineer (background)
+Agent 1: "Implement User Repository"           → coder-workflow:code-implementer (background)
+Agent 2: "Implement Auth Service"               → coder-workflow:code-implementer (background)
+Agent 3: "Write tests for User module"          → coder-workflow:test-engineer (background)
+Agent 4: "Update API docs for User endpoints"   → coder-workflow:docs-engineer (background)
 ```
 
 Start ALL simultaneously. Do not wait between spawns. Use `run_in_background: true` for each.

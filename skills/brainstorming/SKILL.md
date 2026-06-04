@@ -28,7 +28,7 @@ You MUST create a task for each of these items and complete them in order:
 5. **Write design doc** — save to `docs/specs/YYYY-MM-DD-<topic>-design.md` and commit
 6. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope
 7. **User reviews written spec** — ask user to review the spec file before proceeding
-8. **Transition to planning** — invoke `workflow-planner` to create implementation plan
+8. **Transition to planning** — invoke `coder-workflow:workflow-planner` to create implementation plan
 
 ## Process Flow
 
@@ -42,7 +42,7 @@ digraph brainstorming {
     "Write design doc" [shape=box];
     "Spec self-review\n(fix inline)" [shape=box];
     "User reviews spec?" [shape=diamond];
-    "Invoke workflow-planner skill" [shape=doublecircle];
+    "Invoke coder-workflow:workflow-planner skill" [shape=doublecircle];
 
     "Explore project context" -> "Ask clarifying questions";
     "Ask clarifying questions" -> "Propose 2-3 approaches";
@@ -53,11 +53,11 @@ digraph brainstorming {
     "Write design doc" -> "Spec self-review\n(fix inline)";
     "Spec self-review\n(fix inline)" -> "User reviews spec?";
     "User reviews spec?" -> "Write design doc" [label="changes requested"];
-    "User reviews spec?" -> "Invoke workflow-planner skill" [label="approved"];
+    "User reviews spec?" -> "Invoke coder-workflow:workflow-planner skill" [label="approved"];
 }
 ```
 
-**The terminal state is invoking workflow-planner.** Do NOT invoke `coder` or any other implementation skill. The ONLY step after brainstorming is `workflow-planner`.
+**The terminal state is invoking coder-workflow:workflow-planner.** Do NOT invoke `coder` or any other implementation skill. The ONLY step after brainstorming is `coder-workflow:workflow-planner`.
 
 ## The Process
 
@@ -97,7 +97,7 @@ Ask the user to review the written spec before proceeding:
 > "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan."
 
 **Implementation:**
-- Invoke the `workflow-planner` skill to create a detailed implementation plan.
+- Invoke the `coder-workflow:workflow-planner` skill to create a detailed implementation plan.
 
 ## Key Principles
 - **One question at a time** - Don't overwhelm with multiple questions

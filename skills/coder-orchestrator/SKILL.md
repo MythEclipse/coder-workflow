@@ -56,45 +56,45 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 | Feature | CLI command | MCP tool | Best Agent |
 |---|---|---|---|
-| Dead Code | `dead-code` | `find_dead_code` | `architecture-auditor` |
+| Dead Code | `dead-code` | `find_dead_code` | `coder-workflow:architecture-auditor` |
 | Semantic Search | `semantic-search` | `semantic_search` | `Explore` (via `explorer` agent) |
-| PR Description | `pr` | `generate_pr` | `docs-engineer` |
-| Changelog | `changelog` | `generate_changelog` | `docs-engineer` |
-| Release | `release` | `create_release` | `devops-engineer` |
-| Secrets Scan | `secrets` | `scan_secrets` | `code-reviewer` |
-| ADR | `adr` | `adr_new/list/get/graph` | `docs-engineer` |
-| Vuln Scan | `vuln-scan` | `scan_vulnerabilities` | `devops-engineer` |
-| SBOM | `sbom` | `generate_sbom` | `devops-engineer` |
-| Codebase QA | `qa` | `answer_question` | `codebase-qa-agent` |
-| Onboarding Docs | `onboarding-docs` | `generate_onboarding_docs` | `docs-engineer` |
-| Sprint Report | `sprint` | `sprint_report` | `devops-engineer` |
-| Team Metrics | `team-metrics` | `team_metrics` | `devops-engineer` |
-| Auto-Merge | `pr-check` | `pr_auto_merge` | `devops-engineer` |
-| Benchmark | `benchmark` | `record_benchmark` | `devops-engineer` |
+| PR Description | `pr` | `generate_pr` | `coder-workflow:docs-engineer` |
+| Changelog | `changelog` | `generate_changelog` | `coder-workflow:docs-engineer` |
+| Release | `release` | `create_release` | `coder-workflow:devops-engineer` |
+| Secrets Scan | `secrets` | `scan_secrets` | `coder-workflow:code-reviewer` |
+| ADR | `adr` | `adr_new/list/get/graph` | `coder-workflow:docs-engineer` |
+| Vuln Scan | `vuln-scan` | `scan_vulnerabilities` | `coder-workflow:devops-engineer` |
+| SBOM | `sbom` | `generate_sbom` | `coder-workflow:devops-engineer` |
+| Codebase QA | `qa` | `answer_question` | `coder-workflow:codebase-qa-agent` |
+| Onboarding Docs | `onboarding-docs` | `generate_onboarding_docs` | `coder-workflow:docs-engineer` |
+| Sprint Report | `sprint` | `sprint_report` | `coder-workflow:devops-engineer` |
+| Team Metrics | `team-metrics` | `team_metrics` | `coder-workflow:devops-engineer` |
+| Auto-Merge | `pr-check` | `pr_auto_merge` | `coder-workflow:devops-engineer` |
+| Benchmark | `benchmark` | `record_benchmark` | `coder-workflow:devops-engineer` |
 | API Contract | `api-contract` | `compare_api_specs` | `Explore` |
 | Config Validation | `validate` | `validate_env_file` | `Explore` |
 | License Check | `licenses` | `check_licenses` | `Explore` |
 | Code Complexity | `complexity` | `analyze_complexity` | `Explore` |
-| Log Analysis | `logs` | `analyze_logs` | `debugging-engineer` |
-| Coverage | `coverage` | `aggregate_coverage` | `test-engineer` |
+| Log Analysis | `logs` | `analyze_logs` | `coder-workflow:debugging-engineer` |
+| Coverage | `coverage` | `aggregate_coverage` | `coder-workflow:test-engineer` |
 | Git Hooks | `hooks` | `scaffold_git_hooks` | `Explore` |
-| TODO Tracker | `todos` | `scan_todos` | `todo-checker` |
+| TODO Tracker | `todos` | `scan_todos` | `coder-workflow:todo-checker` |
 | Performance | `perf` | `analyze_bundle` | `Explore` |
 | i18n Helper | `i18n` | `extract_i18n_strings` | `Explore` |
-| DB Schema | `db-schema` | `parse_prisma_schema` | `db-architect` |
+| DB Schema | `db-schema` | `parse_prisma_schema` | `coder-workflow:db-architect` |
 | Doctor | `doctor` | `doctor` | `Explore` |
 | Codebase Stats | `stats` | `codebase_stats` | `Explore` |
 
 ## Workflow Sequence
 
-1. **Fast-Path**: Trivial (1-2 line fix) → `code-implementer` directly
-2. **Memory**: Complex/recurring → `memory-librarian`
-3. **Multi-Repo**: Cross-service → `multi-repo-orchestrator`
+1. **Fast-Path**: Trivial (1-2 line fix) → `coder-workflow:code-implementer` directly
+2. **Memory**: Complex/recurring → `coder-workflow:memory-librarian`
+3. **Multi-Repo**: Cross-service → `coder-workflow:multi-repo-orchestrator`
 4. **Brainstorming**: Underspecified → `brainstorming` skill
-5. **Planning**: Full decomposition via `workflow-planner` with parallel recon
+5. **Planning**: Full decomposition via `coder-workflow:workflow-planner` with parallel recon
 6. **Swarm Dispatch (CRITICAL)**: After planning, orchestrator MUST spawn **1 subagent per task** using the `Agent` tool with `run_in_background: true`. Do NOT send multiple tasks to a single agent. If planner produced 10 tasks, spawn 10 subagents simultaneously. Each subagent receives exactly 1 task with clear FILE_MANIFEST boundaries.
 7. **Synthesis & Conflict Resolution**: Wait for all subagents to complete. Identify overlaps/conflicts. Resolve them.
-8. **Review**: `code-reviewer` or `architecture-auditor` as needed
+8. **Review**: `coder-workflow:code-reviewer` or `coder-workflow:architecture-auditor` as needed
 9. **Bug Fix Phase**: Fix discovered bugs using Impact Radius Protocol
 
 ### Swarm Dispatch Rules

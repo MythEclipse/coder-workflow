@@ -25,7 +25,7 @@ Every task you produce must be **independently executable by a single subagent**
 
 1. **Calculate Impact Radius:** Use `mcp__codegraph__analyze_impact` to determine the blast radius.
 2. **Identify Independent Domains:** Find strictly non-overlapping concerns (e.g., frontend vs backend, docs vs tests).
-3. **Assign Agent Roles:** For each task, specify which agent type should handle it: `code-implementer`, `test-engineer`, `docs-engineer`, `db-architect`, `ui-engineer`, `code-reviewer`, `Explore`, etc. The orchestrator uses this to pick the right agent type.
+3. **Assign Agent Roles:** For each task, specify which agent type should handle it: `coder-workflow:code-implementer`, `coder-workflow:test-engineer`, `coder-workflow:docs-engineer`, `coder-workflow:db-architect`, `coder-workflow:ui-engineer`, `coder-workflow:code-reviewer`, `Explore`, etc. The orchestrator uses this to pick the right agent type.
 4. **Wave Ordering:** Group tasks into waves. Wave 1 = fully parallel (no dependencies on each other). Wave 2+ = tasks that depend on Wave 1 completing. Within a wave, ALL tasks run simultaneously as separate subagents.
 
 ## Process
@@ -44,12 +44,12 @@ Break the work into **N independent tasks**, each designed for 1 subagent. Use p
 
 | Task Example | Agent Role | Notes |
 |---|---|---|
-| "Build User Schema & Repository" | `code-implementer` | Isolated module |
-| "Build User Service layer (CRUD)" | `code-implementer` | Depends on schema |
-| "Build User Controller & HTTP Routes" | `code-implementer` | Depends on service |
-| "Write tests for User module" | `test-engineer` | Can run in parallel |
-| "Update OpenAPI docs" | `docs-engineer` | Can run in parallel |
-| "Review User module" | `code-reviewer` | Wave 2+ (needs code) |
+| "Build User Schema & Repository" | `coder-workflow:code-implementer` | Isolated module |
+| "Build User Service layer (CRUD)" | `coder-workflow:code-implementer` | Depends on schema |
+| "Build User Controller & HTTP Routes" | `coder-workflow:code-implementer` | Depends on service |
+| "Write tests for User module" | `coder-workflow:test-engineer` | Can run in parallel |
+| "Update OpenAPI docs" | `coder-workflow:docs-engineer` | Can run in parallel |
+| "Review User module" | `coder-workflow:code-reviewer` | Wave 2+ (needs code) |
 
 Each task MUST be:
 - **Self-contained**: one subagent can complete it without help

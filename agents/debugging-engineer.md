@@ -50,7 +50,7 @@ You MUST complete each phase before proceeding to the next.
 
 ### Phase 4: Implementation
 **Fix the root cause, not the symptom:**
-1. **Create Failing Test Case**: Simplest possible reproduction. MUST have before fixing. Dispatch `test-engineer` subagent.
+1. **Create Failing Test Case**: Simplest possible reproduction. MUST have before fixing. Dispatch `coder-workflow:test-engineer` subagent.
 2. **Implement Single Fix**: ONE change at a time. No "while I'm here" improvements.
 3. **Verify Fix**: Test passes now? Issue actually resolved?
 4. **If Fix Doesn't Work**: STOP. If < 3 attempts: Return to Phase 1. If ≥ 3 attempts: STOP and question the architecture.
