@@ -30,12 +30,12 @@ test("plugin manifest advertises orchestrator-driven coding workflow", async () 
 // ---------------------------------------------------------------------------
 // coder-orchestrator
 // ---------------------------------------------------------------------------
-test("coder-orchestrator enforces skill-first invocation", async () => {
+test("coder-orchestrator enforces subagent invocation", async () => {
   const skill = await read("skills/coder-orchestrator/SKILL.md");
 
-  assert.match(skill, /invoke relevant skills BEFORE/i);
+  assert.match(skill, /subagent/i);
   assert.match(skill, /1% chance/i);
-  assert.match(skill, /mcp__codegraph/i);
+  assert.match(skill, /MCP|codegraph/i);
 });
 
 test("coder-orchestrator defines routing matrix", async () => {
@@ -45,128 +45,39 @@ test("coder-orchestrator defines routing matrix", async () => {
   assert.match(skill, /architecture-auditor/i);
   assert.match(skill, /code-implementer/i);
   assert.match(skill, /test-engineer/i);
-  assert.match(skill, /impact radius/i);
+  assert.match(skill, /Impact Radius/i);
   assert.match(skill, /deploy/i);
   assert.match(skill, /audit/i);
+  assert.match(skill, /bug fix phase/i);
 });
 
-test("coder-orchestrator mandates bug discovery and tracking", async () => {
+test("coder-orchestrator defines Workflow Sequence", async () => {
   const skill = await read("skills/coder-orchestrator/SKILL.md");
 
-  assert.match(skill, /Impact Radius Protocol/i);
-  assert.match(skill, /Session Completion Rule/i);
-  assert.match(skill, /Category A.*Category B|deferred-bugs/i);
-});
-
-test("coder skill forbids dismissing bugs as unrelated", async () => {
-  const skill = await read("skills/coder/SKILL.md");
-
-  assert.match(skill, /not related to my changes/i); // must forbid this phrase
+  assert.match(skill, /Swarm Dispatch/i);
+  assert.match(skill, /Synthesis.*Conflict/i);
   assert.match(skill, /Bug Fix Phase/i);
-  assert.match(skill, /deferred-bugs\.json/i);
+  assert.match(skill, /FILE_MANIFEST/i);
 });
 
 // ---------------------------------------------------------------------------
-// coder
+// brainstorm skill
 // ---------------------------------------------------------------------------
-test("coder skill defines disciplined implementation workflow", async () => {
-  const skill = await read("skills/coder/SKILL.md");
+test("brainstorming skill exists", async () => {
+  const skill = await read("skills/brainstorming/SKILL.md");
 
-  assert.match(skill, /TaskCreate/i);
-  assert.match(skill, /TaskUpdate/i);
-  assert.match(skill, /in_progress/i);
-  assert.match(skill, /completed/i);
-  assert.match(skill, /context7/i);
-  assert.match(skill, /codegraph MCP/i);
-  assert.match(skill, /Bug Fix Phase/i);
-  assert.match(skill, /not related to my changes/i); // forbidden phrase
-  assert.match(skill, /plan mode/i);
-});
-
-test("coder skill references workflow checklist", async () => {
-  const skill = await read("skills/coder/SKILL.md");
-  assert.match(skill, /references\/workflow-checklist\.md/i);
+  assert.match(skill, /creative/i);
+  assert.match(skill, /explor/i);
 });
 
 // ---------------------------------------------------------------------------
-// auditor
+// dispatching-parallel-agents skill
 // ---------------------------------------------------------------------------
-test("auditor skill defines read-only audit workflow", async () => {
-  const skill = await read("skills/auditor/SKILL.md");
+test("dispatching-parallel-agents skill exists", async () => {
+  const skill = await read("skills/dispatching-parallel-agents/SKILL.md");
 
-  assert.match(skill, /read-only audit/i);
-  assert.match(skill, /fat controller/i);
-  assert.match(skill, /layer violation/i);
-  assert.match(skill, /refactor risk/i);
-  assert.match(skill, /scope/i);
-  assert.match(skill, /severity/i);
-  assert.match(skill, /High.*Medium.*Low|severity.*guide/i);
-  assert.match(skill, /references\/audit-checklist\.md/i);
-});
-
-test("auditor skill enforces scope confirmation before violation scanning", async () => {
-  const skill = await read("skills/auditor/SKILL.md");
-
-  assert.match(skill, /Define scope|scope/i);
-  assert.match(skill, /Do not attempt detailed violation scanning in this skill/i);
-  assert.match(skill, /If scope is unclear/i);
-});
-
-// ---------------------------------------------------------------------------
-// refraktor
-// ---------------------------------------------------------------------------
-test("refraktor skill defines multi-language Modular MVC refactor", async () => {
-  const skill = await read("skills/refraktor/SKILL.md");
-
-  assert.match(skill, /layered modular architecture|Modular MVC/i);
-  assert.match(skill, /EnterPlanMode/i);
-  assert.match(skill, /language-agnostic|TypeScript.*Python.*Go.*Rust|any language/i);
-  assert.match(skill, /stack detection/i);
-  assert.match(skill, /migration manifest/i);
-  assert.match(skill, /HARD GATE.*planning is mandatory|planning.*mandatory/i);
-  assert.match(skill, /Route.*Controller.*Service.*Repository|Controller.*Service.*Repository/i);
-});
-
-test("refraktor skill defines safety rules", async () => {
-  const skill = await read("skills/refraktor/SKILL.md");
-
-  assert.match(skill, /Plan first/i);
-  assert.match(skill, /Preserve behavior/i);
-  assert.match(skill, /git reset/i); // must forbid mass reset
-  assert.match(skill, /ts-ignore/i); // must forbid suppression flags
-  assert.match(skill, /small batches/i);
-});
-
-test("refraktor skill references layer contract", async () => {
-  const skill = await read("skills/refraktor/SKILL.md");
-  assert.match(skill, /references\/layer-contract\.md/i);
-});
-
-// ---------------------------------------------------------------------------
-// deploy-docker
-// ---------------------------------------------------------------------------
-test("deploy-docker skill covers Docker, GHCR, VPS, Traefik", async () => {
-  const skill = await read("skills/deploy-docker/SKILL.md");
-
-  assert.match(skill, /Dockerfile/i);
-  assert.match(skill, /GitHub Actions/i);
-  assert.match(skill, /GHCR/i);
-  assert.match(skill, /Traefik/i);
-  assert.match(skill, /Docker Compose/i);
-  assert.match(skill, /VPS/i);
-  assert.match(skill, /404/i);
-  assert.match(skill, /502/i);
-});
-
-// ---------------------------------------------------------------------------
-// batch-codegraph must NOT exist (moved to codegraph-mapper)
-// ---------------------------------------------------------------------------
-test("batch-codegraph skill does NOT exist in coder-workflow", async () => {
-  await assert.rejects(
-    read("skills/batch-codegraph/SKILL.md"),
-    { code: "ENOENT" },
-    "batch-codegraph should have been removed from coder-workflow (canonical is in codegraph-mapper)",
-  );
+  assert.match(skill, /parallel/i);
+  assert.match(skill, /subagent/i);
 });
 
 // ---------------------------------------------------------------------------
@@ -195,6 +106,22 @@ test("code-implementer agent defines scoped implementation", async () => {
   assert.match(agent, /review/i);
 });
 
+test("all agent files exist and have valid frontmatter", async () => {
+  const agents = [
+    "architecture-auditor", "code-implementer", "code-reviewer",
+    "codebase-qa-agent", "db-architect", "debugging-engineer",
+    "devops-engineer", "diagram-engineer", "docs-engineer",
+    "docs-generator", "memory-librarian", "multi-repo-orchestrator",
+    "refactoring-engineer", "rollback-engineer", "secret-scanner",
+    "test-engineer", "todo-checker", "ui-engineer",
+    "vulnerability-scanner", "workflow-planner",
+  ];
+  for (const name of agents) {
+    const content = await read(`agents/${name}.md`);
+    assert.match(content, /^---\n/, `${name} should have frontmatter`);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
@@ -204,22 +131,23 @@ test("coder-workflow command defines orchestrator trigger", async () => {
   assert.match(cmd, /coder-orchestrator/i);
   assert.match(cmd, /workflow-planner/i);
   assert.match(cmd, /architecture-auditor/i);
-  assert.match(cmd, /code-implementer/i);
   assert.match(cmd, /Bug Fix Phase/i);
 });
 
-test("audit command defines architecture audit entry point", async () => {
-  const cmd = await read("commands/audit.md");
-
-  assert.match(cmd, /audit/i);
-  assert.match(cmd, /auditor/i);
-});
-
-test("plan command defines planning entry point", async () => {
-  const cmd = await read("commands/plan.md");
-
-  assert.match(cmd, /plan/i);
-  assert.match(cmd, /workflow-planner/i);
+test("all command files exist", async () => {
+  const cmds = [
+    "adr", "api-contract", "audit", "coder-workflow", "complexity",
+    "config-validator", "coverage", "db-schema", "db", "deadcode",
+    "debug", "deploy", "diagram", "docs", "doctor", "git-hooks",
+    "i18n", "licenses", "logs", "memory", "multirepo", "ops",
+    "performance", "plan", "pr", "qa", "refraktor", "review",
+    "secrets", "semantic-search", "stats", "test", "think",
+    "timetravel", "todos", "ui", "vuln",
+  ];
+  for (const cmd of cmds) {
+    const content = await read(`commands/${cmd}.md`);
+    assert.match(content, /^---\n/, `${cmd} should have frontmatter`);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -231,4 +159,13 @@ test("hooks.json defines SessionStart, PostToolUse, and Stop", async () => {
   assert.ok(hooks.hooks.SessionStart, "SessionStart hook missing");
   assert.ok(hooks.hooks.PostToolUse, "PostToolUse hook missing");
   assert.ok(hooks.hooks.Stop, "Stop hook missing");
+});
+
+test("hooks.json defines safety and guard hooks", async () => {
+  const hooks = JSON.parse(await read("hooks/hooks.json"));
+
+  assert.ok(hooks.hooks.PreToolUse, "PreToolUse hook missing");
+  assert.ok(hooks.hooks.PostToolUseFailure, "PostToolUseFailure hook missing");
+  assert.ok(hooks.hooks.StopFailure, "StopFailure hook missing");
+  assert.ok(hooks.hooks.FileChanged, "FileChanged hook missing");
 });

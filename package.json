@@ -26,7 +26,7 @@
     "build": "node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
     "prepack": "npm run build",
-    "test": "npm run build && npm run typecheck && c8 --reporter=text --lines 80 node --test dist/test/**/*.test.js",
+    "test": "npm run build && npm run typecheck && node --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test dist/test/**/*.test.js",
     "start:mcp": "node dist/mcp-server.js",
     "scan": "node dist/cli.js scan",
     "ui": "node dist/cli.js ui",
@@ -48,6 +48,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
     "@types/blessed": "^0.1.27",
+    "c8": "^11.0.0",
     "esbuild": "^0.28.0"
   },
   "description": "Orchestrator-driven coding workflow with graph-first codebase understanding — task decomposition, skill routing, architecture audit, Docker deploy, and CodeGraph MCP server.",

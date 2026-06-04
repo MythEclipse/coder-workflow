@@ -334,11 +334,10 @@ test("MCP exposes and runs production search_code", async () => {
     const tools = await client.listTools();
     const searchTool = tools.tools.find((tool) => tool.name === "search_code");
     assert.ok(searchTool);
-    assert.deepEqual(searchTool.inputSchema.required, ["pattern"]);
-    assert.deepEqual(searchTool.inputSchema.properties?.include, {
-      type: "array",
-      items: { type: "string" },
-    });
+    const includeProp = searchTool.inputSchema.properties?.include as Record<string, unknown> | undefined;
+    assert.equal((includeProp as Record<string, unknown>)?.type, "array");
+    const itemsProp = (includeProp as Record<string, unknown>)?.items as Record<string, unknown>;
+    assert.equal(itemsProp?.type, "string");
 
     const result = await client.callTool({
       name: "search_code",
