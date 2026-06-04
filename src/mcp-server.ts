@@ -176,6 +176,19 @@ import { createADR, listADRs, getADR, updateADRStatus, generateADRGraph, formatA
 import { scanVulnerabilities, generateSBOM, formatVulnReport } from "./vuln-sbom.js";
 import { answerQuestion, generateOnboardingDocs, formatQAResult } from "./codebase-qa.js";
 import { generateSprintReport, getTeamMetrics, checkPRAutoMerge, recordBenchmark, getBenchmarkHistory, detectBenchmarkRegression } from "./tier3.js";
+import { compareOpenApiSpecs, diffOpenApiFromGit, formatContractReport } from "./api-contract.js";
+import { validateEnvFile, validateJsonFile, detectMissingEnvVars, formatValidationReport } from "./config-validator.js";
+import { scanNpmLicenses, categorizeLicenses, formatLicenseReport } from "./license-checker.js";
+import { analyzeDirectory, trackComplexityTrend, formatComplexityReport } from "./complexity-tracker.js";
+import { analyzeLogFile, formatLogReport } from "./log-analyzer.js";
+import { aggregateCoverage, checkCoverageThreshold, formatCoverageReport } from "./coverage-aggregator.js";
+import { scaffoldHooks, validateCommitMessage, formatHookError, detectExistingHooks } from "./git-hooks.js";
+import { scanForTodos, formatTodoReport } from "./todo-tracker.js";
+import { analyzeBundleStats, parseBundlePhobia, compareBundles, formatBundleReport, createPerfReport } from "./performance-audit.js";
+import { extractHardcodedStrings, checkMissingTranslation, formatLocaleReport } from "./i18n-helper.js";
+import { parsePrismaSchema, parseTypeOrmEntities, compareSchemas, formatSchemaReport, formatSchemaDiff, generateMigrationSql } from "./db-schema.js";
+import { checkTool, checkEnvironment, checkProjectHealth, diagnoseIssues, generateDoctorReport, formatDoctorReport } from "./doctor.js";
+import { generateStats, getStatsHistory, recordStats, compareStats, formatStats, formatStatsHistory } from "./codebase-stats.js";
 
 const _serverStartTime = Date.now();
 let _toolCallCount = 0;

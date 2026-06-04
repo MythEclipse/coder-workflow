@@ -51,6 +51,19 @@ import { createADR, listADRs, getADR, updateADRStatus, generateADRGraph, formatA
 import { scanVulnerabilities, generateSBOM, formatVulnReport } from "./vuln-sbom.js";
 import { answerQuestion, generateOnboardingDocs, formatQAResult } from "./codebase-qa.js";
 import { generateSprintReport, getTeamMetrics, checkPRAutoMerge, recordBenchmark, getBenchmarkHistory, detectBenchmarkRegression } from "./tier3.js";
+import { compareOpenApiSpecs, diffOpenApiFromGit, formatContractReport } from "./api-contract.js";
+import { validateEnvFile, validateJsonFile, detectMissingEnvVars, formatValidationReport } from "./config-validator.js";
+import { scanNpmLicenses, categorizeLicenses, formatLicenseReport } from "./license-checker.js";
+import { analyzeDirectory, trackComplexityTrend, formatComplexityReport } from "./complexity-tracker.js";
+import { analyzeLogFile, formatLogReport } from "./log-analyzer.js";
+import { aggregateCoverage, checkCoverageThreshold, formatCoverageReport } from "./coverage-aggregator.js";
+import { scaffoldHooks, validateCommitMessage, formatHookError, detectExistingHooks } from "./git-hooks.js";
+import { scanForTodos, formatTodoReport, getTodoHistory } from "./todo-tracker.js";
+import { analyzeBundleStats, parseBundlePhobia, compareBundles, formatBundleReport, createPerfReport } from "./performance-audit.js";
+import { extractHardcodedStrings, checkMissingTranslation, formatLocaleReport } from "./i18n-helper.js";
+import { parsePrismaSchema, compareSchemas, formatSchemaReport, formatSchemaDiff } from "./db-schema.js";
+import { checkTool, checkEnvironment, checkProjectHealth, diagnoseIssues, generateDoctorReport, formatDoctorReport } from "./doctor.js";
+import { generateStats, getStatsHistory, recordStats, compareStats, formatStats, formatStatsHistory } from "./codebase-stats.js";
 
 const root = cwd();
 const settings = loadSettings(root);
@@ -620,6 +633,357 @@ switch (command) {
         break;
       }
       default: console.error("Unknown benchmark subcommand"); process.exitCode = 1;
+    }
+    break;
+  }
+
+  }
+
+  // ─── API Contract Tester ──────────────────────────────────────────
+  case "api-contract": {
+    try {
+      const sub = args[0];
+      if (sub === "diff") {
+        const before = readFlag(args, "--before");
+        const after = readFlag(args, "--after");
+        if (!before || !after) {
+          console.error("Usage: coder-workflow api-contract diff --before <openapi-before.json> --after <openapi-after.json>");
+          process.exitCode = 1; break;
+        }
+        const report = compareOpenApiSpecs(before, after);
+        console.log(formatContractReport(report));
+      } else if (sub === "git-diff") {
+        const ref1 = readFlag(args, "--ref1");
+        const ref2 = readFlag(args, "--ref2");
+        const report = diffOpenApiFromGit(ref1 || undefined, ref2 || undefined);
+        console.log(formatContractReport(report));
+      } else {
+        console.error("Usage: coder-workflow api-contract diff|git-diff ...");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Config Validator ─────────────────────────────────────────────
+  case "config-validator":
+  case "validate": {
+    try {
+      const sub = args[0];
+      if (sub === "env") {
+        const schemaPath = readFlag(args, "--schema");
+        const envPath = readFlag(args, "--env");
+        if (!schemaPath) {
+          console.error("Usage: coder-workflow validate env --schema <schema.json> [--env .env]");
+          process.exitCode = 1; break;
+        }
+        const schema = JSON.parse(readFileSync(schemaPath, "utf-8"));
+        const report = validateEnvFile(envPath || ".env", schema);
+        console.log(formatValidationReport(report));
+      } else if (sub === "json") {
+        const filePath = readFlag(args, "--file");
+        const schemaPath = readFlag(args, "--schema");
+        if (!filePath || !schemaPath) {
+          console.error("Usage: coder-workflow validate json --file <file.json> --schema <schema.json>");
+          process.exitCode = 1; break;
+        }
+        const schema = JSON.parse(readFileSync(schemaPath, "utf-8"));
+        const report = validateJsonFile(filePath, schema);
+        console.log(formatValidationReport(report));
+      } else if (sub === "missing-env") {
+        const required = readFlag(args, "--required")?.split(",") || [];
+        if (required.length === 0) {
+          console.error("Usage: coder-workflow validate missing-env --required KEY1,KEY2");
+          process.exitCode = 1; break;
+        }
+        const report = detectMissingEnvVars(required, readFlag(args, "--env") || undefined);
+        console.log(formatValidationReport(report));
+      } else {
+        console.error("Usage: coder-workflow validate <env|json|missing-env> ...");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── License Checker ──────────────────────────────────────────────
+  case "license-check":
+  case "licenses": {
+    try {
+      const report = scanNpmLicenses(readFlag(args, "--root") || undefined);
+      const categorized = categorizeLicenses(report);
+      console.log(formatLicenseReport(categorized));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Complexity Tracker ───────────────────────────────────────────
+  case "complexity": {
+    try {
+      const sub = args[0];
+      if (sub === "scan") {
+        const rootPath = readFlag(args, "--root") || ".";
+        const report = analyzeDirectory(rootPath);
+        console.log(formatComplexityReport(report));
+      } else if (sub === "track") {
+        const trend = trackComplexityTrend(readFlag(args, "--root") || ".");
+        console.log(JSON.stringify(trend, null, 2));
+      } else {
+        console.error("Usage: coder-workflow complexity <scan|track> [--root <dir>]");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Log Analyzer ─────────────────────────────────────────────────
+  case "log-analyze":
+  case "logs": {
+    try {
+      const filePath = args[0];
+      if (!filePath) {
+        console.error("Usage: coder-workflow logs <filepath>");
+        process.exitCode = 1; break;
+      }
+      const report = analyzeLogFile(filePath);
+      console.log(formatLogReport(report));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Coverage Aggregator ──────────────────────────────────────────
+  case "coverage": {
+    try {
+      const sub = args[0];
+      if (sub === "check") {
+        const threshold = parseFloat(readFlag(args, "--threshold") ?? "80");
+        const sources = [];
+        const jestPath = readFlag(args, "--jest");
+        const vitestPath = readFlag(args, "--vitest");
+        const lcovPath = readFlag(args, "--lcov");
+        if (jestPath) sources.push({ tool: "jest" as const, path: jestPath });
+        if (vitestPath) sources.push({ tool: "vitest" as const, path: vitestPath });
+        if (lcovPath) sources.push({ tool: "istanbul" as const, path: lcovPath });
+        if (sources.length === 0) {
+          console.error("Usage: coder-workflow coverage check --threshold 80 [--jest <file>] [--vitest <file>] [--lcov <file>]");
+          process.exitCode = 1; break;
+        }
+        const report = aggregateCoverage(sources);
+        const gate = checkCoverageThreshold(report, threshold);
+        console.log(formatCoverageReport(report));
+        console.log(gate.pass ? "✅ Threshold passed" : "❌ Threshold failed");
+        if (!gate.pass) console.log(JSON.stringify(gate.details, null, 2));
+      } else {
+        console.error("Usage: coder-workflow coverage check ...");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Git Hook Scaffolder ──────────────────────────────────────────
+  case "hooks":
+  case "git-hooks": {
+    try {
+      const sub = args[0];
+      if (sub === "scaffold") {
+        const hooks = readFlag(args, "--hooks")?.split(",") as Array<"pre-commit"|"commit-msg"|"pre-push"|"post-commit"|"post-merge"> | undefined;
+        const linter = readFlag(args, "--linter") || undefined;
+        const testCmd = readFlag(args, "--test") || undefined;
+        if (!hooks || hooks.length === 0) {
+          console.error("Usage: coder-workflow hooks scaffold --hooks pre-commit,commit-msg,pre-push [--linter eslint] [--test \"npm test\"]");
+          process.exitCode = 1; break;
+        }
+        const existing = detectExistingHooks(process.cwd(), hooks);
+        if (existing.length > 0) console.warn(`⚠️  Overwriting existing hooks: ${existing.join(", ")}`);
+        const result = scaffoldHooks(process.cwd(), { hooks, linter, testCommand: testCmd });
+        console.log(JSON.stringify(result, null, 2));
+      } else if (sub === "validate-msg") {
+        const msg = args.slice(1).join(" ");
+        if (!msg) {
+          console.error("Usage: coder-workflow hooks validate-msg <commit-message>");
+          process.exitCode = 1; break;
+        }
+        const result = validateCommitMessage(msg);
+        if (result.valid) console.log("✅ Valid commit message");
+        else console.log(formatHookError(result.errors));
+      } else {
+        console.error("Usage: coder-workflow hooks <scaffold|validate-msg> ...");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Todo/Fixme Tracker ───────────────────────────────────────────
+  case "todos":
+  case "todo": {
+    try {
+      const sub = args[0] || "scan";
+      if (sub === "scan") {
+        const report = scanForTodos(root, {
+          include: readFlag(args, "--include")?.split(","),
+          exclude: readFlag(args, "--exclude")?.split(","),
+        });
+        console.log(formatTodoReport(report, { showAge: true, groupBy: readFlag(args, "--group-by") as 'type'|'file'|'author'|undefined }));
+      } else if (sub === "history") {
+        const reports = getTodoHistory(root);
+        console.log(JSON.stringify(reports, null, 2));
+      } else {
+        console.error("Usage: coder-workflow todos [scan|history] [--group-by type|file|author]");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Performance Audit ────────────────────────────────────────────
+  case "perf":
+  case "performance": {
+    try {
+      const sub = args[0];
+      if (sub === "bundle") {
+        const statsPath = readFlag(args, "--stats");
+        if (statsPath) {
+          const report = analyzeBundleStats(statsPath);
+          console.log(formatBundleReport(report));
+        } else {
+          const report = await parseBundlePhobia(root);
+          console.log(formatBundleReport(report));
+        }
+      } else if (sub === "compare") {
+        const before = analyzeBundleStats(readFlag(args, "--before") || "");
+        const after = analyzeBundleStats(readFlag(args, "--after") || "");
+        const diffs = compareBundles(before, after);
+        console.log(JSON.stringify(diffs, null, 2));
+      } else if (sub === "report") {
+        const report = createPerfReport(root);
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.error("Usage: coder-workflow perf <bundle|compare|report> ...");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── i18n Helper ──────────────────────────────────────────────────
+  case "i18n":
+  case "locale": {
+    try {
+      const sub = args[0];
+      if (sub === "extract") {
+        const strings = extractHardcodedStrings(root, {
+          excludePatterns: readFlag(args, "--exclude")?.split(","),
+        });
+        console.log(JSON.stringify({ total: strings.length, strings }, null, 2));
+      } else if (sub === "check") {
+        const localesDir = readFlag(args, "--locales") || "locales";
+        const report = checkMissingTranslation(root, localesDir);
+        console.log(formatLocaleReport(report));
+      } else {
+        console.error("Usage: coder-workflow i18n <extract|check> [--locales <dir>]");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── DB Schema Reporter ───────────────────────────────────────────
+  case "db-schema": {
+    try {
+      const sub = args[0];
+      if (sub === "prisma") {
+        const schemaPath = readFlag(args, "--schema") || "prisma/schema.prisma";
+        const report = parsePrismaSchema(schemaPath);
+        console.log(formatSchemaReport(report));
+      } else if (sub === "compare") {
+        const before = parsePrismaSchema(readFlag(args, "--before") || "");
+        const after = parsePrismaSchema(readFlag(args, "--after") || "");
+        const diff = compareSchemas(before, after);
+        console.log(formatSchemaDiff(diff));
+      } else {
+        console.error("Usage: coder-workflow db-schema <prisma|compare> ...");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Doctor (Environment Reporter) ────────────────────────────────
+  case "doctor": {
+    try {
+      const report = generateDoctorReport(readFlag(args, "--root") || root);
+      console.log(formatDoctorReport(report));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Codebase Stats Dashboard ─────────────────────────────────────
+  case "stats":
+  case "codebase-stats": {
+    try {
+      const sub = args[0] || "generate";
+      if (sub === "generate") {
+        const stats = recordStats(root);
+        console.log(formatStats(stats));
+      } else if (sub === "history") {
+        const history = getStatsHistory(root);
+        console.log(formatStatsHistory(history));
+      } else if (sub === "compare") {
+        const stats = generateStats(root);
+        const history = getStatsHistory(root);
+        if (history.reports.length > 0) {
+          const comparison = compareStats(history.reports[history.reports.length - 1], stats);
+          console.log(formatStats(stats));
+          console.log(`\n📊 vs Last Snapshot: +${comparison.linesDiff} lines, ${comparison.filesDiff > 0 ? "+" : ""}${comparison.filesDiff} files`);
+        } else {
+          console.log(formatStats(stats));
+          console.log("(No previous snapshot to compare against)");
+        }
+      } else {
+        console.error("Usage: coder-workflow stats <generate|history|compare>");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
     }
     break;
   }
