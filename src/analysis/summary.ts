@@ -2,14 +2,14 @@ import type { CodeGraph, CodeGraphNodeType, CodeGraphEdgeType } from "../types.j
 
 export interface ArchitectureSummary {
   metadata: CodeGraph["metadata"];
-  coreNodes: Array<{
+  nodes: Array<{
     id: string;
     name: string;
     type: CodeGraphNodeType;
     degree: number;
     connections: Partial<Record<CodeGraphEdgeType, number>>;
   }>;
-  keyConnections: Array<{
+  edges: Array<{
     source: string;
     target: string;
     type: CodeGraphEdgeType;
@@ -33,7 +33,7 @@ export function summarizeArchitecture(graph: CodeGraph): ArchitectureSummary {
     targetTypes[edge.type] = (targetTypes[edge.type] ?? 0) + 1;
   }
 
-  const coreNodes = graph.nodes
+  const nodes = graph.nodes
     .map((node) => ({
       id: node.id,
       name: node.name,
@@ -41,18 +41,13 @@ export function summarizeArchitecture(graph: CodeGraph): ArchitectureSummary {
       degree: degreeByNode.get(node.id) ?? 0,
       connections: edgeTypesByNode.get(node.id) ?? {},
     }))
-    .sort((a, b) => b.degree - a.degree)
-    .slice(0, 20);
+    .sort((a, b) => b.degree - a.degree);
 
-  const coreNodeIds = new Set(coreNodes.map((n) => n.id));
-  const keyConnections = graph.edges
-    .filter((e) => coreNodeIds.has(e.source) && coreNodeIds.has(e.target))
-    .slice(0, 50)
-    .map((e) => ({
-      source: e.source,
-      target: e.target,
-      type: e.type,
-    }));
+  const edges = graph.edges.map((e) => ({
+    source: e.source,
+    target: e.target,
+    type: e.type,
+  }));
 
-  return { metadata: graph.metadata, coreNodes, keyConnections };
+  return { metadata: graph.metadata, nodes, edges };
 }
