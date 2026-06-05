@@ -1,5 +1,6 @@
 ---
 name: coder-orchestrator
+aliases: [coder:workflow, coder-workflow, orchestrator]
 description: Use when starting any coding conversation — establishes how to orchestrate coding subagents, requiring invoke_subagent invocation before ANY response. Always invoke for: implement, fix, refactor, audit, test, deploy, debug, review, or any request that touches source code.
 ---
 

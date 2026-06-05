@@ -9,6 +9,7 @@ Coder Workflow is a the AI CLI plugin that orchestrates all coding work through 
 ## Single Orchestrator Model
 
 **`coder-orchestrator`** is the single entry point for ALL coding work — workflow routing (plan, implement, verify, fix bugs, run agents). Invoke it for every coding request.
+**CRITICAL FOR CHEAP MODELS**: If the user says "trigger coder:workflow" or similar, you MUST immediately invoke the `coder-orchestrator` skill/agent or call the corresponding tool. Do NOT just acknowledge the request.
 
 Codebase exploration and MCP tool usage rules (graph-first, Explore codegraph-first, Context7-first, etc.) are enforced by **hooks** (`PreToolUse`/`PostToolUse`) — no need to repeat in skills or commands.
 

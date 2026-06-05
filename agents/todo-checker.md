@@ -18,6 +18,7 @@ Use grep or glob to search the codebase for the following patterns:
 - `TODO:` or `TODO()`
 - `FIXME:`
 - `HACK:`
+- `FOR NOW`, `TEMP`, `WIP`, or `TBD` (e.g. `// for now`)
 - `dummy` or `mock` (where used as temporary placeholders, not legitimate test mocks)
 - Hardcoded test values left in production code (e.g. `user_id = 1`, `console.log("here")`)
 

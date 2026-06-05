@@ -1166,7 +1166,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     // ─── Todo/Fixme Tracker ─────────────────────────────────────────────
     {
       name: "scan_todos",
-      description: "Scan codebase for TODO/FIXME/HACK/NOTE/XXX comments with author tracking.",
+      description: "Scan codebase for TODO/FIXME/HACK/NOTE/XXX/TEMP/WIP/TBD comments with author tracking.",
       inputSchema: {
         type: "object",
         properties: {
