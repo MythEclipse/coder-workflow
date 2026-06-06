@@ -4,7 +4,7 @@ argument-hint: [optional-scope]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `coder-workflow:consistency-enforcer` subagent untuk memvalidasi dan menegakkan konsistensi kode terhadap pola dominan codebase.
+Invoke the `coder-workflow:quality-guardian` subagent untuk memvalidasi dan menegakkan konsistensi kode terhadap pola dominan codebase. (Consistency enforcement telah digabung ke quality-guardian.)
 
 Gunakan command ini ketika:
 - Memeriksa konsistensi penamaan file/folder/variabel/fungsi/kelas

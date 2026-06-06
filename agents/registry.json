@@ -79,6 +79,13 @@
       "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
       "model": "complex"
     },
+    "quality-guardian": {
+      "file": "agents/quality-guardian.md",
+      "role": "quality",
+      "description": "Quality gate and consistency enforcement — code smell, best practices, naming, structure, style uniformity",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
+      "model": "fast"
+    },
     "todo-checker": {
       "file": "agents/todo-checker.md",
       "role": "quality",
@@ -119,13 +126,6 @@
       "role": "qa",
       "description": "Answer codebase questions by searching docs, code, and CodeGraph",
       "tools": ["Read", "Grep", "Glob", "Bash"],
-      "model": "fast"
-    },
-    "consistency-enforcer": {
-      "file": "agents/consistency-enforcer.md",
-      "role": "quality",
-      "description": "Enforce code consistency, naming conventions, formatting standards, architectural rules, and style uniformity",
-      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
       "model": "fast"
     },
     "secret-scanner": {
