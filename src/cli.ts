@@ -122,6 +122,54 @@ import {
 import { formatTodoReport, getTodoHistory, scanForTodos } from "./todo-tracker.js";
 import { openGraphUi } from "./ui.js";
 import { formatVulnReport, generateSBOM, scanVulnerabilities } from "./vuln-sbom.js";
+import {
+  queryRecent,
+  queryDecisions,
+  getInsights,
+  getStats as getExpStats,
+} from "./experience-journal.js";
+import {
+  captureSnapshot,
+  checkGate,
+  getModuleMap,
+  formatReport as formatQualityReport,
+} from "./quality-guardian.js";
+import {
+  querySimilar,
+  getStats as getTradeoffStats,
+} from "./trade-off-analyzer.js";
+import {
+  detectProjectPatterns,
+  validateFilesAgainstProfile,
+  getConsistencyScore,
+  formatViolationReport,
+} from "./consistency-enforcer.js";
+import {
+  checkAll,
+  formatReport as formatPreflightReport,
+} from "./preflight-checklist.js";
+import {
+  scanForDebt,
+  getDebtByModule,
+  getDebtScore,
+  isDebtBudgetExceeded,
+  markResolved as markDebtResolved,
+  formatDebtReport,
+  formatDebtDashboard,
+} from "./tech-debt-tracker.js";
+import {
+  scanFileForBugs,
+  scanDirectoryForBugs,
+  getBugPatterns,
+  formatBugReport,
+  getBugHunterStats,
+} from "./bug-hunter.js";
+import {
+  queryProjectKnowledge,
+  suggestBestPractices,
+  getKnowledgeStats,
+  formatKnowledgeReport,
+} from "./knowledge-integrator.js";
 
 const root = cwd();
 const settings = loadSettings(root);
@@ -1189,6 +1237,219 @@ switch (command) {
     }
     break;
   }
+  // ─── Experience Journal ───────────────────────────────────────────
+  case "experience": {
+    try {
+      const sub = args[0] || "recent";
+      if (sub === "recent") {
+        const entries = queryRecent(undefined, parseInt(readFlag(args, "--limit") ?? "10"));
+        console.log(JSON.stringify(entries, null, 2));
+      } else if (sub === "decisions") {
+        const entries = queryDecisions(readFlag(args, "--context") || undefined);
+        console.log(JSON.stringify(entries, null, 2));
+      } else if (sub === "insights") {
+        const insights = getInsights();
+        console.log(JSON.stringify(insights, null, 2));
+      } else if (sub === "stats") {
+        const stats = getExpStats();
+        console.log(JSON.stringify(stats, null, 2));
+      } else {
+        console.error("Usage: coder-workflow experience <recent|decisions|insights|stats>");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Quality Guardian ─────────────────────────────────────────────
+  case "quality": {
+    try {
+      const sub = args[0] || "check";
+      if (sub === "check") {
+        const result = checkAll();
+        console.log(formatPreflightReport(result));
+      } else if (sub === "snapshot") {
+        const snapshot = captureSnapshot(root);
+        console.log(formatQualityReport(snapshot));
+      } else if (sub === "gate") {
+        const threshold = parseInt(readFlag(args, "--threshold") ?? "50");
+        const gate = checkGate(threshold);
+        console.log(JSON.stringify(gate, null, 2));
+      } else if (sub === "modules") {
+        const map = getModuleMap();
+        console.log(JSON.stringify(map, null, 2));
+      } else {
+        console.error("Usage: coder-workflow quality <check|snapshot|gate|modules>");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Trade-Off Analyzer ───────────────────────────────────────────
+  case "tradeoff": {
+    try {
+      const sub = args[0] || "list";
+      if (sub === "recommend") {
+        const context = readFlag(args, "--context") || "";
+        const similar = querySimilar(context);
+        console.log(JSON.stringify(similar, null, 2));
+      } else if (sub === "similar") {
+        const entries = querySimilar(readFlag(args, "--context") || "");
+        console.log(JSON.stringify(entries, null, 2));
+      } else if (sub === "stats") {
+        const stats = getTradeoffStats();
+        console.log(JSON.stringify(stats, null, 2));
+      } else {
+        console.error("Usage: coder-workflow tradeoff <recommend|similar|stats>");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Consistency Enforcer ─────────────────────────────────────────
+  case "consistency": {
+    try {
+      const sub = args[0] || "detect";
+      if (sub === "detect") {
+        const profile = detectProjectPatterns(root);
+        console.log(JSON.stringify(profile, null, 2));
+      } else if (sub === "validate") {
+        const files = args.slice(1).filter(a => !a.startsWith("--"));
+        if (files.length === 0) { console.error("Usage: coder-workflow consistency validate <files...>"); process.exitCode = 1; break; }
+        const profile = detectProjectPatterns(root);
+        const violations = validateFilesAgainstProfile(files, profile);
+        console.log(formatViolationReport(violations));
+      } else if (sub === "score") {
+        const profile = detectProjectPatterns(root);
+        const score = getConsistencyScore(profile, []);
+        console.log(JSON.stringify({ score }, null, 2));
+      } else {
+        console.error("Usage: coder-workflow consistency <detect|validate|score>");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Tech Debt Tracker ────────────────────────────────────────────
+  case "debt": {
+    try {
+      const sub = args[0] || "scan";
+      if (sub === "scan") {
+        const items = scanForDebt(root);
+        const stats = getDebtScore();
+        console.log(formatDebtReport(items, stats));
+      } else if (sub === "dashboard") {
+        const stats = getDebtScore();
+        console.log(formatDebtDashboard(stats));
+      } else if (sub === "budget") {
+        const threshold = parseInt(readFlag(args, "--threshold") ?? "100");
+        const check = isDebtBudgetExceeded(threshold);
+        console.log(JSON.stringify(check, null, 2));
+      } else if (sub === "resolve") {
+        const id = readFlag(args, "--id");
+        if (!id) { console.error("Usage: coder-workflow debt resolve --id <id>"); process.exitCode = 1; break; }
+        const ok = markDebtResolved(id);
+        console.log(JSON.stringify({ resolved: ok }, null, 2));
+      } else if (sub === "by-module") {
+        const byModule = getDebtByModule();
+        console.log(JSON.stringify(byModule, null, 2));
+      } else {
+        console.error("Usage: coder-workflow debt <scan|dashboard|budget|resolve|by-module>");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Bug Hunter ───────────────────────────────────────────────────
+  case "bughunt": {
+    try {
+      const sub = args[0] || "patterns";
+      if (sub === "patterns") {
+        const patterns = getBugPatterns();
+        console.log(JSON.stringify(patterns, null, 2));
+      } else if (sub === "scan-file") {
+        const filePath = readFlag(args, "--file");
+        if (!filePath) { console.error("Usage: coder-workflow bughunt scan-file --file <path>"); process.exitCode = 1; break; }
+        const findings = scanFileForBugs(filePath);
+        console.log(formatBugReport(findings));
+      } else if (sub === "scan-dir") {
+        const dirPath = readFlag(args, "--dir") || ".";
+        const findings = scanDirectoryForBugs(dirPath);
+        console.log(formatBugReport(findings));
+      } else if (sub === "stats") {
+        const stats = getBugHunterStats();
+        console.log(JSON.stringify(stats, null, 2));
+      } else {
+        console.error("Usage: coder-workflow bughunt <patterns|scan-file|scan-dir|stats>");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Knowledge Integrator ─────────────────────────────────────────
+  case "knowledge": {
+    try {
+      const sub = args[0] || "query";
+      if (sub === "query") {
+        const question = args.slice(1).join(" ");
+        if (!question) { console.error("Usage: coder-workflow knowledge query <question>"); process.exitCode = 1; break; }
+        const result = queryProjectKnowledge(question);
+        console.log(formatKnowledgeReport(result.entries));
+      } else if (sub === "tips") {
+        const taskType = readFlag(args, "--task") || "";
+        const framework = readFlag(args, "--framework") || "";
+        const tips = suggestBestPractices(taskType, framework);
+        console.log(JSON.stringify(tips, null, 2));
+      } else if (sub === "stats") {
+        const stats = getKnowledgeStats();
+        console.log(JSON.stringify(stats, null, 2));
+      } else {
+        console.error("Usage: coder-workflow knowledge <query|tips|stats>");
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
+  // ─── Pre-Flight Checklist ─────────────────────────────────────────
+  case "preflight": {
+    try {
+      const skip = readFlag(args, "--skip")?.split(",") || [];
+      const report = checkAll(undefined, skip);
+      console.log(formatPreflightReport(report));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    break;
+  }
+
   /**
    * usage() called below this case.
    */

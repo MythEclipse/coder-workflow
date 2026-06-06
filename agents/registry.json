@@ -121,6 +121,13 @@
       "tools": ["Read", "Grep", "Glob", "Bash"],
       "model": "fast"
     },
+    "consistency-enforcer": {
+      "file": "agents/consistency-enforcer.md",
+      "role": "quality",
+      "description": "Enforce code consistency, naming conventions, formatting standards, architectural rules, and style uniformity",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
+      "model": "fast"
+    },
     "secret-scanner": {
       "file": "agents/secret-scanner.md",
       "role": "security",
