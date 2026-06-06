@@ -1521,7 +1521,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "list_directory_tree":
       return text(
-        getDirectoryTree(root, String(args?.path ?? "."), { maxDepth: Number.MAX_SAFE_INTEGER }),
+        getDirectoryTree(root, String(args?.path ?? "."), { 
+          maxDepth: typeof args?.maxDepth === "number" ? args.maxDepth : Number.MAX_SAFE_INTEGER 
+        }),
       );
     case "summarize_graph": {
       const summary = summarizeGraphForBudget(await getCachedGraph(root), {

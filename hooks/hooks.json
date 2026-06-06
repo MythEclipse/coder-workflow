@@ -58,7 +58,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'echo \"\ud83e\udde0 BELAJAR: Ada pengalaman dari sesi lalu. /experience recent\" 2>/dev/null; exit 0'",
+            "command": "bash -c 'echo \"\ud83e\udde0 BELAJAR: Ada pengalaman dari sesi lalu. Invoke an experience subagent to check recent records.\" 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true,
             "statusMessage": "Checking intelligence state..."
@@ -155,13 +155,13 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+commit\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: You are about to commit. Consider invoking the \\\\\\\"todo-checker\\\\\\\" subagent to ensure no dummy code exists, or \\\\\\\"/docs\\\\\\\" to update documentation.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+commit\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: You are about to commit. Consider invoking the \\\\\\\"todo-checker\\\\\\\" subagent to ensure no dummy code exists, or invoke a documentation subagent to update documentation.\\\"}\"; fi; exit 0'",
             "if": "Bash(git commit *)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+push\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: You are about to push to remote. Run \\\\\\\"/review\\\\\\\" to automatically audit your code for security flaws before pushing.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+push\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: You are about to push to remote. Invoke a review subagent to automatically audit your code for security flaws before pushing.\\\"}\"; fi; exit 0'",
             "if": "Bash(git push *)",
             "timeout": 5
           }
@@ -213,7 +213,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"\ud83e\udde0 BELAJAR: Sebelum nulis code, cek experience journal.\\n\u26a1 RAJIN: Jangan tinggal TODO/FIXME.\\n\\n/preflight untuk readiness check.\\\"}\"'",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"\ud83e\udde0 BELAJAR: Sebelum nulis code, cek experience journal.\\n\u26a1 RAJIN: Jangan tinggal TODO/FIXME.\\n\\nInvoke a preflight subagent untuk readiness check.\\\"}\"'",
             "timeout": 5
           }
         ]
@@ -223,7 +223,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"\u26a1 RAJIN: Sebelum commit \u2014 /preflight, /bughunt, /debt scan. Zero dummy code!\\\"}\"'",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"\u26a1 RAJIN: Sebelum commit \u2014 invoke preflight, bughunt, or debt scan subagents. Zero dummy code!\\\"}\"'",
             "timeout": 5
           }
         ]
@@ -303,7 +303,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'API error. Resume with /resume when ready.'",
+            "command": "echo 'API error. Start a new session or subagent to resume when ready.'",
             "timeout": 5
           },
           {
@@ -478,7 +478,7 @@
           },
           {
             "type": "command",
-            "command": "jq -n '{systemMessage: \"coder-workflow notice: Session is ending. If you solved a complex bug or made a major architectural decision, run \\\"/memory store <lesson>\\\" before closing to save it to your Long-Term Memory Bank.\"}'",
+            "command": "jq -n '{systemMessage: \"coder-workflow notice: Session is ending. If you solved a complex bug or made a major architectural decision, invoke a memory subagent to store the lesson before closing to save it to your Long-Term Memory Bank.\"}'",
             "timeout": 5
           }
         ]
