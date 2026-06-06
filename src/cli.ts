@@ -291,33 +291,6 @@ switch (command) {
     }
     break;
   }
-  case "quality": {
-    try {
-      await ensureGraph();
-      const report = analyzeGraphQuality(await readGraph(root), root);
-      const threshold = readFailOnThreshold(args);
-
-      if (threshold === "invalid") {
-        console.error("Invalid --fail-on threshold. Use high, medium, or low.");
-        process.exitCode = 1;
-        break;
-      }
-
-      if (threshold) {
-        const gate = evaluateQualityGate(report.issues, threshold);
-        console.log(JSON.stringify({ ...report, ...gate }, null, 2));
-        if (gate.wouldFail) {
-          process.exitCode = 1;
-        }
-      } else {
-        console.log(JSON.stringify(report, null, 2));
-      }
-    } catch (error) {
-      console.error(error instanceof Error ? error.message : String(error));
-      process.exitCode = 1;
-    }
-    break;
-  }
   case "export": {
     try {
       await ensureGraph();
@@ -1281,8 +1254,27 @@ switch (command) {
       } else if (sub === "modules") {
         const map = getModuleMap();
         console.log(JSON.stringify(map, null, 2));
+      } else if (sub === "graph") {
+        // Merged from the original graph-based quality route
+        await ensureGraph();
+        const report = analyzeGraphQuality(await readGraph(root), root);
+        const threshold = readFailOnThreshold(args);
+        if (threshold === "invalid") {
+          console.error("Invalid --fail-on threshold. Use high, medium, or low.");
+          process.exitCode = 1;
+          break;
+        }
+        if (threshold) {
+          const gate = evaluateQualityGate(report.issues, threshold);
+          console.log(JSON.stringify({ ...report, ...gate }, null, 2));
+          if (gate.wouldFail) {
+            process.exitCode = 1;
+          }
+        } else {
+          console.log(JSON.stringify(report, null, 2));
+        }
       } else {
-        console.error("Usage: coder-workflow quality <check|snapshot|gate|modules>");
+        console.error("Usage: coder-workflow quality <check|snapshot|gate|modules|graph>");
         process.exitCode = 1;
       }
     } catch (error) {

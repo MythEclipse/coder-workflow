@@ -26,15 +26,15 @@ if [ ! -f "$LOG" ]; then
   exit 0
 fi
 
-TASKS_CREATED=$(grep -c "TASK+:" "$LOG" 2>/dev/null || echo 0)
-TASKS_COMPLETED=$(grep -c "TASK done:" "$LOG" 2>/dev/null || echo 0)
-WRITES=$(grep -c "WRITE:" "$LOG" 2>/dev/null || echo 0)
-COMMITS=$(grep -c "GIT COMMIT:" "$LOG" 2>/dev/null || echo 0)
-FAILURES=$(grep -c "FAIL" "$LOG" 2>/dev/null || echo 0)
-AGENTS=$(grep -c "AGENT START:" "$LOG" 2>/dev/null || echo 0)
-PROMPTS=$(grep -c "PROMPT:" "$LOG" 2>/dev/null || echo 0)
-GRAPH_OPS=$(grep -c "GRAPH:" "$LOG" 2>/dev/null || echo 0)
-BRANCH_SWITCHES=$(grep -c "BRANCH SWITCH:" "$LOG" 2>/dev/null || echo 0)
+TASKS_CREATED=$(grep -c "TASK+:" "$LOG" 2>/dev/null || true)
+TASKS_COMPLETED=$(grep -c "TASK done:" "$LOG" 2>/dev/null || true)
+WRITES=$(grep -c "WRITE:" "$LOG" 2>/dev/null || true)
+COMMITS=$(grep -c "GIT COMMIT:" "$LOG" 2>/dev/null || true)
+FAILURES=$(grep -c "FAIL" "$LOG" 2>/dev/null || true)
+AGENTS=$(grep -c "AGENT START:" "$LOG" 2>/dev/null || true)
+PROMPTS=$(grep -c "PROMPT:" "$LOG" 2>/dev/null || true)
+GRAPH_OPS=$(grep -c "GRAPH:" "$LOG" 2>/dev/null || true)
+BRANCH_SWITCHES=$(grep -c "BRANCH SWITCH:" "$LOG" 2>/dev/null || true)
 
 # Count deferred bugs if file exists
 DEFERRED_BUGS=0
