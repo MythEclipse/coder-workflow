@@ -4,4 +4,4 @@ argument-hint: [scope-optional]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `diagram-engineer` subagent to generate architecture visualisations and update documentation.
+Invoke the `coder-workflow:diagram-engineer` subagent to generate architecture visualisations and update documentation.

@@ -4,9 +4,9 @@ argument-hint: [scope-optional]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `refactoring-engineer` subagent to perform a comprehensive refactor to a Modular MVC architecture.
+Invoke the `coder-workflow:refactoring-engineer` subagent to perform a comprehensive refactor to a Modular MVC architecture.
 
-The `refactoring-engineer` agent is the single source of truth for the layer migration rules, directory structures, and verification checks. Do not duplicate those rules here — invoke the agent with the given scope and let it run its full process.
+The `coder-workflow:refactoring-engineer` agent is the single source of truth for the layer migration rules, directory structures, and verification checks. Do not duplicate those rules here — invoke the agent with the given scope and let it run its full process.
 
 If a scope argument is provided, pass it to the agent as the refactoring boundary. If no argument, the agent will scan the full project.
 

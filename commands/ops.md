@@ -3,7 +3,7 @@ description: Sprint reports, team metrics, benchmark tracking, auto-merge checks
 argument-hint: [sprint|team-metrics|pr-check|benchmark]
 allowed-tools: Bash, Read
 ---
-Invoke the `devops-engineer` agent for team/ops metrics. Commands:
+Invoke the `coder-workflow:devops-engineer` agent for team/ops metrics. Commands:
 - `coder-workflow sprint` — sprint report
 - `coder-workflow team-metrics` — team dashboard
 - `coder-workflow pr-check <number>` — auto-merge check

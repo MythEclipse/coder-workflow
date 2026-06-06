@@ -4,6 +4,6 @@ argument-hint: [optional-scope]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `code-reviewer` subagent to audit recent changes.
+Invoke the `coder-workflow:code-reviewer` subagent to audit recent changes.
 
 The reviewer will analyze the diff or target scope to detect edge cases, logic flaws, and security vulnerabilities.

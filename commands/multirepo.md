@@ -4,4 +4,4 @@ argument-hint: [instruction]
 allowed-tools: Read, Grep, Glob, Bash
 ---
 
-Invoke the `multi-repo-orchestrator` subagent to coordinate changes across multiple repositories in the workspace.
+Invoke the `coder-workflow:multi-repo-orchestrator` subagent to coordinate changes across multiple repositories in the workspace.
