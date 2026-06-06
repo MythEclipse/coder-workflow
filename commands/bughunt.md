@@ -4,7 +4,7 @@ argument-hint: [optional-scope]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `coder-workflow:bug-hunter` subagent untuk memburu, mereproduksi, mengklasifikasi, dan mendokumentasikan bug di seluruh codebase.
+Invoke the `coder-workflow:debugging-engineer` subagent untuk memburu, mereproduksi, mengklasifikasi, dan mendokumentasikan bug di seluruh codebase. (Bug hunting telah digabung ke debugging-engineer — gunakan Phase 0 untuk discovery.)
 
 Gunakan command ini ketika Anda ingin:
 - Menemukan bug baru di codebase secara sistematis
