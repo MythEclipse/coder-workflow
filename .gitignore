@@ -1,11 +1,8 @@
-.claude/*.local.md
 .DS_Store
 Thumbs.db
 *.log
 node_modules/
 dist/
-.codegraph/cache/
-.codegraph/**
 .env
-*.log
 .claude/
+.codegraph/
