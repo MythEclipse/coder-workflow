@@ -192,7 +192,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"coder-workflow: You are in an Explore context. You should prioritize mcp__codegraph__query_graph, mcp__codegraph__search_code, mcp__codegraph__analyze_impact, or mcp__codegraph__summarize_architecture to explore the codebase. Fallback to bash find/grep gracefully if graph tools fail or timeout.\\\"}\"'",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"coder-workflow MANDATORY: You MUST use Graph MCP tools (mcp__codegraph__query_graph, mcp__codegraph__search_code, mcp__codegraph__analyze_impact, etc.) to scan, search, and view the codebase structure. Do NOT use bash find/grep.\\\"}\"'",
             "timeout": 5
           }
         ]
@@ -202,7 +202,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); AGENT=$(jq -r \".tool_input.subagent_type // .tool_input.Subagents[0].TypeName // empty\" <<< \"$INPUT\" 2>/dev/null); if echo \"$AGENT\" | grep -qi \"explore\"; then jq -n \"{systemMessage: \\\"coder-workflow: The Explore agent should prioritize mcp__codegraph tools (query_graph, search_code, analyze_impact). Fallback to bash find/grep if graph tools fail.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); AGENT=$(jq -r \".tool_input.subagent_type // .tool_input.Subagents[0].TypeName // empty\" <<< \"$INPUT\" 2>/dev/null); if echo \"$AGENT\" | grep -qi \"explore\"; then jq -n \"{systemMessage: \\\"coder-workflow MANDATORY: The Explore agent MUST use mcp__codegraph tools (query_graph, search_code, analyze_impact) to scan, search, and view codebase structure. Do NOT fallback to bash find/grep.\\\"}\"; fi; exit 0'",
             "if": "Explore|explore",
             "timeout": 5
           }
