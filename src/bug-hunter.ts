@@ -1179,7 +1179,4 @@ Contoh:
   }
 }
 
-// Run CLI if executed directly
-if (require.main === module) {
-  main(process.argv.slice(2));
-}
+// Run CLI if executed directly — esbuild bundle strips this in ESM context

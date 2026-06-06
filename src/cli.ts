@@ -335,8 +335,8 @@ switch (command) {
   }
   case "mcp": {
     // Start the MCP server using the bundled server entrypoint.
-    // Requiring the compiled mcp-server module will run its top-level startup logic.
-    require("./mcp-server.js");
+    // Importing the compiled mcp-server module will run its top-level startup logic.
+    await import("./mcp-server.js");
     break;
   }
   // ─── Headroom: CCR ────────────────────────────────────────────────
@@ -1196,7 +1196,7 @@ switch (command) {
         process.exitCode = 1;
         break;
       }
-      const { SequentialThinkingEngine } = require("./sequential-thinking.js");
+      const { SequentialThinkingEngine } = await import("./sequential-thinking.js");
       const engine = new SequentialThinkingEngine();
       const result = engine.processThought({
         thought: thoughtText,
