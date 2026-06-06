@@ -7,7 +7,7 @@ import { build } from "esbuild";
 const shared = {
   bundle: true,
   platform: "node",
-  format: "esm",
+  format: "cjs",
   target: "es2022",
   sourcemap: false,
   logLevel: "info",

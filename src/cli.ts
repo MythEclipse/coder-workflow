@@ -173,6 +173,8 @@ import {
 
 const root = cwd();
 const settings = loadSettings(root);
+
+async function main() {
 const [command, ...args] = process.argv.slice(2);
 
 switch (command) {
@@ -333,8 +335,8 @@ switch (command) {
   }
   case "mcp": {
     // Start the MCP server using the bundled server entrypoint.
-    // Importing the compiled mcp-server module will run its top-level startup logic.
-    await import("./mcp-server.js");
+    // Requiring the compiled mcp-server module will run its top-level startup logic.
+    require("./mcp-server.js");
     break;
   }
   // ─── Headroom: CCR ────────────────────────────────────────────────
@@ -1194,7 +1196,7 @@ switch (command) {
         process.exitCode = 1;
         break;
       }
-      const { SequentialThinkingEngine } = await import("./sequential-thinking.js");
+      const { SequentialThinkingEngine } = require("./sequential-thinking.js");
       const engine = new SequentialThinkingEngine();
       const result = engine.processThought({
         thought: thoughtText,
@@ -1517,6 +1519,12 @@ EXAMPLES:
     console.log("Quick start: coder-workflow scan && coder-workflow summary");
     console.log("Full help:   coder-workflow help");
 }
+
+} // end switch
+main().catch(err => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exitCode = 1;
+});
 
 async function ensureGraph(): Promise<void> {
   if (!(await graphExists(root))) {
