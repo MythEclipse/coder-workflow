@@ -1,5 +1,5 @@
 {
-  "description": "coder-workflow comprehensive hooks — skill triggers (first), session lifecycle, safety guards, graph maintenance, task tracking, change awareness, and session telemetry.",
+  "description": "coder-workflow comprehensive hooks \u2014 skill triggers, session lifecycle, safety guards, graph maintenance, task tracking, intelligence features (experience journal, quality guardian, bug hunter, consistency enforcer, tech debt tracker, preflight), and session telemetry.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -48,6 +48,20 @@
             "command": "bash -c '\n# Plugin conflict detection: warn if both global + project-local installs exist\nGLOBAL=\"$HOME/.claude/skills/coder-workflow/skills\"\nLOCAL=\".claude/skills/coder-workflow\"\nif [ -d \"$GLOBAL\" ] && [ -d \"$LOCAL\" ]; then\n  echo \"coder-workflow: Dual install detected. Project-local (.claude/) takes precedence.\"\n  echo \"  Remove one to avoid conflicts:\"\n  echo \"    rm -rf ~/.claude/skills/coder-workflow  # global\"\n  echo \"    rm -rf .claude/skills/coder-workflow     # project-local\"\nfi\nexit 0'",
             "timeout": 5,
             "statusMessage": "Checking plugin conflicts..."
+          },
+          {
+            "type": "command",
+            "command": "bash -c '\n# \u2500\u2500\u2500 BELAJAR: Load experience journal insights \u2500\u2500\u2500\nif command -v coder-workflow >/dev/null 2>&1; then\n  if [ -f .claude/experience-journal/entries.jsonl ]; then\n    INSIGHTS=$(coder-workflow experience insights 2>/dev/null | head -c 200 || true)\n    echo \"\ud83e\udde0 BELAJAR: Ada pengalaman dari sesi sebelumnya. Jalankan /experience untuk lihat.\"\n    DEBT_COUNT=$(coder-workflow debt scan 2>/dev/null | grep -c \"severity\" 2>/dev/null || echo 0)\n    if [ \"$DEBT_COUNT\" -gt 0 ] 2>/dev/null; then\n      echo \"\u26a0\ufe0f  Tech debt: $DEBT_COUNT items. Jalankan /debt dashboard.\"\n    fi\n  fi\nfi\nexit 0'",
+            "timeout": 10,
+            "async": true,
+            "statusMessage": "Checking intelligence state..."
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if command -v coder-workflow >/dev/null 2>&1 && [ -f .claude/experience-journal/entries.jsonl ]; then echo \"\ud83e\udde0 BELAJAR: Ada pengalaman dari sesi lalu. /experience recent untuk lihat.\"; fi; exit 0'",
+            "timeout": 5,
+            "async": true,
+            "statusMessage": "Checking experience journal..."
           }
         ]
       },
@@ -80,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Session cleared. Clean slate — use /coder-workflow:coder-orchestrator for any coding task.'",
+            "command": "echo 'Session cleared. Clean slate \u2014 use /coder-workflow:coder-orchestrator for any coding task.'",
             "timeout": 5
           }
         ]
@@ -225,6 +239,26 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"\ud83e\udde0 BELAJAR: Sebelum nulis code, cek experience journal.\\n\u26a1 RAJIN: Jangan tinggal TODO/FIXME.\\n\\n/preflight untuk readiness check.\\\"}\"'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(git commit *)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"\u26a1 RAJIN: Sebelum commit \u2014 /preflight, /bughunt, /debt scan. Zero dummy code!\\\"}\"'",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -233,7 +267,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PostToolUse\\\", additionalContext: \\\"coder-workflow: Impact Radius active — bugs found within your modified files must be tracked as low-priority tasks to be fixed at the end of the session, preventing feature starvation. Ignore pre-existing debt outside your FILE_MANIFEST.\\\"}}\"'",
+            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PostToolUse\\\", additionalContext: \\\"coder-workflow: Impact Radius active \u2014 bugs found within your modified files must be tracked as low-priority tasks to be fixed at the end of the session, preventing feature starvation. Ignore pre-existing debt outside your FILE_MANIFEST.\\\"}}\"'",
             "timeout": 5
           },
           {
@@ -244,10 +278,17 @@
           },
           {
             "type": "command",
-            "command": "bash -c '\n# Debounce: allow update at most once every 5 seconds.\n# Multiple rapid writes share one update — flock serializes + timestamp check.\nDEBOUNCE_FILE=.codegraph/.update-debounce\nLOCK_FILE=.codegraph/.update-debounce.lock\n(\n  flock -x 200\n  NOW=$(date +%s)\n  LAST=0\n  if [ -f \"$DEBOUNCE_FILE\" ]; then\n    LAST=$(cat \"$DEBOUNCE_FILE\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0)\n  fi\n  ELAPSED=$((NOW - LAST))\n  if [ \"$ELAPSED\" -ge 5 ]; then\n    mkdir -p .codegraph 2>/dev/null || true\n    printf \"%s\" \"$NOW\" > \"$DEBOUNCE_FILE\"\n    if test -f .codegraph/graph.db; then\n      command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true\n    fi\n  fi\n) 200>\"$LOCK_FILE\"\nexit 0'",
+            "command": "bash -c '\n# Debounce: allow update at most once every 5 seconds.\n# Multiple rapid writes share one update \u2014 flock serializes + timestamp check.\nDEBOUNCE_FILE=.codegraph/.update-debounce\nLOCK_FILE=.codegraph/.update-debounce.lock\n(\n  flock -x 200\n  NOW=$(date +%s)\n  LAST=0\n  if [ -f \"$DEBOUNCE_FILE\" ]; then\n    LAST=$(cat \"$DEBOUNCE_FILE\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0)\n  fi\n  ELAPSED=$((NOW - LAST))\n  if [ \"$ELAPSED\" -ge 5 ]; then\n    mkdir -p .codegraph 2>/dev/null || true\n    printf \"%s\" \"$NOW\" > \"$DEBOUNCE_FILE\"\n    if test -f .codegraph/graph.db; then\n      command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true\n    fi\n  fi\n) 200>\"$LOCK_FILE\"\nexit 0'",
             "timeout": 30,
             "async": true,
             "statusMessage": "Updating CodeGraph (debounced)..."
+          },
+          {
+            "type": "command",
+            "command": "bash -c '\n# \u2500\u2500\u2500 Quality Guardian: snapshot after write \u2500\u2500\u2500\nif command -v coder-workflow >/dev/null 2>&1; then\n  FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null)\n  if [ -n \"$FILE\" ] && [ -f \"$FILE\" ]; then\n    # Bug hunt scan on written file (async, debounced)\n    coder-workflow bughunt scan-file --file \"$FILE\" >/dev/null 2>&1 &\n    # Consistency check hint\n    BASENAME=$(basename \"$FILE\")\n    if echo \"$BASENAME\" | grep -qiE \"\\.(ts|js|tsx|jsx|py|go|rs|java|kt)$\"; then\n      coder-workflow consistency validate \"$FILE\" >/dev/null 2>&1 &\n    fi\n  fi\nfi\nexit 0'",
+            "timeout": 15,
+            "async": true,
+            "statusMessage": "Running quality checks..."
           }
         ]
       },
@@ -256,7 +297,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"(npm (i|install|ci)|yarn add|bun add|pnpm add)\"; then echo \"Package install detected — verify lock file is committed and no phantom dependencies were introduced.\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"(npm (i|install|ci)|yarn add|bun add|pnpm add)\"; then echo \"Package install detected \u2014 verify lock file is committed and no phantom dependencies were introduced.\"; fi; exit 0'",
             "if": "Bash(npm install *)|Bash(npm i *)|Bash(npm ci)|Bash(yarn add *)|Bash(bun add *)|Bash(pnpm add *)",
             "timeout": 5
           },
@@ -355,7 +396,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c '\n# Wait for async hooks to finish before auto-commit.\n# Check: debounce lock, running coder-workflow updates, agent-depth flush.\nMAX_WAIT=10  # seconds\nWAITED=0\nwhile [ \"$WAITED\" -lt \"$MAX_WAIT\" ]; do\n  DEBOUNCE_LOCK=.codegraph/.update-debounce.lock\n  if [ -f \"$DEBOUNCE_LOCK\" ]; then\n    if flock -n \"$DEBOUNCE_LOCK\" -c \"true\" 2>/dev/null; then\n      break  # no holder — lock file is stale or free\n    fi\n  else\n    break\n  fi\n  sleep 0.5\n  WAITED=$((WAITED + 1))\ndone\n# Also wait for any running coder-workflow update process\nfor i in $(seq 1 10); do\n  if pgrep -f \"coder-workflow update\" >/dev/null 2>&1; then\n    sleep 0.5\n  else\n    break\n  fi\ndone\n# Now safe to auto-commit\ngit add . 2>/dev/null\nif git diff --cached --quiet; then\n  echo \"Turn complete. Checklist: (1) all tasks tracked, (2) bugs tracked, (3) tests pass, (4) graph current.\"\nelse\n  MSG=$(git diff --cached | head -n 500 | claude -p \"Write a 1-line conventional commit message summarizing these staged changes. Output ONLY the raw commit message, no markdown.\" --setting-sources user --no-session-persistence 2>/dev/null | tail -n 1)\n  if printf \"%s\" \"$MSG\" | grep -qiE \"no staged changes|staging area is empty|already committed|^\"; then MSG=\"chore: session auto-commit\"; fi\n  if [ -z \"$MSG\" ]; then MSG=\"chore: session auto-commit\"; fi\n  git commit -m \"$MSG\" 2>/dev/null || true\n  echo \"Turn complete. Auto-committed. Checklist: (1) tasks tracked, (2) bugs tracked, (3) tests pass, (4) graph current.\"\nfi\n'",
+            "command": "bash -c '\n# Wait for async hooks to finish before auto-commit.\n# Check: debounce lock, running coder-workflow updates, agent-depth flush.\nMAX_WAIT=10  # seconds\nWAITED=0\nwhile [ \"$WAITED\" -lt \"$MAX_WAIT\" ]; do\n  DEBOUNCE_LOCK=.codegraph/.update-debounce.lock\n  if [ -f \"$DEBOUNCE_LOCK\" ]; then\n    if flock -n \"$DEBOUNCE_LOCK\" -c \"true\" 2>/dev/null; then\n      break  # no holder \u2014 lock file is stale or free\n    fi\n  else\n    break\n  fi\n  sleep 0.5\n  WAITED=$((WAITED + 1))\ndone\n# Also wait for any running coder-workflow update process\nfor i in $(seq 1 10); do\n  if pgrep -f \"coder-workflow update\" >/dev/null 2>&1; then\n    sleep 0.5\n  else\n    break\n  fi\ndone\n# Now safe to auto-commit\ngit add . 2>/dev/null\nif git diff --cached --quiet; then\n  echo \"Turn complete.\"\n  echo \"\ud83d\udccb Checklist: (1) tasks tracked, (2) bugs tracked, (3) tests pass, (4) graph current, (5) quality gate OK.\"\nelse\n  MSG=$(git diff --cached | head -n 500 | claude -p \"Write a 1-line conventional commit message summarizing these staged changes. Output ONLY the raw commit message, no markdown.\" --setting-sources user --no-session-persistence 2>/dev/null | tail -n 1)\n  if printf \"%s\" \"$MSG\" | grep -qiE \"no staged changes|staging area is empty|already committed|^\"; then MSG=\"chore: session auto-commit\"; fi\n  if [ -z \"$MSG\" ]; then MSG=\"chore: session auto-commit\"; fi\n  git commit -m \"$MSG\" 2>/dev/null || true\n  echo \"Turn complete. Auto-committed.\"\n  echo \"\ud83d\udccb Checklist: (1) tasks done, (2) bugs tracked, (3) quality gate green.\"\nfi\n\n# \u2500\u2500\u2500 Experience Journal: record turn completion \u2500\u2500\u2500\nLOG=.claude/session-$(date +%Y%m%d).log\nif command -v coder-workflow >/dev/null 2>&1; then\n  coder-workflow experience record --type \"auto-turn\" --outcome success 2>/dev/null || true\n  # Cek tech debt summary (quiet, only if file exists)\n  if [ -f .claude/tech-debt-tracker/items.json ]; then\n    DEBT_COUNT=$(coder-workflow debt scan 2>/dev/null | grep -c \"severity\" || echo 0)\n    [ \"$DEBT_COUNT\" -gt 0 ] 2>/dev/null && echo \"\u26a0\ufe0f  $DEBT_COUNT tech debt items tracked \u2014 run /debt dashboard\"\n  fi\nfi\n'",
             "timeout": 15
           },
           {
@@ -363,6 +404,13 @@
             "command": "bash -c '\nrm -f /tmp/cw-grep-warned-$$ 2>/dev/null || true\nLOG=.claude/session-$(date +%Y%m%d).log\nmkdir -p .claude 2>/dev/null || true\nif test -f .codegraph/graph.db; then\n  UPDATE_OUTPUT=$(command -v coder-workflow >/dev/null 2>&1 && coder-workflow update 2>&1 || true)\n  if echo \"$UPDATE_OUTPUT\" | grep -qiE \"error|fail|exception\"; then\n    printf \"[%s] GRAPH UPDATE FAILED: %s\\n\" \"$(date -u +%T)\" \"$UPDATE_OUTPUT\" >> \"$LOG\" 2>/dev/null || true\n  fi\nfi\nexit 0'\n            ",
             "timeout": 120,
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if command -v coder-workflow >/dev/null 2>&1; then coder-workflow experience record --type turn-end --outcome success 2>/dev/null || true; fi; exit 0'",
+            "timeout": 10,
+            "async": true,
+            "statusMessage": "Recording session check..."
           }
         ]
       }
@@ -389,7 +437,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Output token limit hit. Break the response into smaller steps — ask for one piece at a time rather than generating everything at once.'",
+            "command": "echo 'Output token limit hit. Break the response into smaller steps \u2014 ask for one piece at a time rather than generating everything at once.'",
             "timeout": 5
           },
           {
@@ -405,7 +453,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); ERR=$(jq -r \".error_type // unknown\" <<< \"$INPUT\" 2>/dev/null); printf \"[%s] STOP FAILURE: %s\\n\" \"$(date -u +%T)\" \"$ERR\" >> /tmp/cw-session.log 2>/dev/null; echo \"API error ($ERR) — session ended unexpectedly. Resume with /resume and re-read task state before continuing.\"; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); ERR=$(jq -r \".error_type // unknown\" <<< \"$INPUT\" 2>/dev/null); printf \"[%s] STOP FAILURE: %s\\n\" \"$(date -u +%T)\" \"$ERR\" >> /tmp/cw-session.log 2>/dev/null; echo \"API error ($ERR) \u2014 session ended unexpectedly. Resume with /resume and re-read task state before continuing.\"; exit 0'",
             "timeout": 5
           },
           {
@@ -443,7 +491,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'CLAUDE.md changed on disk — project instructions updated. New rules apply to subsequent turns immediately.'",
+            "command": "echo 'CLAUDE.md changed on disk \u2014 project instructions updated. New rules apply to subsequent turns immediately.'",
             "timeout": 5
           }
         ]
@@ -453,7 +501,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'hooks.json changed on disk — hook configuration updated. Changes take effect on the next hook event.'",
+            "command": "echo 'hooks.json changed on disk \u2014 hook configuration updated. Changes take effect on the next hook event.'",
             "timeout": 5
           }
         ]
@@ -493,7 +541,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Skill definition changed on disk. New skill rules apply immediately — invoke the skill to pick up updated behavior.'",
+            "command": "echo 'Skill definition changed on disk. New skill rules apply immediately \u2014 invoke the skill to pick up updated behavior.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": ".claude/experience-journal/*.jsonl",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Experience journal updated \u2014 knowledge from past sessions is available.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": ".claude/tech-debt-tracker/*.json",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Tech debt data changed on disk.'",
             "timeout": 5
           }
         ]
@@ -516,7 +584,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Context compacted. All skills, orchestrator, and graph MCP tools remain active. Re-read active task state before your next action — the CodeGraph DB is unchanged.'",
+            "command": "echo 'Context compacted. All skills, orchestrator, and graph MCP tools remain active. Re-read active task state before your next action \u2014 the CodeGraph DB is unchanged.'",
             "timeout": 5
           }
         ]
@@ -534,7 +602,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'LOCK=.claude/agent-depth.lock; DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); if [ \"$DEPTH\" -gt 2 ]; then jq -n \"{systemMessage: \\\"coder-workflow CIRCUIT BREAKER: Agent nesting depth is $DEPTH (> 2 max). This subagent SHOULD NOT spawn further subagents. Execute the task directly. Excessive nesting causes context degradation and decision-quality loss.\\\"}\"; else jq -n \"{systemMessage: \\\"coder-workflow: Agent depth = $DEPTH. Max nesting = 2 levels (orchestrator → agent → final executor). Do NOT exceed this depth.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'LOCK=.claude/agent-depth.lock; DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); if [ \"$DEPTH\" -gt 2 ]; then jq -n \"{systemMessage: \\\"coder-workflow CIRCUIT BREAKER: Agent nesting depth is $DEPTH (> 2 max). This subagent SHOULD NOT spawn further subagents. Execute the task directly. Excessive nesting causes context degradation and decision-quality loss.\\\"}\"; else jq -n \"{systemMessage: \\\"coder-workflow: Agent depth = $DEPTH. Max nesting = 2 levels (orchestrator \u2192 agent \u2192 final executor). Do NOT exceed this depth.\\\"}\"; fi; exit 0'",
             "if": "Agent|invoke_subagent",
             "timeout": 5,
             "async": true
@@ -577,6 +645,13 @@
             "type": "command",
             "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // unknown\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; jq -n \"{systemMessage: \\\"coder-workflow notice: Task complete. MANDATORY: Did you over-engineer the solution? Zero dummy code allowed! (Note: Changes are being auto-committed to git in the background).\\\"}\"; git add . 2>/dev/null; nohup bash -c \"if git diff --cached --quiet; then exit 0; fi; MSG=\\$(git diff --cached | head -n 500 | claude -p \\\"Write a 1-line conventional commit message summarizing these staged changes. Output ONLY the raw commit message, no markdown.\\\" --setting-sources user --no-session-persistence 2>/dev/null | tail -n 1); if printf \\\"%s\\\" \\\"\\$MSG\\\" | grep -qiE \\\"no staged changes|staging area is empty|already committed\\\"; then MSG=\\\"chore: auto-commit task - $TITLE\\\"; elif [ -z \\\"\\$MSG\\\" ]; then MSG=\\\"chore: auto-commit task - $TITLE\\\"; fi; git commit -m \\\"\\$MSG\\\" 2>/dev/null || true\" >/dev/null 2>&1 & exit 0'",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=\\$(cat); TITLE=\\$(jq -r \".task.title // .title // unknown\" <<< \"\\$INPUT\" 2>/dev/null); if command -v coder-workflow >/dev/null 2>&1; then coder-workflow experience record --type task-done --outcome success 2>/dev/null || true; fi; exit 0'",
+            "timeout": 10,
+            "async": true,
+            "statusMessage": "Recording to experience journal..."
           }
         ]
       }
