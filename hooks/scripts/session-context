@@ -1,345 +1,88 @@
 #!/usr/bin/env bash
-# session-context — consolidated UserPromptSubmit hook
-#
-# Responsibilities (single source of truth, replaces intent-classifier +
-# prompt-security-filter which are now deleted):
-#   1. Weighted intent scoring with confidence percentage
-#   2. Skill detection and routing hints
-#   3. Security pattern detection (critical/high warnings)
-#   4. Language detection (id/en)
-#   5. Complexity estimation (keyword-first, word-count as tiebreaker)
-#
-# Output: one hookSpecificOutput with additionalContext (invisible to user).
-# Security warnings additionally emit systemMessage (user must see these).
-#
-# Compatibility: Bash 3.2+ (macOS default). No associative arrays (Bash 4.0+).
-# Scoring uses scalar variables: SCORE_implement, SCORE_fix, etc.
-
+# session-context — lean UserPromptSubmit hook
+# Minimal: skill detection + security warnings + language + complexity.
+# Heavy intent scoring removed (advisory only, consumed context tokens).
 set -euo pipefail
 
 INPUT=$(cat)
-
-PROMPT=$(jq -r '
-  .prompt
-  // .message
-  // .userPrompt
-  // .transcript[-1].content
-  // empty
-' <<< "$INPUT" 2>/dev/null || true)
-
+PROMPT=$(jq -r '.prompt // .message // .userPrompt // empty' <<< "$INPUT" 2>/dev/null || true)
 [ -z "${PROMPT:-}" ] && exit 0
 
 LOWER=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]' | sed -E 's/[[:space:]]+/ /g')
-
-# ============================================================
-# Helpers
-# ============================================================
-
-# count_matches PATTERN — returns number of word-boundary matches (weighted scoring)
-count_matches() {
-  local n
-  n=$(printf '%s' "$LOWER" | grep -oiE "\b($1)\b" 2>/dev/null | wc -l | tr -d ' ') || n=0
-  printf '%s' "$n"
-}
-
-# has PATTERN — boolean check (for security / binary detection)
-has() {
-  printf '%s' "$LOWER" | grep -qiE "\b($1)\b"
-}
-
-# ============================================================
-# Weighted intent scoring — scalar variables (Bash 3.2 compatible)
-# ============================================================
-
-SCORE_implement=0
-SCORE_fix=0
-SCORE_refactor=0
-SCORE_audit=0
-SCORE_deploy=0
-SCORE_explore=0
-SCORE_test=0
-SCORE_plan=0
-SCORE_ask=0
-SCORE_config=0
-
-add_score() {
-  local intent="$1" count="$2"
-  # Dynamic variable update without eval by using a temp file trick isn't needed —
-  # use a case statement for safe, eval-free increment.
-  case "$intent" in
-    implement) SCORE_implement=$(( SCORE_implement + count )) ;;
-    fix)       SCORE_fix=$(( SCORE_fix + count )) ;;
-    refactor)  SCORE_refactor=$(( SCORE_refactor + count )) ;;
-    audit)     SCORE_audit=$(( SCORE_audit + count )) ;;
-    deploy)    SCORE_deploy=$(( SCORE_deploy + count )) ;;
-    explore)   SCORE_explore=$(( SCORE_explore + count )) ;;
-    test)      SCORE_test=$(( SCORE_test + count )) ;;
-    plan)      SCORE_plan=$(( SCORE_plan + count )) ;;
-    ask)       SCORE_ask=$(( SCORE_ask + count )) ;;
-    config)    SCORE_config=$(( SCORE_config + count )) ;;
-  esac
-}
-
-# --- implement ---
-add_score implement "$(count_matches 'implement|implementation|create|add|build|develop|make|finish|implementasi|buat|bikin|tambahkan|tambah|kerjakan|kerja|nambahin|nambah')"
-add_score implement "$(count_matches 'endpoint|route|handler|controller|component|api|function|class|module')"
-add_score implement "$(count_matches 'dependency injection|middleware|interceptor|decorator|interface|abstract|generic|singleton|factory|repository pattern|service layer')"
-add_score implement "$(count_matches 'jwt|oauth|authentication|authorization|bearer token|refresh token|session|cookie|rbac|permission|role')"
-add_score implement "$(count_matches 'pagination|cursor|offset|sorting|filtering|search|aggregation|transaction|rollback|migration|seed')"
-add_score implement "$(count_matches 'webhook|event|queue|worker|job|cron|scheduler|pubsub|message broker|kafka|redis|rabbitmq')"
-add_score implement "$(count_matches 'rest|graphql|grpc|websocket|sse|socket.io|http|https|tls|ssl|cors|csrf')"
-
-# --- fix ---
-add_score fix "$(count_matches 'fix|bugfix|hotfix|patch|repair|solve|resolve|debug|troubleshoot|perbaiki|benahi')"
-add_score fix "$(count_matches 'bug|error|crash|broken|fail|failed|not working|gagal|issue|wrong')"
-add_score fix "$(count_matches 'type error|compile error|lint error|runtime error|null pointer|undefined|nan|infinite loop|memory leak|race condition|deadlock')"
-add_score fix "$(count_matches 'stack trace|exception|panic|segfault|timeout|connection refused|503|404|500|cors error')"
-
-# --- refactor ---
-add_score refactor "$(count_matches 'refactor|refactoring|reorganize|restructure|extract|modular|modularize|rewrite|rework|cleanup|clean up')"
-add_score refactor "$(count_matches 'mvc|layer|separation|pisah|susun ulang|struktur ulang|rapikan')"
-add_score refactor "$(count_matches 'solid|dry|kiss|yagni|coupling|cohesion|dependency inversion|single responsibility|open closed|interface segregation')"
-
-# --- audit ---
-add_score audit "$(count_matches 'audit|review|assess|evaluate|inspect|analyze|analisis|analisa|cek')"
-add_score audit "$(count_matches 'layer violation|fat controller|coupling|circular dependency|code smell|kelemahan|weakness')"
-add_score audit "$(count_matches 'workflow|pipeline|process|alur|flow|rantai|chain|bottleneck|antipattern|anti-pattern|risk|risiko')"
-add_score audit "$(count_matches 'quality|kualitas|health|debt|technical debt|maintainability|readability|scalability')"
-
-# --- deploy ---
-add_score deploy "$(count_matches 'deploy|deployment|docker|traefik|vps|ci|cd|github action|container|production server')"
-add_score deploy "$(count_matches 'compose|nginx|ghcr|containerize|dockerize|dockerisasi|publikasikan|server production|kontainer')"
-add_score deploy "$(count_matches 'kubernetes|k8s|helm|terraform|ansible|aws|gcp|azure|cloudflare|vercel|fly.io|railway|heroku')"
-
-# --- explore ---
-add_score explore "$(count_matches 'explore|scan|build.*graph|refresh.*graph|map.*codebase|find.*definition|find.*caller|where.*defined')"
-add_score explore "$(count_matches 'codegraph|dependency graph|call graph|impact analysis|blast radius|peta.*kode|graf.*kode')"
-add_score explore "$(count_matches 'architecture|arsitektur|structure|struktur|overview|diagram|visualization|call chain|who calls|imports|exports|dependency tree')"
-
-# --- test ---
-add_score test "$(count_matches 'test|testing|unit test|integration test|e2e|coverage|mock|stub|assert|tdd|bdd')"
-add_score test "$(count_matches 'uji|pengujian|tes.*otomatis|buat.*pengujian')"
-add_score test "$(count_matches 'vitest|jest|mocha|pytest|go test|cargo test|cypress|playwright|supertest|snapshot|fixture|spy|faker')"
-
-# --- plan ---
-add_score plan "$(count_matches 'plan|planning|roadmap|decompose|break.*down|strategy|steps|rencana|pecah|tahapan|langkah|strategi')"
-add_score plan "$(count_matches 'task|subtask|milestone|sprint|backlog|estimate|scope|requirement|spec|specification')"
-
-# --- ask (informational) ---
-add_score ask "$(count_matches 'what is|how does|why|explain|describe|tell me|can you explain|apa itu|jelaskan|bagaimana|kenapa|mengapa|cara kerja|maksudnya|perbedaan|arti')"
-add_score ask "$(count_matches 'difference between|compare|versus|vs|pros and cons|when to use|should i|which is better|perbedaan antara|kapan pakai|mana yang')"
-
-# --- config ---
-add_score config "$(count_matches 'config|setup|install|init|environment|setting|permission|hook')"
-add_score config "$(count_matches 'env|dotenv|secrets|vault|configuration management|feature flag|toggle|tsconfig|eslintrc|biome|prettier')"
-
-# ============================================================
-# Determine primary and secondary intents (Bash 3.2 compatible)
-# Iterate over all SCORE_* scalars explicitly.
-# ============================================================
-PRIMARY=""
-PRIMARY_SCORE=0
-SECONDARY=""
-SECONDARY_SCORE=0
-TOTAL=0
-
-for intent in implement fix refactor audit deploy explore test plan ask config; do
-  # Get the variable value via indirect expansion — safe in Bash 3.2+
-  varname="SCORE_${intent}"
-  score=$(eval printf '%s' "\$$varname")
-  TOTAL=$(( TOTAL + score ))
-  if [ "$score" -gt "$PRIMARY_SCORE" ]; then
-    SECONDARY=$PRIMARY
-    SECONDARY_SCORE=$PRIMARY_SCORE
-    PRIMARY=$intent
-    PRIMARY_SCORE=$score
-  elif [ "$score" -gt "$SECONDARY_SCORE" ]; then
-    SECONDARY=$intent
-    SECONDARY_SCORE=$score
-  fi
-done
-
-# Confidence: primary_score / total_score x 100
-# Note: raw count-based — higher score = stronger signal, but absolute value
-# is less important than the gap between primary and secondary.
-if [ "$TOTAL" -gt 0 ]; then
-  CONFIDENCE=$(( (PRIMARY_SCORE * 100) / TOTAL ))
-else
-  CONFIDENCE=0
-fi
-
-# Low confidence fallback: if no keywords matched at all, signal the orchestrator
-# to self-determine skill routing rather than blindly default to none.
-if [ "$TOTAL" -eq 0 ] || [ "$CONFIDENCE" -lt 25 ]; then
-  PRIMARY="unknown"
-fi
-
-# ============================================================
-# Skill detection (maps to routing, based on primary intent)
-# Bash 3.2 compatible — no declare -a append syntax.
-# ============================================================
-
-SKILL_STR=""
-INTENT_STR=""
-
-_add_skill() {
-  local skill="$1" intent_label="$2"
-  if [ -z "$SKILL_STR" ]; then
-    SKILL_STR="$skill"
-    INTENT_STR="$intent_label"
-  else
-    SKILL_STR="${SKILL_STR},${skill}"
-    INTENT_STR="${INTENT_STR},${intent_label}"
-  fi
-}
-
-if has 'deploy|deployment|docker|traefik|vps|ci/cd|github.*action|container|production server|compose|nginx|dockerize|dockerisasi|publikasikan|server production|kontainer|server produksi'; then
-  _add_skill "deploy-docker" "deploy"
-fi
-
-if has 'refactor|refactoring|reorganize|restructure|extract|modular|modularize|mvc|rewrite|rework|cleanup|clean up|layer.*separation|pisah.*layer|susun ulang|struktur ulang|rapikan'; then
-  _add_skill "refraktor" "refactor"
-fi
-
-if has 'audit|review|assess|evaluate|inspect|analyze|analisis|analisa|layer violation|fat controller|coupling|circular dependency|code smell|cek struktur|kelemahan|weakness'; then
-  _add_skill "auditor" "audit"
-fi
-
-if has 'implement|implementation|create|add|build|develop|implementasi|buat|bikin|tambahkan|kerjakan|kerja|nambah|endpoint|route|handler|controller|service|repository|component|api|function|class|module|fix|bugfix|hotfix|patch|debug|troubleshoot|perbaiki|benahi|error|crash|broken|not working|gagal|fail|failed|bug|type.*error|lint.*error|compile.*error|runtime.*error'; then
-  _add_skill "coder" "implement"
-fi
-
-# ============================================================
-# Security checks (critical/high only — keep tight, precise patterns)
-# (merged from deleted prompt-security-filter)
-# Bash 3.2 compatible — string accumulation instead of array.
-# ============================================================
-
-WARNING_STR=""
-SEVERITY="low"
-
-_add_warning() {
-  local msg="$1" sev="$2"
-  if [ -z "$WARNING_STR" ]; then
-    WARNING_STR="$msg"
-  else
-    WARNING_STR="${WARNING_STR} ${msg}"
-  fi
-  # Escalate severity: critical > high > low
-  if [ "$sev" = "critical" ]; then
-    SEVERITY="critical"
-  elif [ "$sev" = "high" ] && [ "$SEVERITY" != "critical" ]; then
-    SEVERITY="high"
-  fi
-}
-
-# Destructive file operations
-if has 'hapus semua file|delete all files|rm -rf /[^t]|rm -rf ~|hapus.*semua.*direktori|wipe.*filesystem|format.*disk'; then
-  _add_warning "Destructive file operation: prompt targets system-wide deletion" "critical"
-fi
-
-# Destructive git operations
-if has 'force push.*main|force push.*master|push.*-f.*main|push.*--force.*master|reset.*main.*--hard|reset.*master.*--hard|hapus.*git.*history|delete.*git.*history'; then
-  _add_warning "Destructive git: force-push or hard-reset to main/master is blocked" "critical"
-fi
-
-# Destructive database operations
-if has 'drop.*all.*table|drop.*database.*prod|truncate.*all|hancurkan.*database|hapus.*semua.*data|drop.*schema.*cascade.*prod'; then
-  _add_warning "Destructive DB: confirm this targets dev/test, not production" "critical"
-fi
-
-# Secret/credential exposure
-if has 'print.*env.*token|echo.*password|cat.*\.env|commit.*secret|commit.*credential|commit.*api.key|upload.*secret|commit.*private.key'; then
-  _add_warning "Secret exposure: prompt suggests printing or committing credentials" "high"
-fi
-
-# Production targeting
-if has 'deploy.*to.*prod|push.*production|live.*server|production.*database|reset.*production|migrate.*prod'; then
-  _add_warning "Production targeting: confirm environment before deploying" "high"
-fi
-
-# Mass deletion
-if has 'hapus.*semua.*branch|delete all branch|hapus.*semua.*tag|delete.*all.*tag|clean.*-fd'; then
-  _add_warning "Mass deletion: verify intent before bulk branch/tag cleanup" "high"
-fi
-
-# Self-destruct (remove hooks/skills themselves)
-if has 'delete.*yourself|hapus.*diri|hancurkan.*semua.*hook|delete.*all.*hook|remove.*all.*skill|hapus.*semua.*skill'; then
-  _add_warning "Self-destruct pattern: removing hooks/skills will break the workflow" "high"
-fi
-
-# ============================================================
-# Complexity estimation (keyword-first, word-count as fallback)
-# ============================================================
 WORD_COUNT=$(printf '%s' "$PROMPT" | wc -w | tr -d ' ')
-COMPLEXITY="simple"
 
-# Keyword-first signals (much more reliable than word count alone)
-if printf '%s' "$LOWER" | grep -qiE "\b(multi|architecture|migration|platform|scalab|distribut|event.*driven|refactor|restructure|modular|mvc|semua.*modul|all.*module)\b"; then
-  COMPLEXITY="complex"
-elif printf '%s' "$LOWER" | grep -qiE "\b(feature|endpoint|service|repository|controller|module|komponen|fitur)\b" && [ "$WORD_COUNT" -gt 20 ]; then
-  COMPLEXITY="standard"
-elif [ "$WORD_COUNT" -gt 150 ]; then
-  COMPLEXITY="complex"
-elif [ "$WORD_COUNT" -gt 50 ]; then
-  COMPLEXITY="standard"
-fi
+# ============================================================
+# Skill detection (keyword sets → skills)
+# ============================================================
+has() { printf '%s' "$LOWER" | grep -qiE "\b($1)\b"; }
+
+SKILLS=""
+_intent=""
+_add() {
+    local s="$1" i="$2"
+    [ -n "$SKILLS" ] && SKILLS="${SKILLS},${s}" || SKILLS="$s"
+    [ -n "$_intent" ] && _intent="${_intent},${i}" || _intent="$i"
+}
+
+has 'deploy|deployment|docker|traefik|vps|ci.cd|github.*action|container|compose|nginx|containerize|dockerize|kubernetes|k8s|helm|terraform' && _add "deploy-docker" "deploy"
+has 'refactor|refactoring|reorganize|restructure|extract|modular|modularize|mvc|rewrite|cleanup|layer.*separation|susun.*ulang|struktur.*ulang|rapikan|solid|dry|yagni' && _add "refraktor" "refactor"
+has 'audit|review|assess|evaluate|inspect|layer.*violation|fat.*controller|coupling|circular.*dependency|code.*smell|cek.*struktur|kelemahan|weakness|quality|kualitas|health' && _add "auditor" "audit"
+has 'implement|create|add|build|develop|buat|bikin|tambah|endpoint|route|handler|controller|service|repository|component|api|function|class|module|pagination|cursor|migration' && _add "coder" "implement"
+has 'fix|bug|patch|repair|resolve|debug|troubleshoot|perbaiki|benahi|error|crash|broken|fail|gagal|exception|panic|segfault|null|undefined|race.condition|memory.*leak|timeout' && _add "coder" "implement"
+has 'brainstorm|design|spec|idea|requirement|fitur|rekomendasi|solution.*approach|alternatif|trade.?off' && _add "brainstorming" "brainstorm"
+has 'plan|roadmap|decompose|break.*down|strategy|steps|rencana|tahapan|langkah|task|subtask|milestone|sprint|backlog' && _add "planner" "plan"
+has 'test|testing|unit.*test|integration.*test|e2e|coverage|mock|stub|assert|tdd|bdd|uji|pengujian|vitest|jest|mocha|pytest|playwright|cypress' && _add "tester" "test"
+has 'diagram|visual|visualization|mermaid|graph.*viz|arsitektur.*diagram|module.*map|dependency.*graph|call.*graph' && _add "diagram" "diagram"
+has 'doc|documentation|readme|readme|pr.*description|changelog|release.*note|adr|contributing|migration.*guide|api.*spec|openapi|swagger' && _add "docs" "docs"
+has 'memory|lesson|learn|experience|journal|knowledge|cross.?agent|store.*lesson|simpan.*pelajaran|ingat' && _add "memory" "memory"
+has 'secrets|api.*key|token|password|credential|private.*key|certificate.*pem|secret.*scan|hardcoded.*credential|env.*file|.env' && _add "secrets" "security"
+has 'vuln|vulnerability|cve|sbom|supply.*chain|dependency.*check|snyk|npm.*audit' && _add "vuln" "security"
+has 'dead.*code|unused.*export|orphan.*file|uncalled.*function|tree.?shake|mati.*kode|tak.*terpakai' && _add "deadcode" "audit"
+has 'performance|perf|bundle.*size|lighthouse|load.*time|slow.*query|n+1|index.*strategy|optimization|optimasi|cepat|lambat' && _add "performance" "perf"
+has 'docker|compose|container|vps|server.*production|ci.cd|github.*action|deploy|traefik|nginx|ghcr|production' && [ -z "$SKILLS" ] && _add "deploy-docker" "deploy"
+
+[ -z "$SKILLS" ] && SKILLS="none" && _intent="unknown"
+
+# ============================================================
+# Security checks (critical/high only)
+# ============================================================
+WARN=""; SEV="low"
+_add_warn() { local m="$1" s="$2"; WARN="${WARN}${m} "; [ "$s" = "critical" ] && SEV="critical" || [ "$s" = "high" ] && [ "$SEV" != "critical" ] && SEV="high"; }
+has 'rf.*/ | rm.*-rf.*/ | rm.*-rf.*~|hapus.*semua.*file|delete.*all.*file|wipe.*filesystem|format.*disk' && _add_warn "Destructive file op" "critical"
+has 'force.*push.*main|force.*push.*master|push.*-f.*main|reset.*main.*--hard|delete.*git.*history' && _add_warn "Destructive git" "critical"
+has 'drop.*table.*prod|drop.*database.*prod|truncate.*all|hancurkan.*database' && _add_warn "Destructive DB" "critical"
+has 'print.*env.*token|echo.*password|cat.*\.env|commit.*secret|upload.*secret|commit.*private.*key' && _add_warn "Secret exposure" "high"
+has 'deploy.*prod|push.*production|live.*server|production.*database|migrate.*prod' && _add_warn "Production targeting" "high"
 
 # ============================================================
 # Language detection
 # ============================================================
 LANG="en"
-printf '%s' "$LOWER" | grep -qE '(kerjakan|implementasi|perbaiki|buat|tambah|apa itu|bagaimana|jelaskan|fitur|kode|saya|kita|tolong|bisa|tidak|sudah|belum|sedang|akan|dari|untuk|dengan|pada|yang|ini|itu|analisis|kelemahan|cek)' && LANG="id"
+printf '%s' "$LOWER" | grep -qE '(kerjakan|implementasi|perbaiki|buat|tambah|apa|bagaimana|jelaskan|fitur|kode|saya|kita|tolong|bisa|analisis|kelemahan|cek|susun|struktur|rapikan)' && LANG="id"
 
 # ============================================================
-# Build context message (Bash 3.2 compatible)
-# SKILL_STR and INTENT_STR already built by _add_skill
+# Complexity estimation
 # ============================================================
-[ -z "$SKILL_STR" ] && SKILL_STR="none"
-[ -z "$INTENT_STR" ] && INTENT_STR="none"
+COMPLEXITY="simple"
+printf '%s' "$LOWER" | grep -qiE '\b(multi|architecture|migration|platform|scalab|distribut|event.*driven|refactor|restructure|modular|multiple.*module|schema.*design|auth|authentication|authorization)\b' && COMPLEXITY="complex"
+printf '%s' "$LOWER" | grep -qiE '\b(feature|endpoint|service|repository|controller|module|komponen|fitur)\b' && [ "$WORD_COUNT" -gt 20 ] && COMPLEXITY="standard"
+[ "$WORD_COUNT" -gt 150 ] && COMPLEXITY="complex"
+[ "$WORD_COUNT" -gt 50 ] && [ "$COMPLEXITY" = "simple" ] && COMPLEXITY="standard"
 
-# Primary intent label: first entry in INTENT_STR (before first comma)
-PRIMARY_INTENT=$(printf '%s' "$INTENT_STR" | cut -d',' -f1)
-[ -z "$PRIMARY_INTENT" ] || [ "$PRIMARY_INTENT" = "none" ] && PRIMARY_INTENT="${PRIMARY:-unknown}"
+PRIMARY=$(printf '%s' "$_intent" | cut -d',' -f1)
+[ -z "$PRIMARY" ] && PRIMARY="unknown"
 
-context_msg="coder-workflow: skills=[${SKILL_STR}], intents=[${INTENT_STR}], primary=${PRIMARY_INTENT} (confidence=${CONFIDENCE}%), complexity=${COMPLEXITY}, lang=${LANG}, words=${WORD_COUNT}. CRITICAL RULE: You MUST use TaskCreate and TaskUpdate immediately to track all work. Never ignore task tools."
+CTX="coder-workflow: skills=[${SKILLS}], intents=[${_intent}], primary=${PRIMARY} (confidence=simple), complexity=${COMPLEXITY}, lang=${LANG}, words=${WORD_COUNT}. CRITICAL RULE: You MUST use TaskCreate and TaskUpdate immediately to track all work. Never ignore task tools."
+[ -n "$WARN" ] && CTX="${CTX} SECURITY[${SEV}]: ${WARN}"
 
-if [ -n "$WARNING_STR" ]; then
-  context_msg="${context_msg} SECURITY[${SEVERITY}]: ${WARNING_STR}"
-fi
+# JSON escape
+esc() { local s="$1"; s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\n'/\\n}"; printf '%s' "$s"; }
+CTX_E=$(esc "$CTX")
 
-# ============================================================
-# JSON escape (parameter substitution — no jq dependency)
-# ============================================================
-escape_for_json() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\"/\\\"}"
-  s="${s//$'\n'/\\n}"
-  s="${s//$'\r'/\\r}"
-  s="${s//$'\t'/\\t}"
-  printf '%s' "$s"
-}
-
-context_escaped=$(escape_for_json "$context_msg")
-
-# ============================================================
-# Output
-# ============================================================
-if [ -n "$WARNING_STR" ]; then
-  WARNING_ESCAPED=$(escape_for_json "⚠️ coder-workflow security [${SEVERITY}]: ${WARNING_STR}")
-
-  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
-    printf '{"additional_context":"%s","systemMessage":"%s"}\n' "$context_escaped" "$WARNING_ESCAPED"
-  else
-    printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s","systemMessage":"%s"}}\n' "$context_escaped" "$WARNING_ESCAPED"
-  fi
+if [ -n "$WARN" ]; then
+    W=$(esc "⚠ coder-workflow security [${SEV}]: ${WARN}")
+    printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s","systemMessage":"%s"}}\n' "$CTX_E" "$W"
 else
-  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
-    printf '{"additional_context":"%s"}\n' "$context_escaped"
-  else
-    printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$context_escaped"
-  fi
+    printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$CTX_E"
 fi
-
 exit 0

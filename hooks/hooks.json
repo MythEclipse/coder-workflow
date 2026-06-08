@@ -1,5 +1,5 @@
 {
-  "description": "coder-workflow hooks \u2014 safety guards, graph maintenance, task tracking, intelligence features (experience journal, quality guardian, bug hunter, consistency enforcer, tech debt tracker, preflight), telemetry.",
+  "description": "coder-workflow hooks — safety guards, graph maintenance, task tracking, session intelligence. Optimized: deduplicated, lean session-context, added missing hooks.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -38,30 +38,23 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'DB=.codegraph/graph.db; LOCK=.codegraph/scan.lock; if [ ! -f \"$DB\" ]; then touch \"$LOCK\" 2>/dev/null || true; (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || true); rm -f \"$LOCK\" 2>/dev/null || true; fi; exit 0'",
-            "timeout": 180,
-            "async": true,
-            "statusMessage": "Auto-scanning codebase graph..."
-          },
-          {
-            "type": "command",
-            "command": "bash -c '\n# Plugin conflict detection: warn if both global + project-local installs exist\nGLOBAL=\"$HOME/.claude/skills/coder-workflow/skills\"\nLOCAL=\".claude/skills/coder-workflow\"\nif [ -d \"$GLOBAL\" ] && [ -d \"$LOCAL\" ]; then\n  echo \"coder-workflow: Dual install detected. Project-local (.claude/) takes precedence.\"\n  echo \"  Remove one to avoid conflicts:\"\n  echo \"    rm -rf ~/.claude/skills/coder-workflow  # global\"\n  echo \"    rm -rf .claude/skills/coder-workflow     # project-local\"\nfi\nexit 0'",
-            "timeout": 5,
-            "statusMessage": "Checking plugin conflicts..."
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/gitignore-guard.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/gitignore-guard.sh",
             "timeout": 5,
             "async": true,
             "statusMessage": "Checking .gitignore..."
           },
           {
             "type": "command",
-            "command": "bash -c 'echo \"\ud83e\udde0 LEARN: You have experience from previous sessions. Invoke an experience subagent to check recent records.\" 2>/dev/null; exit 0'",
-            "timeout": 5,
+            "command": "bash -c 'DB=.codegraph/graph.db; if [ ! -f \"$DB\" ]; then touch .codegraph/scan.lock 2>/dev/null || true; (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || true); rm -f .codegraph/scan.lock 2>/dev/null || true; fi; exit 0'",
+            "timeout": 180,
             "async": true,
-            "statusMessage": "Checking intelligence state..."
+            "statusMessage": "Auto-scanning codebase graph..."
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'GLOBAL=\"$HOME/.claude/skills/coder-workflow/skills\"; LOCAL=\".claude/skills/coder-workflow\"; if [ -d \"$GLOBAL\" ] && [ -d \"$LOCAL\" ]; then echo \"coder-workflow: Dual install detected. Project-local (.claude/) takes precedence.\"; echo \"  Remove one:\"; echo \"    rm -rf ~/.claude/skills/coder-workflow\"; echo \"    rm -rf .claude/skills/coder-workflow\"; fi; exit 0'",
+            "timeout": 5,
+            "statusMessage": "Checking plugin conflicts..."
           }
         ]
       },
@@ -84,7 +77,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Context was compacted and then resumed. Skills, orchestrator, and CodeGraph MCP tools are still active. Re-read your active task before proceeding.'",
+            "command": "echo 'Context was compacted then resumed. Skills, orchestrator, CodeGraph MCP tools still active. Re-read active task before proceeding.'",
             "timeout": 5
           }
         ]
@@ -94,7 +87,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Session cleared. Clean slate \u2014 use /coder-workflow:coder-orchestrator for any coding task.'",
+            "command": "echo 'Session cleared. Use /coder-workflow:coder-orchestrator for any coding task.'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "nested",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Nested session start — subagent session initialized.'",
             "timeout": 5
           }
         ]
@@ -123,7 +126,7 @@
             ],
             "if": "Bash(rm *)",
             "timeout": 5,
-            "statusMessage": "Safety check..."
+            "statusMessage": "RM safety check..."
           },
           {
             "type": "command",
@@ -133,46 +136,34 @@
             ],
             "if": "Bash(git push *)",
             "timeout": 5,
-            "statusMessage": "Checking push safety..."
+            "statusMessage": "Push safety check..."
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+reset\\s+--hard|git\\s+clean\\s+-[a-zA-Z]*f\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: git reset --hard or git clean -f will destroy uncommitted work. Ensure nothing unsaved exists before proceeding.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+reset\\s+--hard|git\\s+clean\\s+-[a-zA-Z]*f\"; then jq -n \"{systemMessage: \\\"coder-workflow: git reset --hard or clean -f destroys uncommitted work. Ensure nothing unsaved exists.\\\"}\"; fi; exit 0'",
             "if": "Bash(git reset *)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"DROP\\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\\s+TABLE\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: Destructive SQL detected (DROP/TRUNCATE). Confirm this is targeting a dev/test database, not production.\\\"}\" ; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"DROP\\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\\s+TABLE\"; then jq -n \"{systemMessage: \\\"coder-workflow: Destructive SQL detected (DROP/TRUNCATE). Confirm dev/test, not production.\\\"}\"; fi; exit 0'",
             "if": "Bash(psql *)|Bash(mysql *)|Bash(sqlite3 *)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+merge\\s+\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: git merge detected. If this involves parallel worktree changes, verify no conflicts before completing. Run git diff --name-only --diff-filter=U after merge to check.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+merge\"; then jq -n \"{systemMessage: \\\"coder-workflow: git merge detected. Check conflicts with: git diff --name-only --diff-filter=U\\\"}\"; fi; exit 0'",
             "if": "Bash(git merge *)",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+commit\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: You are about to commit. Consider invoking the \\\\\\\"todo-checker\\\\\\\" subagent to ensure no dummy code exists, or invoke a documentation subagent to update documentation.\\\"}\"; fi; exit 0'",
-            "if": "Bash(git commit *)",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+push\"; then jq -n \"{systemMessage: \\\"coder-workflow notice: You are about to push to remote. Invoke a review subagent to automatically audit your code for security flaws before pushing.\\\"}\"; fi; exit 0'",
-            "if": "Bash(git push *)",
             "timeout": 5
           }
         ]
       },
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"coder-workflow OVERPOWER DIRECTIVE: Before writing, verify that you are NOT writing dummy code, mock structures, or simple band-aids. Over-engineer this! Drill down to the root cause. If you output a lazy shortcut or suppress warnings, you fail.\\\"}\"; exit 0'",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"coder-workflow quality: Before writing — check _shared/OVERPOWERED.md. No suppression flags, no dummy code, no speculation.\\\"}\"'",
             "timeout": 5
           },
           {
@@ -192,38 +183,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"coder-workflow MANDATORY: You MUST use Graph MCP tools (mcp__codegraph__query_graph, mcp__codegraph__search_code, mcp__codegraph__analyze_impact, etc.) to scan, search, and view the codebase structure. Do NOT use bash find/grep.\\\"}\"'",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Agent|invoke_subagent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'INPUT=$(cat); AGENT=$(jq -r \".tool_input.subagent_type // .tool_input.Subagents[0].TypeName // empty\" <<< \"$INPUT\" 2>/dev/null); if echo \"$AGENT\" | grep -qi \"explore\"; then jq -n \"{systemMessage: \\\"coder-workflow MANDATORY: The Explore agent MUST use mcp__codegraph tools (query_graph, search_code, analyze_impact) to scan, search, and view codebase structure. Do NOT fallback to bash find/grep.\\\"}\"; fi; exit 0'",
-            "if": "Explore|explore",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"\ud83e\udde0 LEARN: Before writing code, check the experience journal.\\n\u26a1 DILIGENT: Don\\'t leave TODO/FIXME behind.\\n\\nInvoke a preflight subagent for readiness check.\\\"}\"'",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash(git commit *)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"\u26a1 DILIGENT: Before committing \u2014 invoke preflight, bughunt, or debt scan subagents. Zero dummy code!\\\"}\"'",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"MANDATORY: Use Graph MCP tools (query_graph, search_code, analyze_impact) for codebase exploration. Do NOT use bash find/grep.\\\"}\"'",
             "timeout": 5
           }
         ]
@@ -235,25 +195,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PostToolUse\\\", additionalContext: \\\"coder-workflow: Impact Radius active \u2014 bugs found within your modified files must be tracked as low-priority tasks to be fixed at the end of the session, preventing feature starvation. Ignore pre-existing debt outside your FILE_MANIFEST.\\\"}}\"'",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "bash -c 'INPUT=$(cat); FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null); LOG=.claude/session-$(date +%Y%m%d).log; mkdir -p .claude 2>/dev/null || true; [ -f \"$LOG\" ] && SIZE=$(stat -c%s \"$LOG\" 2>/dev/null || echo 0) && [ \"$SIZE\" -gt 10485760 ] && tail -n +500 \"$LOG\" > \"$LOG.tmp\" && mv \"$LOG.tmp\" \"$LOG\"; printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> \"$LOG\" 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
           },
           {
             "type": "command",
-            "command": "bash -c '\n# Debounce: allow update at most once every 5 seconds.\n# Multiple rapid writes share one update \u2014 flock serializes + timestamp check.\nDEBOUNCE_FILE=.codegraph/.update-debounce\nLOCK_FILE=.codegraph/.update-debounce.lock\n(\n  flock -x 200\n  NOW=$(date +%s)\n  LAST=0\n  if [ -f \"$DEBOUNCE_FILE\" ]; then\n    LAST=$(cat \"$DEBOUNCE_FILE\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0)\n  fi\n  ELAPSED=$((NOW - LAST))\n  if [ \"$ELAPSED\" -ge 5 ]; then\n    mkdir -p .codegraph 2>/dev/null || true\n    printf \"%s\" \"$NOW\" > \"$DEBOUNCE_FILE\"\n    if test -f .codegraph/graph.db; then\n      command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true\n    fi\n  fi\n) 200>\"$LOCK_FILE\"\nexit 0'",
+            "command": "bash -c 'DEBOUNCE_FILE=.codegraph/.update-debounce; LOCK_FILE=.codegraph/.update-debounce.lock; (flock -x 200; NOW=$(date +%s); LAST=0; [ -f \"$DEBOUNCE_FILE\" ] && LAST=$(cat \"$DEBOUNCE_FILE\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); ELAPSED=$((NOW - LAST)); if [ \"$ELAPSED\" -ge 5 ]; then mkdir -p .codegraph 2>/dev/null || true; printf \"%s\" \"$NOW\" > \"$DEBOUNCE_FILE\"; test -f .codegraph/graph.db && command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; fi) 200>\"$LOCK_FILE\"; exit 0'",
             "timeout": 30,
             "async": true,
             "statusMessage": "Updating CodeGraph (debounced)..."
           },
           {
             "type": "command",
-            "command": "bash -c '\n# \u2500\u2500\u2500 Quality Guardian: snapshot after write \u2500\u2500\u2500\nif command -v coder-workflow >/dev/null 2>&1; then\n  FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null)\n  if [ -n \"$FILE\" ] && [ -f \"$FILE\" ]; then\n    # Bug hunt scan on written file (async, debounced)\n    coder-workflow bughunt scan-file --file \"$FILE\" >/dev/null 2>&1 &\n    # Consistency check hint\n    BASENAME=$(basename \"$FILE\")\n    if echo \"$BASENAME\" | grep -qiE \"\\.(ts|js|tsx|jsx|py|go|rs|java|kt)$\"; then\n      coder-workflow consistency validate \"$FILE\" >/dev/null 2>&1 &\n    fi\n  fi\nfi\nexit 0'",
+            "command": "bash -c 'if command -v coder-workflow >/dev/null 2>&1; then FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null); if [ -n \"$FILE\" ] && [ -f \"$FILE\" ]; then coder-workflow bughunt scan-file --file \"$FILE\" >/dev/null 2>&1 & fi; fi; exit 0'",
             "timeout": 15,
             "async": true,
             "statusMessage": "Running quality checks..."
@@ -265,11 +220,48 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if test -f .codegraph/graph.db; then command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; fi; exit 0'",
+            "command": "bash -c 'test -f .codegraph/graph.db && command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; exit 0'",
             "if": "Bash(git checkout *)|Bash(git switch *)|Bash(git merge *)|Bash(git pull)|Bash(git rebase *)",
             "timeout": 30,
             "async": true,
-            "statusMessage": "Updating CodeGraph after Git operation..."
+            "statusMessage": "Updating CodeGraph after git..."
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'printf \"[%s] GIT COMMIT: committed\\n\" \"$(date -u +%T)\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0'",
+            "if": "Bash(git commit *)",
+            "timeout": 5,
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] GIT OUTPUT: %s\\n\" \"$(date -u +%T)\" \"$CMD\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0'",
+            "if": "Bash(git push *)",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'mkdir -p .claude 2>/dev/null || true; printf \"[%s] INSTALL: dep install detected\\n\" \"$(date -u +%T)\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0'",
+            "if": "Bash(npm install *)|Bash(yarn install *)|Bash(bun install *)",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__codegraph__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'TOOL=${1:-unknown}; mkdir -p .claude 2>/dev/null || true; printf \"[%s] GRAPH: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0' session-cw-graph-log",
+            "timeout": 5,
+            "async": true
           }
         ]
       }
@@ -292,8 +284,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c '\nMAX_WAIT=10\nWAITED=0\nwhile [ $WAITED -lt $MAX_WAIT ]; do\n  if [ -f .codegraph/.update-debounce.lock ]; then\n    flock -n .codegraph/.update-debounce.lock -c \"true\" 2>/dev/null && break || sleep 0.5\n  else break; fi\n  WAITED=$((WAITED+1))\ndone\ngit add . 2>/dev/null\nif git diff --cached --quiet; then\n  echo \"Turn complete. Tasks tracked, quality OK.\"\nelse\n  MSG=$(git diff --cached | head -n 500 | claude -p \"Write 1-line conventional commit message for these staged changes. Output ONLY raw message.\" --setting-sources user --no-session-persistence 2>/dev/null | tail -n 1)\n  [ -z \"$MSG\" ] && MSG=\"chore: session auto-commit\"\n  git commit -m \"$MSG\" 2>/dev/null || true\n  echo \"Auto-committed.\"\nfi\ntest -f .codegraph/graph.db && command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true\ncommand -v coder-workflow >/dev/null 2>&1 && coder-workflow experience record --type turn-end --outcome success 2>/dev/null || true\n'",
-            "timeout": 15
+            "command": "echo '=== coder-workflow turn complete ==='",
+            "timeout": 5
           }
         ]
       }
@@ -303,7 +295,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'API error. Start a new session or subagent to resume when ready.'",
+            "command": "echo 'API error. New session or subagent to resume when ready.'",
             "timeout": 5
           },
           {
@@ -321,17 +313,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Package manifest changed on disk. Run the appropriate install command before using any new or updated packages.'",
+            "command": "echo 'Package manifest changed. Run install before using new packages.'",
             "timeout": 5
           }
         ]
       },
       {
-        "matcher": ".env|.env.local|.env.production|.env.development|.env.test|.env.staging",
+        "matcher": ".env*",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Env file changed on disk. Verify it is gitignored and contains no committed secrets before the next git operation.'",
+            "command": "echo 'Env file changed. Verify gitignored and no committed secrets before next git op.'",
             "timeout": 5
           }
         ]
@@ -341,7 +333,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'CLAUDE.md changed on disk \u2014 project instructions updated. New rules apply to subsequent turns immediately.'",
+            "command": "echo 'CLAUDE.md changed — project instructions updated. New rules apply immediately.'",
             "timeout": 5
           }
         ]
@@ -351,7 +343,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'hooks.json changed on disk \u2014 hook configuration updated. Changes take effect on the next hook event.'",
+            "command": "echo 'hooks.json changed — hook config updated. Takes effect on next hook event.'",
             "timeout": 5
           }
         ]
@@ -361,7 +353,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'TypeScript/linter config changed on disk. A rebuild may be needed: npm run build && npm run typecheck'",
+            "command": "echo 'Config changed. Rebuild may be needed: npm run build && npm run typecheck'",
             "timeout": 5
           }
         ]
@@ -371,27 +363,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'MCP configuration changed on disk. Restart Claude Code (or reload plugins) for the new server configuration to take effect.'",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "agents/*.md",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'Agent definition changed on disk. New agent instructions apply to subsequent subagent spawns.'",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "skills/*/SKILL.md",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'Skill definition changed on disk. New skill rules apply immediately \u2014 invoke the skill to pick up updated behavior.'",
+            "command": "echo 'MCP config changed. Restart or reload plugins for new server config.'",
             "timeout": 5
           }
         ]
@@ -401,7 +373,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/gitignore-guard.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/gitignore-guard.sh",
             "timeout": 5,
             "async": true,
             "statusMessage": "Checking .gitignore guard..."
@@ -409,21 +381,11 @@
         ]
       },
       {
-        "matcher": ".claude/experience-journal/*.jsonl",
+        "matcher": "agents/*.md|skills/*/SKILL.md",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Experience journal updated \u2014 knowledge from past sessions is available.'",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": ".claude/tech-debt-tracker/*.json",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'Tech debt data changed on disk.'",
+            "command": "echo 'Agent/skill definition changed. New instructions apply to subsequent spawns.'",
             "timeout": 5
           }
         ]
@@ -434,7 +396,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'AGENT=${1:-unknown}; LOCK=.claude/agent-depth.lock; mkdir -p .claude 2>/dev/null; printf \"[%s] AGENT: %s\\n\" \"$(date -u +%T)\" \"$AGENT\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; (flock -x 200; DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); NEW=$((DEPTH+1)); printf \"%s\" \"$NEW\" > \"$LOCK\"; if [ \"$NEW\" -gt 2 ]; then jq -n \"{systemMessage: \\\"DEPTH LIMIT: Agent nesting > 2 max. Stop delegating.\\\"}\"; fi) 200>.claude/agent-depth.lock.flock; exit 0'",
+            "command": "bash -c 'LOCK=.claude/agent-depth.lock; mkdir -p .claude 2>/dev/null; printf \"[%s] AGENT: %s\\n\" \"$(date -u +%T)\" \"${1:-unknown}\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; (flock -x 200; DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); NEW=$((DEPTH+1)); printf \"%s\" \"$NEW\" > \"$LOCK\"; if [ \"$NEW\" -gt 2 ]; then jq -n \"{systemMessage: \\\"DEPTH LIMIT: Agent nesting >2 max. Stop delegating. Execute directly.\\\"}\"; fi) 200>.claude/agent-depth.lock.flock; exit 0' subagent-start",
             "timeout": 5,
             "async": true
           }
@@ -453,13 +415,74 @@
         ]
       }
     ],
+    "PostCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Context was compacted. Skills, orchestrator, and CodeGraph tools are still active. Re-read task state before continuing.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'DIR=$(pwd); printf \"[%s] CWD: %s\\n\" \"$(date -u +%T)\" \"$DIR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; test -f .codegraph/graph.db && echo \"CodeGraph available: $(stat -c%s .codegraph/graph.db 2>/dev/null || echo 0) bytes\" || echo \"No CodeGraph DB in this directory.\"; exit 0'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/task-force-subagent.sh"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "TaskCompleted": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // unknown\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; jq -n \"{systemMessage: \\\"coder-workflow notice: Task complete. MANDATORY: Did you over-engineer the solution? Zero dummy code allowed! (Note: Changes are being auto-committed to git in the background).\\\"}\"; git add . 2>/dev/null; nohup bash -c \"if git diff --cached --quiet; then exit 0; fi; MSG=\\$(git diff --cached | head -n 500 | claude -p \\\"Write a 1-line conventional commit message summarizing these staged changes. Output ONLY the raw commit message, no markdown.\\\" --setting-sources user --no-session-persistence 2>/dev/null | tail -n 1); if printf \\\"%s\\\" \\\"\\$MSG\\\" | grep -qiE \\\"no staged changes|staging area is empty|already committed\\\"; then MSG=\\\"chore: auto-commit task - $TITLE\\\"; elif [ -z \\\"\\$MSG\\\" ]; then MSG=\\\"chore: auto-commit task - $TITLE\\\"; fi; git commit -m \\\"\\$MSG\\\" 2>/dev/null || true\" >/dev/null 2>&1 & exit 0; command -v coder-workflow >/dev/null 2>&1 && coder-workflow experience record --type task-done --outcome success 2>/dev/null || true; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // \\\"unknown\\\"\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; echo \"Task complete. Verify: over-engineered? No dummy code? See _shared/OVERPOWERED.md.\"; exit 0'",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'mkdir -p .claude 2>/dev/null || true; printf \"[%s] PERM DENIED: %s\\n\" \"$(date -u +%T)\" \"${1:-unknown}\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0' perm-denied-logger",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "ConfigChange": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'CHANGE=$(cat 2>/dev/null || echo \"unknown\"); printf \"[%s] CONFIG: source=%s\\n\" \"$(date -u +%T)\" \"$CHANGE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0'",
+            "timeout": 5,
+            "async": true
           }
         ]
       }
@@ -478,8 +501,32 @@
           },
           {
             "type": "command",
-            "command": "jq -n '{systemMessage: \"coder-workflow notice: Session is ending. If you solved a complex bug or made a major architectural decision, invoke a memory subagent to store the lesson before closing to save it to your Long-Term Memory Bank.\"}'",
+            "command": "bash -c 'rm -f .claude/agent-depth.lock .claude/agent-depth.lock.flock .claude/stop-block.count 2>/dev/null || true; printf \"[%s] SESSION END\\n\" \"$(date -u +%T)\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0'",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "InstructionsLoaded": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'mkdir -p .claude 2>/dev/null || true; printf \"[%s] INSTRUCTIONS: %s\\n\" \"$(date -u +%T)\" \"${1:-loaded}\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0' instructions-loader",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'COUNT=${1:-0}; mkdir -p .claude 2>/dev/null || true; printf \"[%s] BATCH: %s tools\\n\" \"$(date -u +%T)\" \"$COUNT\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0' batch-logger",
+            "timeout": 5,
+            "async": true
           }
         ]
       }
