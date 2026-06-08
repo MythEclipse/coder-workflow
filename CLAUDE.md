@@ -48,7 +48,7 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | `/adr` | `docs-generator` | Architecture Decision Records |
 | `/pr` | `docs-generator` | PR description + changelog + release |
 | `/vuln` | `vulnerability-scanner` | CVE scan & SBOM generation |
-| `/qa` | `codebase-qa-agent` | Tanya apa aja tentang codebase |
+| `/qa` | `codebase-qa-agent` | Ask anything about the codebase |
 | `/ops` | `devops-engineer` | Sprint, metrics, benchmark, auto-merge |
 | `/semantic-search` | `Explore` | Search code by meaning |
 | `/licenses` | `Explore` | Scan dependency licenses for compliance |
@@ -266,7 +266,7 @@ echo "Your agent prompt here" | coder-workflow align-cache --type agent --sub-ty
 
 ## Official Documentation Reference (crawled 2026-06-04)
 
-Sumber dokumentasi resmi untuk plugin Claude Code. Gunakan referensi ini saat mengubah atau mengembangkan plugin ini.
+Official documentation source for the Claude Code plugin. Use these references when modifying or developing this plugin.
 
 ### Plugin System Overview
 

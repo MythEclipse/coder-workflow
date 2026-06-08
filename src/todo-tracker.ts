@@ -14,7 +14,16 @@ import { extname, join, relative, resolve, sep } from "node:path";
 // Types
 // ---------------------------------------------------------------------------
 
-export type TodoType = "TODO" | "FIXME" | "HACK" | "NOTE" | "XXX" | "FOR NOW" | "TEMP" | "WIP" | "TBD";
+export type TodoType =
+  | "TODO"
+  | "FIXME"
+  | "HACK"
+  | "NOTE"
+  | "XXX"
+  | "FOR NOW"
+  | "TEMP"
+  | "WIP"
+  | "TBD";
 
 export interface TodoItem {
   type: TodoType;
@@ -453,7 +462,17 @@ export function formatTodoReport(report: TodoReport, options?: FormatOptions): s
     lines.push("## All Items");
 
     if (groupBy === "type") {
-      for (const t of ["TODO", "FIXME", "HACK", "NOTE", "XXX", "FOR NOW", "TEMP", "WIP", "TBD"] as TodoType[]) {
+      for (const t of [
+        "TODO",
+        "FIXME",
+        "HACK",
+        "NOTE",
+        "XXX",
+        "FOR NOW",
+        "TEMP",
+        "WIP",
+        "TBD",
+      ] as TodoType[]) {
         const group = report.items.filter((i) => i.type === t);
         if (group.length === 0) continue;
         lines.push(`\n### ${t} (${group.length})`);

@@ -47,7 +47,7 @@ LOCK_FILE=".claude/agent-depth.lock"
 if [ -f "$LOCK_FILE" ]; then
   STALE_DEPTH=$(cat "$LOCK_FILE" 2>/dev/null | grep -E '^[0-9]+$' || echo 0)
   if [ "$STALE_DEPTH" -gt 0 ]; then
-    RECOVERY_NOTES="${RECOVERY_NOTICES}⚠ CRASH RECOVERY: Stale agent-depth lock detected (depth=${STALE_DEPTH}). A subagent may have crashed without cleanup. Resetting lock.\n"
+    RECOVERY_NOTES="${RECOVERY_NOTES}⚠ CRASH RECOVERY: Stale agent-depth lock detected (depth=${STALE_DEPTH}). A subagent may have crashed without cleanup. Resetting lock.\n"
     rm -f "$LOCK_FILE" 2>/dev/null || true
     rm -f "${LOCK_FILE}.flock" 2>/dev/null || true
   fi

@@ -1,106 +1,106 @@
 #!/usr/bin/env node
 /**
- * Buku Harian Pengalaman (Experience Journal) — Rekam jejak task completion,
- * failure, dan keputusan untuk pembelajaran berkelanjutan.
+ * Experience Journal — Track task completions, failures, and decisions
+ * for continuous learning.
  *
- * Menyimpan data di .claude/experience-journal/entries.jsonl dan decisions.jsonl
- * dengan format JSONL (satu JSON per baris).
+ * Stores data in .claude/experience-journal/entries.jsonl and decisions.jsonl
+ * using JSONL format (one JSON object per line).
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
-// Tipe Data
+// Data Types
 // ---------------------------------------------------------------------------
 
-/** Hasil akhir dari sebuah task. */
+/** Final outcome of a task. */
 export type ExperienceOutcome = "success" | "failure" | "partial";
 
 /**
- * Rekaman keputusan arsitektural atau teknis.
+ * Record of an architectural or technical decision.
  */
 export interface DecisionRecord {
-  /** ID unik keputusan. */
+  /** Unique decision ID. */
   id: string;
-  /** Timestamp ISO 8601 pembuatan keputusan. */
+  /** ISO 8601 timestamp when the decision was made. */
   timestamp: string;
-  /** Konteks saat keputusan dibuat. */
+  /** Context when the decision was made. */
   context: string;
-  /** Opsi-opsi yang dipertimbangkan. */
+  /** Options that were considered. */
   options: string[];
-  /** Opsi yang dipilih. */
+  /** The selected option. */
   selected: string;
-  /** Alasan pemilihan opsi tersebut. */
+  /** Rationale for selecting that option. */
   rationale: string;
-  /** Outcome keputusan setelah dievaluasi (opsional). */
+  /** Decision outcome after evaluation (optional). */
   outcome?: ExperienceOutcome;
 }
 
 /**
- * Rekaman sebuah task completion.
+ * Record of a task completion.
  */
 export interface ExperienceEntry {
-  /** ID unik entry. */
+  /** Unique entry ID. */
   id: string;
-  /** Timestamp ISO 8601. */
+  /** ISO 8601 timestamp. */
   timestamp: string;
-  /** Tipe task (misal: "implement", "debug", "refactor", "test", "deploy"). */
+  /** Task type (e.g., "implement", "debug", "refactor", "test", "deploy"). */
   taskType: string;
-  /** Deskripsi singkat task. */
+  /** Short task description. */
   taskDesc: string;
-  /** Hasil akhir task. */
+  /** Final task outcome. */
   outcome: ExperienceOutcome;
-  /** Akar penyebab kegagalan (jika outcome=failure). */
+  /** Root cause of failure (if outcome=failure). */
   rootCause?: string;
-  /** Pelajaran yang dipetik. */
+  /** Lessons learned. */
   lessons: string[];
-  /** Pola-pola yang teridentifikasi. */
+  /** Identified patterns. */
   patterns: string[];
-  /** Keputusan yang dibuat selama task. */
+  /** Decisions made during the task. */
   decisions: DecisionRecord[];
-  /** Tag untuk kategorisasi. */
+  /** Tags for categorization. */
   tags: string[];
 }
 
 /**
- * Statistik ringkas dari journal.
+ * Summary statistics from the journal.
  */
 export interface Stats {
-  /** Total entry di journal. */
+  /** Total entries in the journal. */
   total: number;
-  /** Jumlah entry per outcome. */
+  /** Number of entries per outcome. */
   byOutcome: Record<ExperienceOutcome, number>;
-  /** Pola-pola yang paling sering muncul. */
+  /** Most frequently occurring patterns. */
   topPatterns: Array<{ pattern: string; frequency: number; avgSuccessRate: number }>;
-  /** Keputusan terbaru. */
+  /** Recent decisions. */
   recentDecisions: DecisionRecord[];
 }
 
 // ---------------------------------------------------------------------------
-// Konstanta
+// Constants
 // ---------------------------------------------------------------------------
 
-/** Direktori penyimpanan journal. */
+/** Journal storage directory. */
 const JOURNAL_DIR = ".claude/experience-journal";
 
-/** File rekaman entries. */
+/** Entries record file. */
 const ENTRIES_FILE = "entries.jsonl";
 
-/** File rekaman keputusan. */
+/** Decisions record file. */
 const DECISIONS_FILE = "decisions.jsonl";
 
-/** Jumlah maksimal hasil query default. */
+/** Default maximum query results. */
 const DEFAULT_QUERY_LIMIT = 10;
 
 // ---------------------------------------------------------------------------
-// Helper
+// Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Pastikan direktori journal ada. Buat jika belum ada.
+ * Ensures the journal directory exists. Creates it if it doesn't.
  *
- * @returns {string} Path absolut ke direktori journal
+ * @returns {string} Absolute path to the journal directory
  */
 function ensureJournalDir(): string {
   const dir = resolve(join(process.cwd(), JOURNAL_DIR));
@@ -111,19 +111,19 @@ function ensureJournalDir(): string {
 }
 
 /**
- * Generate ID unik.
+ * Generates a unique ID.
  *
- * @param {string} prefix — Prefix ID
- * @returns {string} ID unik
+ * @param {string} prefix — ID prefix
+ * @returns {string} Unique ID
  */
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /**
- * Parse timestamp ISO ke epoch milliseconds.
+ * Parses an ISO timestamp to epoch milliseconds.
  *
- * @param {string} iso — Timestamp ISO 8601
+ * @param {string} iso — ISO 8601 timestamp
  * @returns {number} Epoch milliseconds
  */
 function parseTimestamp(iso: string): number {
@@ -132,15 +132,15 @@ function parseTimestamp(iso: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// Baca & Tulis JSONL
+// Read & Write JSONL
 // ---------------------------------------------------------------------------
 
 /**
- * Baca semua record dari file JSONL.
+ * Reads all records from a JSONL file.
  *
- * @template T — Tipe record
- * @param {string} filePath — Path ke file JSONL
- * @returns {T[]} Array record
+ * @template T — Record type
+ * @param {string} filePath — Path to JSONL file
+ * @returns {T[]} Array of records
  */
 function readJsonl<T>(filePath: string): T[] {
   if (!existsSync(filePath)) return [];
@@ -153,7 +153,7 @@ function readJsonl<T>(filePath: string): T[] {
       try {
         records.push(JSON.parse(trimmed) as T);
       } catch {
-        // skip baris corrupt
+        // skip corrupted lines
       }
     }
     return records;
@@ -163,11 +163,11 @@ function readJsonl<T>(filePath: string): T[] {
 }
 
 /**
- * Append satu record ke file JSONL.
+ * Appends one record to a JSONL file.
  *
- * @param {string} filePath — Path ke file JSONL
- * @param {unknown} record — Record untuk disimpan
- * @returns {boolean} true jika berhasil
+ * @param {string} filePath — Path to JSONL file
+ * @param {unknown} record — Record to save
+ * @returns {boolean} true if successful
  */
 function appendJsonl(filePath: string, record: unknown): boolean {
   try {
@@ -179,32 +179,30 @@ function appendJsonl(filePath: string, record: unknown): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Fungsi Publik: Rekam
+// Public Functions: Record
 // ---------------------------------------------------------------------------
 
 /**
- * Catat penyelesaian task ke dalam journal.
- * Mencatat outcome, pelajaran, pola, dan keputusan yang dibuat.
+ * Records a task completion in the journal.
+ * Logs the outcome, lessons, patterns, and decisions made.
  *
- * @param {Omit<ExperienceEntry, "id" | "timestamp">} task — Data task completion tanpa id dan timestamp
- * @returns {ExperienceEntry} Entry yang sudah lengkap dengan ID dan timestamp
+ * @param {Omit<ExperienceEntry, "id" | "timestamp">} task — Task completion data without id and timestamp
+ * @returns {ExperienceEntry} Entry complete with ID and timestamp
  *
  * @example
  * ```ts
  * recordCompletion({
  *   taskType: "implement",
- *   taskDesc: "Membuat REST API untuk user auth",
+ *   taskDesc: "Create REST API for user auth",
  *   outcome: "success",
- *   lessons: ["Refresh token perlu expiry lebih panjang"],
+ *   lessons: ["Refresh token needs longer expiry"],
  *   patterns: ["auth-middleware-pattern"],
  *   decisions: [],
  *   tags: ["auth", "rest-api"]
  * });
  * ```
  */
-export function recordCompletion(
-  task: Omit<ExperienceEntry, "id" | "timestamp">,
-): ExperienceEntry {
+export function recordCompletion(task: Omit<ExperienceEntry, "id" | "timestamp">): ExperienceEntry {
   const dir = ensureJournalDir();
   const entry: ExperienceEntry = {
     ...task,
@@ -214,7 +212,7 @@ export function recordCompletion(
 
   appendJsonl(join(dir, ENTRIES_FILE), entry);
 
-  // Juga catat keputusan ke decisions file
+  // Also record decisions to the decisions file
   if (task.decisions && task.decisions.length > 0) {
     const decisionsFile = join(dir, DECISIONS_FILE);
     for (const decision of task.decisions) {
@@ -226,28 +224,24 @@ export function recordCompletion(
 }
 
 /**
- * Catat kegagalan task ke dalam journal.
- * Berguna untuk quick logging dari catch block.
+ * Records a task failure in the journal.
+ * Useful for quick logging from catch blocks.
  *
- * @param {string} taskType — Tipe task (misal: "implement", "debug", "deploy")
- * @param {string} error — Pesan error atau deskripsi kegagalan
- * @param {string} context — Konteks di mana kegagalan terjadi
- * @returns {ExperienceEntry} Entry yang sudah dibuat
+ * @param {string} taskType — Task type (e.g., "implement", "debug", "deploy")
+ * @param {string} error — Error message or failure description
+ * @param {string} context — Context where the failure occurred
+ * @returns {ExperienceEntry} The created entry
  *
  * @example
  * ```ts
  * try {
  *   await deploy();
  * } catch (err) {
- *   recordFailure("deploy", err.message, "Deployment ke staging");
+ *   recordFailure("deploy", err.message, "Deployment to staging");
  * }
  * ```
  */
-export function recordFailure(
-  taskType: string,
-  error: string,
-  context: string,
-): ExperienceEntry {
+export function recordFailure(taskType: string, error: string, context: string): ExperienceEntry {
   const dir = ensureJournalDir();
   const entry: ExperienceEntry = {
     id: generateId("exp"),
@@ -256,7 +250,7 @@ export function recordFailure(
     taskDesc: context,
     outcome: "failure",
     rootCause: error,
-    lessons: [`Kegagalan di ${taskType}: ${error}`],
+    lessons: [`Failure in ${taskType}: ${error}`],
     patterns: [],
     decisions: [],
     tags: [taskType, "failure"],
@@ -268,22 +262,22 @@ export function recordFailure(
 }
 
 /**
- * Catat sebuah keputusan arsitektural atau teknis.
- * Keputusan akan tersimpan di decisions.jsonl dan bisa diquery ulang.
+ * Records an architectural or technical decision.
+ * The decision is saved to decisions.jsonl and can be queried later.
  *
- * @param {string} context — Konteks keputusan
- * @param {string[]} options — Opsi yang dipertimbangkan
- * @param {string} selected — Opsi yang dipilih
- * @param {string} rationale — Alasan pemilihan
- * @returns {DecisionRecord} Record keputusan yang sudah disimpan
+ * @param {string} context — Decision context
+ * @param {string[]} options — Options that were considered
+ * @param {string} selected — The selected option
+ * @param {string} rationale — Reason for selection
+ * @returns {DecisionRecord} The saved decision record
  *
  * @example
  * ```ts
  * recordDecision(
- *   "Pilih library HTTP client",
+ *   "Choose HTTP client library",
  *   ["axios", "node-fetch", "undici"],
  *   "undici",
- *   "Built-in Node.js, performa lebih baik, bundle size lebih kecil"
+ *   "Built-in Node.js, better performance, smaller bundle size"
  * );
  * ```
  */
@@ -309,22 +303,22 @@ export function recordDecision(
 }
 
 // ---------------------------------------------------------------------------
-// Fungsi Publik: Query
+// Public Functions: Query
 // ---------------------------------------------------------------------------
 
 /**
- * Cari pengalaman task terbaru, opsional filter berdasarkan tipe task.
+ * Queries recent task experiences, optionally filtered by task type.
  *
- * @param {string} [taskType] — Filter berdasarkan tipe task (opsional)
- * @param {number} [limit=10] — Jumlah maksimal hasil
- * @returns {ExperienceEntry[]} Array entry yang cocok, diurutkan dari terbaru
+ * @param {string} [taskType] — Filter by task type (optional)
+ * @param {number} [limit=10] — Maximum number of results
+ * @returns {ExperienceEntry[]} Array of matching entries, sorted by newest first
  *
  * @example
  * ```ts
- * // Cari 5 task debug terbaru
+ * // Get the 5 most recent debug tasks
  * const debugTasks = queryRecent("debug", 5);
  *
- * // Cari semua task terbaru
+ * // Get all recent tasks
  * const recent = queryRecent();
  * ```
  */
@@ -342,23 +336,23 @@ export function queryRecent(
     filtered = filtered.filter((e) => e.taskType.toLowerCase() === tt);
   }
 
-  // Urutkan dari terbaru
+  // Sort by newest first
   filtered.sort((a, b) => parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp));
 
   return filtered.slice(0, limit);
 }
 
 /**
- * Cari keputusan masa lalu berdasarkan konteks.
- * Berguna saat menghadapi keputusan serupa dan ingin melihat
- * apa yang dipilih sebelumnya beserta alasannya.
+ * Queries past decisions by context.
+ * Useful when facing similar decisions and wanting to see
+ * what was chosen previously and why.
  *
- * @param {string} [context] — Filter berdasarkan konteks (partial match, case-insensitive, opsional)
- * @returns {DecisionRecord[]} Array keputusan yang cocok, diurutkan dari terbaru
+ * @param {string} [context] — Filter by context (partial match, case-insensitive, optional)
+ * @returns {DecisionRecord[]} Array of matching decisions, sorted by newest first
  *
  * @example
  * ```ts
- * // Cari semua keputusan tentang database
+ * // Find all decisions about database
  * const dbDecisions = queryDecisions("database");
  * ```
  */
@@ -379,27 +373,27 @@ export function queryDecisions(context?: string): DecisionRecord[] {
     );
   }
 
-  // Urutkan dari terbaru
+  // Sort by newest first
   filtered.sort((a, b) => parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp));
 
   return filtered;
 }
 
 // ---------------------------------------------------------------------------
-// Fungsi Publik: Analisis
+// Public Functions: Analysis
 // ---------------------------------------------------------------------------
 
 /**
- * Ekstrak pola dan tingkat keberhasilan dari journal.
- * Mengidentifikasi pola mana yang sering berhasil dan mana yang sering gagal.
+ * Extracts patterns and success rates from the journal.
+ * Identifies which patterns frequently succeed and which frequently fail.
  *
  * @returns {Array<{ pattern: string; frequency: number; avgSuccessRate: number }>}
- *   Array insight pola, diurutkan dari yang paling frekuen
+ *   Array of pattern insights, sorted by most frequent
  *
  * @example
  * ```ts
  * const insights = getInsights();
- * const terbaik = insights[0];
+ * const best = insights[0];
  * ```
  */
 export function getInsights(): Array<{
@@ -410,10 +404,7 @@ export function getInsights(): Array<{
   const dir = ensureJournalDir();
   const allEntries = readJsonl<ExperienceEntry>(join(dir, ENTRIES_FILE));
 
-  const patternMap = new Map<
-    string,
-    { total: number; successes: number; partials: number }
-  >();
+  const patternMap = new Map<string, { total: number; successes: number; partials: number }>();
 
   for (const entry of allEntries) {
     for (const pattern of entry.patterns) {
@@ -440,9 +431,7 @@ export function getInsights(): Array<{
 
   for (const [pattern, stats] of patternMap) {
     const successRate =
-      stats.total > 0
-        ? (stats.successes + stats.partials * 0.5) / stats.total
-        : 0;
+      stats.total > 0 ? (stats.successes + stats.partials * 0.5) / stats.total : 0;
 
     insights.push({
       pattern,
@@ -451,26 +440,26 @@ export function getInsights(): Array<{
     });
   }
 
-  // Urutkan berdasarkan frekuensi descending
+  // Sort by frequency descending
   insights.sort((a, b) => b.frequency - a.frequency);
 
   return insights;
 }
 
 // ---------------------------------------------------------------------------
-// Fungsi Publik: Statistik
+// Public Functions: Statistics
 // ---------------------------------------------------------------------------
 
 /**
- * Dapatkan statistik ringkas dari journal.
- * Mencakup total entry, breakdown per outcome, pola teratas, dan keputusan terbaru.
+ * Gets summary statistics from the journal.
+ * Includes total entries, per-outcome breakdown, top patterns, and recent decisions.
  *
- * @returns {Stats} Objek statistik
+ * @returns {Stats} Statistics object
  *
  * @example
  * ```ts
  * const stats = getStats();
- * console.log(`Total: ${stats.total}, Gagal: ${stats.byOutcome.failure}`);
+ * console.log(`Total: ${stats.total}, Failed: ${stats.byOutcome.failure}`);
  * ```
  */
 export function getStats(): Stats {
@@ -505,14 +494,14 @@ export function getStats(): Stats {
 }
 
 // ---------------------------------------------------------------------------
-// Fungsi Publik: Format
+// Public Functions: Format
 // ---------------------------------------------------------------------------
 
 /**
- * Format statistik journal menjadi string human-readable (Markdown).
+ * Formats journal statistics into a human-readable Markdown string.
  *
- * @param {Stats} stats — Objek statistik dari getStats()
- * @returns {string} String laporan format Markdown
+ * @param {Stats} stats — Statistics object from getStats()
+ * @returns {string} Markdown formatted report string
  *
  * @example
  * ```ts
@@ -523,14 +512,14 @@ export function getStats(): Stats {
 export function formatReport(stats: Stats): string {
   const lines: string[] = [];
 
-  lines.push("# Laporan Experience Journal");
+  lines.push("# Experience Journal Report");
   lines.push("");
   lines.push(`**Total entries:** ${stats.total}`);
   lines.push("");
 
   // Breakdown per outcome
   lines.push("## Breakdown per Outcome");
-  lines.push("| Outcome | Jumlah |");
+  lines.push("| Outcome | Count |");
   lines.push("|---------|--------|");
   const outcomeOrder: ExperienceOutcome[] = ["success", "partial", "failure"];
   for (const outcome of outcomeOrder) {
@@ -542,8 +531,8 @@ export function formatReport(stats: Stats): string {
 
   // Top patterns
   if (stats.topPatterns.length > 0) {
-    lines.push("## Pola Terpopuler");
-    lines.push("| Pola | Frekuensi | Rata-rata Sukses |");
+    lines.push("## Top Patterns");
+    lines.push("| Pattern | Frequency | Avg Success Rate |");
     lines.push("|------|-----------|------------------|");
     for (const p of stats.topPatterns) {
       const pct = (p.avgSuccessRate * 100).toFixed(0);
@@ -554,8 +543,8 @@ export function formatReport(stats: Stats): string {
 
   // Recent decisions
   if (stats.recentDecisions.length > 0) {
-    lines.push("## Keputusan Terbaru");
-    lines.push("| Konteks | Dipilih | Tanggal |");
+    lines.push("## Recent Decisions");
+    lines.push("| Context | Selected | Date |");
     lines.push("|---------|---------|---------|");
     for (const d of stats.recentDecisions) {
       const date = new Date(d.timestamp).toLocaleDateString("id-ID", {

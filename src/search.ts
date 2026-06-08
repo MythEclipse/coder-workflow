@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from "node:fs";
 import { relative } from "node:path";
-import { listSourceFiles, listSearchableFiles } from "./graph/files.js";
+import { listSearchableFiles, listSourceFiles } from "./graph/files.js";
 import { rankHybridSearchResults } from "./search/semantic.js";
 import type { CodeGraphSettings } from "./types.js";
 import { escapeRegex } from "./utils/escape.js";

@@ -1166,7 +1166,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     // ─── Todo/Fixme Tracker ─────────────────────────────────────────────
     {
       name: "scan_todos",
-      description: "Scan codebase for TODO/FIXME/HACK/NOTE/XXX/TEMP/WIP/TBD comments with author tracking.",
+      description:
+        "Scan codebase for TODO/FIXME/HACK/NOTE/XXX/TEMP/WIP/TBD comments with author tracking.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1521,8 +1522,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "list_directory_tree":
       return text(
-        getDirectoryTree(root, String(args?.path ?? "."), { 
-          maxDepth: typeof args?.maxDepth === "number" ? args.maxDepth : Number.MAX_SAFE_INTEGER 
+        getDirectoryTree(root, String(args?.path ?? "."), {
+          maxDepth: typeof args?.maxDepth === "number" ? args.maxDepth : Number.MAX_SAFE_INTEGER,
         }),
       );
     case "summarize_graph": {

@@ -13,7 +13,14 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+} from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { scanForTodos } from "./todo-tracker.js";
 
@@ -77,9 +84,9 @@ const SKIP_DIRS = new Set([
 const WEIGHTS = {
   typecheck: 0.25,
   lint: 0.15,
-  test: 0.30,
+  test: 0.3,
   coverage: 0.15,
-  debt: 0.10,
+  debt: 0.1,
   consistency: 0.05,
 };
 
@@ -562,8 +569,7 @@ export function getModuleMap(): Record<string, QualitySnapshot> {
       const existing = latestPerModule.get(entry.root);
       if (
         !existing ||
-        new Date(entry.snapshot.timestamp).getTime() >
-          new Date(existing.timestamp).getTime()
+        new Date(entry.snapshot.timestamp).getTime() > new Date(existing.timestamp).getTime()
       ) {
         latestPerModule.set(entry.root, entry.snapshot);
       }
@@ -690,19 +696,27 @@ export function formatReport(snapshot: QualitySnapshot): string {
     recommendations.push("Fix typecheck errors before proceeding.");
   }
   if (s.lintWarnings > 10) {
-    recommendations.push(`${s.lintWarnings} lint warnings present. Run linter to improve consistency.`);
+    recommendations.push(
+      `${s.lintWarnings} lint warnings present. Run linter to improve consistency.`,
+    );
   }
   if (s.testPassRate < 0.9) {
-    recommendations.push(`Test pass rate ${(s.testPassRate * 100).toFixed(1)}% needs to reach at least 90%.`);
+    recommendations.push(
+      `Test pass rate ${(s.testPassRate * 100).toFixed(1)}% needs to reach at least 90%.`,
+    );
   }
   if (s.testCoverage !== undefined && s.testCoverage < 60) {
     recommendations.push(`Coverage ${s.testCoverage}%. Add more unit tests to reach 60%.`);
   }
   if (s.debtItems > 5) {
-    recommendations.push(`Resolve ${s.debtItems} debt items (TODO/FIXME/HACK) to reduce technical debt.`);
+    recommendations.push(
+      `Resolve ${s.debtItems} debt items (TODO/FIXME/HACK) to reduce technical debt.`,
+    );
   }
   if (s.consistencyScore < 60) {
-    recommendations.push("Improve code consistency: use exports, type/interface annotations, and JSDoc documentation evenly.");
+    recommendations.push(
+      "Improve code consistency: use exports, type/interface annotations, and JSDoc documentation evenly.",
+    );
   }
 
   if (recommendations.length > 0) {
@@ -736,7 +750,9 @@ export function formatRegression(regression: RegressionReport): string {
   lines.push("");
   lines.push(`  Verdict      : ${regression.verdict}`);
   lines.push(`  Score        : ${regression.score}/100`);
-  lines.push(`  Regressions  : ${regression.changes.filter((c) => c.regression).length} / ${regression.changes.length} metrics`);
+  lines.push(
+    `  Regressions  : ${regression.changes.filter((c) => c.regression).length} / ${regression.changes.length} metrics`,
+  );
   lines.push("");
 
   const regressed = regression.changes.filter((c) => c.regression);

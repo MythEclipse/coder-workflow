@@ -1,118 +1,131 @@
 #!/usr/bin/env node
 /**
- * Tech Debt Tracker — Pelacak Utang Teknis
+ * Tech Debt Tracker
  *
- * Memindai proyek untuk TODO/FIXME/HACK, mengklasifikasikan secara otomatis,
- * dan menghasilkan laporan utang teknis yang terstruktur.
+ * Scans projects for TODO/FIXME/HACK, automatically classifies them,
+ * and generates a structured tech debt report.
  *
- * Fitur:
- * 1. Memindai komentar TODO/FIXME/HACK dengan klasifikasi tipe dan severity
- * 2. Klasifikasi otomatis berdasarkan teks komentar
- * 3. Pelacakan per-module, per-tipe, dan skor utang
- * 4. Pengecekan budget utang teknis
- * 5. Mark resolved untuk item yang sudah diperbaiki
- * 6. Format laporan dan dashboard untuk human-readable output
- * 7. Penyimpanan persisten di .claude/tech-debt-tracker/
+ * Features:
+ * 1. Scans TODO/FIXME/HACK comments with type and severity classification
+ * 2. Automatic classification based on comment text
+ * 3. Per-module, per-type tracking, and debt score
+ * 4. Tech debt budget checking
+ * 5. Mark resolved for fixed items
+ * 6. Report and dashboard formatting for human-readable output
+ * 7. Persistent storage in .claude/tech-debt-tracker/
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { readdirSync, statSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
 /**
- * Tipe utang teknis yang terdeteksi.
- * - bug:       Masalah yang bisa menyebabkan error atau perilaku salah
- * - enhancement: Permintaan penambahan fitur atau peningkatan
- * - refactor:   Kode yang perlu di-refactor untuk maintainability
- * - documentation: Kekurangan atau ketidakakuratan dokumentasi
- * - security:   Potensi celah keamanan
- * - performance: Masalah performa atau optimalisasi
+ * Detected type of technical debt.
+ * - bug:       Issues that could cause errors or incorrect behavior
+ * - enhancement: Requests for feature additions or improvements
+ * - refactor:   Code that needs refactoring for maintainability
+ * - documentation: Missing or inaccurate documentation
+ * - security:   Potential security vulnerabilities
+ * - performance: Performance issues or optimizations
  */
-export type DebtType = "bug" | "enhancement" | "refactor" | "documentation" | "security" | "performance";
+export type DebtType =
+  | "bug"
+  | "enhancement"
+  | "refactor"
+  | "documentation"
+  | "security"
+  | "performance";
 
 /**
- * Tingkat keparahan utang teknis.
- * - critical: Berdampak besar, perlu segera diperbaiki
- * - major:    Berdampak signifikan, perlu dijadwalkan
- * - minor:    Berdampak kecil, bisa ditunda
+ * Severity level of technical debt.
+ * - critical: High impact, needs immediate fixing
+ * - major:    Significant impact, needs scheduling
+ * - minor:    Low impact, can be deferred
  */
 export type DebtSeverity = "critical" | "major" | "minor";
 
 /**
- * Status siklus hidup item utang teknis.
+ * Lifecycle status of a tech debt item.
  */
 export type DebtStatus = "open" | "resolved";
 
 /**
- * Representasi satu item utang teknis yang terdeteksi.
+ * Representation of a single detected tech debt item.
  */
 export interface DebtEntry {
-  /** ID unik untuk item ini */
+  /** Unique ID for this item */
   id: string;
-  /** Timestamp ISO saat item pertama kali terdeteksi */
+  /** ISO timestamp when the item was first detected */
   timestamp: string;
-  /** Path file relatif terhadap root proyek */
+  /** File path relative to project root */
   file: string;
-  /** Nomor baris dalam file */
+  /** Line number in the file */
   line: number;
-  /** Klasifikasi tipe utang */
+  /** Debt type classification */
   type: DebtType;
-  /** Tingkat keparahan */
+  /** Severity level */
   severity: DebtSeverity;
-  /** Deskripsi atau pesan dari komentar */
+  /** Description or message from the comment */
   description: string;
-  /** Author (dari git blame) */
+  /** Author (from git blame) */
   author?: string;
-  /** Usia item dalam hari sejak commit terakhir menyentuh baris ini */
+  /** Age of the item in days since the last commit touching this line */
   age: number;
-  /** Status apakah masih open atau sudah resolved */
+  /** Status — whether still open or resolved */
   status: DebtStatus;
-  /** Timestamp ISO saat di-resolve (undefined jika masih open) */
+  /** ISO timestamp when resolved (undefined if still open) */
   resolvedAt?: string;
 }
 
 /**
- * Statistik agregat utang teknis.
+ * Aggregate tech debt statistics.
  */
 export interface DebtStats {
-  /** Total item utang */
+  /** Total number of debt items */
   total: number;
-  /** Jumlah item per severity */
+  /** Count of items per severity */
   bySeverity: Record<DebtSeverity, number>;
-  /** Jumlah item per tipe */
+  /** Count of items per type */
   byType: Record<DebtType, number>;
-  /** Jumlah item per module (directory level-1) */
+  /** Count of items per module (level-1 directory) */
   byModule: Record<string, number>;
-  /** Skor utang kumulatif (critical=10, major=5, minor=1) */
+  /** Cumulative debt score (critical=10, major=5, minor=1) */
   score: number;
-  /** Rata-rata usia item dalam hari */
+  /** Average age of items in days */
   averageAge: number;
-  /** Jumlah item yang sudah di-resolve */
+  /** Number of items that have been resolved */
   resolved: number;
-  /** Jumlah item yang masih open */
+  /** Number of items still open */
   open: number;
 }
 
 /**
- * Laporan utang teknis lengkap.
+ * Complete tech debt report.
  */
 export interface DebtReport {
-  /** Total item yang dipindai */
+  /** Total scanned items */
   totalScanned: number;
-  /** Daftar item utang */
+  /** List of debt items */
   items: DebtEntry[];
-  /** Statistik agregat */
+  /** Aggregate statistics */
   stats: DebtStats;
-  /** Timestamp kapan laporan dibuat */
+  /** Timestamp when the report was generated */
   generatedAt: string;
-  /** Root directory yang dipindai */
+  /** Root directory that was scanned */
   root: string;
 }
 
 /**
- * Hasil klasifikasi otomatis untuk sebuah teks komentar.
+ * Result of automatic classification for a comment text.
  */
 export interface ClassificationResult {
   type: DebtType;
@@ -120,26 +133,26 @@ export interface ClassificationResult {
 }
 
 /**
- * Hasil pengecekan budget utang teknis.
+ * Result of tech debt budget checking.
  */
 export interface BudgetCheckResult {
-  /** Apakah budget terlampaui */
+  /** Whether the budget is exceeded */
   exceeded: boolean;
-  /** Skor utang saat ini */
+  /** Current debt score */
   currentScore: number;
-  /** Ambang batas budget */
+  /** Budget threshold */
   threshold: number;
-  /** Sisa budget (negatif jika terlampaui) */
+  /** Remaining budget (negative if exceeded) */
   remaining: number;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────
 
-/** Directory penyimpanan data utang teknis */
+/** Storage directory for tech debt data */
 const DEBT_DIR = ".claude/tech-debt-tracker";
-/** File penyimpanan item utang */
+/** File for storing debt items */
 const ITEMS_FILE = "items.json";
-/** File history untuk perubahan status */
+/** History file for status changes */
 const HISTORY_FILE = "history.jsonl";
 
 /** Bobot skor per severity */
@@ -149,33 +162,69 @@ const SEVERITY_WEIGHTS: Record<DebtSeverity, number> = {
   minor: 1,
 };
 
-/** Pattern regex untuk mendeteksi komentar TODO/FIXME/HACK */
+/** Regex pattern for detecting TODO/FIXME/HACK comments */
 const DEBT_COMMENT_REGEX =
   /^(?:\/\/|#|<!--?|\/\*+| \*)\s*(TODO|FIXME|HACK|XXX|OPTIMIZE|REVIEW|SECURITY|PERF|WORKAROUND|KLUDGE|TEMP|WIP|TBD)\b\s*:?\s*(.*?)(?:\*\/|-->)?\s*$/im;
 
-/** Ekstensi file yang akan dipindai */
+/** File extensions to scan */
 const SCAN_EXTENSIONS = new Set([
-  ".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs",
-  ".py", ".go", ".rs", ".java", ".kt", ".swift",
-  ".rb", ".php", ".c", ".cpp", ".h", ".hpp",
-  ".cs", ".dart", ".scala",
-  ".md", ".yaml", ".yml", ".json", ".toml",
-  ".sql", ".sh", ".bash", ".zsh",
+  ".ts",
+  ".js",
+  ".tsx",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".py",
+  ".go",
+  ".rs",
+  ".java",
+  ".kt",
+  ".swift",
+  ".rb",
+  ".php",
+  ".c",
+  ".cpp",
+  ".h",
+  ".hpp",
+  ".cs",
+  ".dart",
+  ".scala",
+  ".md",
+  ".yaml",
+  ".yml",
+  ".json",
+  ".toml",
+  ".sql",
+  ".sh",
+  ".bash",
+  ".zsh",
 ]);
 
-/** Directory yang selalu dilewati saat pemindaian */
+/** Directories always skipped during scanning */
 const SKIP_DIRS = new Set([
-  "node_modules", "dist", ".git", "build", ".next",
-  ".turbo", "vendor", ".gradle", "generated",
-  "coverage", ".nyc_output", ".claude",
-  "target", "out", "bin", "obj",
+  "node_modules",
+  "dist",
+  ".git",
+  "build",
+  ".next",
+  ".turbo",
+  "vendor",
+  ".gradle",
+  "generated",
+  "coverage",
+  ".nyc_output",
+  ".claude",
+  "target",
+  "out",
+  "bin",
+  "obj",
 ]);
 
 // ─── Storage ─────────────────────────────────────────────────────────────
 
 /**
- * Memastikan directory storage ada, membuat jika belum.
- * @returns Path absolut ke directory storage
+ * Ensures the storage directory exists, creates it if it doesn't.
+ * @returns Absolute path to the storage directory
  */
 function ensureStorageDir(): string {
   const dir = join(process.cwd(), DEBT_DIR);
@@ -186,8 +235,8 @@ function ensureStorageDir(): string {
 }
 
 /**
- * Memuat item utang dari penyimpanan.
- * @returns Daftar DebtEntry yang tersimpan
+ * Loads debt items from storage.
+ * @returns List of stored DebtEntry
  */
 function loadItems(): DebtEntry[] {
   const dir = ensureStorageDir();
@@ -202,8 +251,8 @@ function loadItems(): DebtEntry[] {
 }
 
 /**
- * Menyimpan item utang ke penyimpanan.
- * @param items Daftar DebtEntry yang akan disimpan
+ * Saves debt items to storage.
+ * @param items List of DebtEntry to be saved
  */
 function saveItems(items: DebtEntry[]): void {
   const dir = ensureStorageDir();
@@ -211,8 +260,8 @@ function saveItems(items: DebtEntry[]): void {
 }
 
 /**
- * Mencatat event ke file history (JSONL).
- * @param event Objek event yang akan dicatat
+ * Records an event to the history file (JSONL).
+ * @param event Event object to be recorded
  */
 function appendHistory(event: Record<string, unknown>): void {
   try {
@@ -223,17 +272,17 @@ function appendHistory(event: Record<string, unknown>): void {
       "utf-8",
     );
   } catch {
-    // Non-critical, silent fail
+    // Non-critical, fail silently
   }
 }
 
 // ─── Git Blame Helpers ────────────────────────────────────────────────
 
 /**
- * Mendapatkan author dari git blame untuk baris tertentu.
- * @param file Path absolut file
- * @param line Nomor baris
- * @returns Email author atau undefined jika gagal
+ * Gets the author from git blame for a specific line.
+ * @param file Absolute file path
+ * @param line Line number
+ * @returns Author email or undefined on failure
  */
 function blameAuthor(file: string, line: number): string | undefined {
   try {
@@ -251,10 +300,10 @@ function blameAuthor(file: string, line: number): string | undefined {
 }
 
 /**
- * Mendapatkan tanggal commit terakhir untuk baris tertentu via git log.
- * @param file Path absolut file
- * @param line Nomor baris
- * @returns ISO date string atau undefined jika gagal
+ * Gets the last commit date for a specific line via git log.
+ * @param file Absolute file path
+ * @param line Line number
+ * @returns ISO date string or undefined on failure
  */
 function blameDate(file: string, line: number): string | undefined {
   try {
@@ -274,9 +323,9 @@ function blameDate(file: string, line: number): string | undefined {
 // ─── Age Calculation ──────────────────────────────────────────────────
 
 /**
- * Menghitung jumlah hari antara tanggal ISO dan sekarang.
- * @param isoDate String tanggal ISO
- * @returns Jumlah hari
+ * Calculates the number of days between an ISO date and now.
+ * @param isoDate ISO date string
+ * @returns Number of days
  */
 function daysSince(isoDate: string): number {
   const then = new Date(isoDate).getTime();
@@ -289,8 +338,8 @@ function daysSince(isoDate: string): number {
 // ─── Classification ───────────────────────────────────────────────────
 
 /**
- * Pola kata kunci untuk mendeteksi tipe utang teknis.
- * Setiap tipe memiliki array pattern regex yang akan dicocokkan.
+ * Keyword patterns for detecting tech debt types.
+ * Each type has an array of regex patterns to match against.
  */
 const TYPE_PATTERNS: Record<DebtType, RegExp[]> = {
   bug: [
@@ -330,7 +379,7 @@ const TYPE_PATTERNS: Record<DebtType, RegExp[]> = {
 };
 
 /**
- * Pola kata kunci untuk mendeteksi tingkat keparahan.
+ * Keyword patterns for detecting severity levels.
  */
 const SEVERITY_PATTERNS: Record<DebtSeverity, RegExp[]> = {
   critical: [
@@ -351,13 +400,13 @@ const SEVERITY_PATTERNS: Record<DebtSeverity, RegExp[]> = {
 };
 
 /**
- * Mengklasifikasikan teks komentar secara otomatis berdasarkan pola kata kunci.
+ * Classifies a comment text automatically based on keyword patterns.
  *
- * Fungsi ini mencocokkan teks komentar dengan pola yang sudah ditentukan
- * untuk menentukan tipe dan tingkat keparahan utang teknis.
+ * This function matches the comment text against predefined patterns
+ * to determine the type and severity level of technical debt.
  *
- * @param text Teks komentar yang akan diklasifikasikan
- * @returns Hasil klasifikasi berisi type dan severity
+ * @param text Comment text to be classified
+ * @returns Classification result containing type and severity
  *
  * @example
  * ```ts
@@ -371,7 +420,7 @@ export function classifyDebt(text: string): ClassificationResult {
     severity: "minor",
   };
 
-  // Hitung skor untuk setiap tipe
+  // Calculate score for each type
   let maxTypeScore = 0;
   for (const [type, patterns] of Object.entries(TYPE_PATTERNS)) {
     let score = 0;
@@ -380,7 +429,7 @@ export function classifyDebt(text: string): ClassificationResult {
         score += 2;
       }
     }
-    // Bonus untuk keyword yang muncul di awal (seperti TODO, FIXME, dll)
+    // Bonus for keywords appearing at the start (like TODO, FIXME, etc.)
     const prefixMatch = text.match(/^(TODO|FIXME|HACK|XXX|SECURITY|PERF|OPTIMIZE|REVIEW)\b/i);
     if (prefixMatch) {
       const prefixMap: Record<string, DebtType> = {
@@ -402,7 +451,7 @@ export function classifyDebt(text: string): ClassificationResult {
     }
   }
 
-  // Hitung skor untuk setiap severity
+  // Calculate score for each severity
   let maxSeverityScore = 0;
   for (const [severity, patterns] of Object.entries(SEVERITY_PATTERNS)) {
     let score = 0;
@@ -417,7 +466,7 @@ export function classifyDebt(text: string): ClassificationResult {
     }
   }
 
-  // Jika tidak ada pola yang cocok, gunakan default berdasarkan prefix
+  // If no patterns matched, use defaults based on prefix
   if (maxTypeScore === 0) {
     const upper = text.toUpperCase();
     if (upper.startsWith("FIXME")) {
@@ -429,7 +478,11 @@ export function classifyDebt(text: string): ClassificationResult {
     } else if (upper.startsWith("PERF") || upper.startsWith("OPTIMIZE")) {
       result.type = "performance";
       result.severity = "major";
-    } else if (upper.startsWith("HACK") || upper.startsWith("KLUDGE") || upper.startsWith("WORKAROUND")) {
+    } else if (
+      upper.startsWith("HACK") ||
+      upper.startsWith("KLUDGE") ||
+      upper.startsWith("WORKAROUND")
+    ) {
       result.type = "refactor";
       result.severity = "major";
     } else if (upper.startsWith("TODO")) {
@@ -444,11 +497,11 @@ export function classifyDebt(text: string): ClassificationResult {
 // ─── File Scanning ────────────────────────────────────────────────────
 
 /**
- * Berjalan secara rekursif melalui directory tree dan
- * mengumpulkan file-file dengan ekstensi yang dikenali.
+ * Walks the directory tree recursively and
+ * collects files with recognized extensions.
  *
- * @param root Path root directory
- * @returns Daftar path absolut file yang ditemukan
+ * @param root Root directory path
+ * @returns List of absolute file paths found
  */
 function walkFiles(root: string): string[] {
   const result: string[] = [];
@@ -483,10 +536,10 @@ function walkFiles(root: string): string[] {
 }
 
 /**
- * Mengekstrak teks deskripsi dari komentar, membersihkan marker komentar.
+ * Extracts description text from a comment, stripping comment markers.
  *
- * @param text Teks mentah dari komentar
- * @returns Teks yang sudah dibersihkan
+ * @param text Raw text from the comment
+ * @returns Cleaned text
  */
 function extractDescription(text: string): string {
   return text
@@ -496,11 +549,11 @@ function extractDescription(text: string): string {
 }
 
 /**
- * Mendapatkan nama module dari path file.
- * Module didefinisikan sebagai directory level-1 relatif terhadap root.
+ * Gets the module name from a file path.
+ * A module is defined as the level-1 directory relative to root.
  *
- * @param filePath Path file relatif
- * @returns Nama module
+ * @param filePath Relative file path
+ * @returns Module name
  */
 function getModuleName(filePath: string): string {
   const parts = filePath.split("/");
@@ -511,26 +564,26 @@ function getModuleName(filePath: string): string {
 // ─── Core Scanning ────────────────────────────────────────────────────
 
 /**
- * Memindai seluruh proyek untuk menemukan utang teknis.
+ * Scans the entire project for technical debt.
  *
- * Fungsi ini membaca semua file source code, mencari komentar
- * TODO/FIXME/HACK/dll, mengklasifikasikannya, dan mengembalikan
- * daftar DebtEntry yang sudah di-enrich dengan author, tanggal, dan usia.
+ * This function reads all source code files, looks for
+ * TODO/FIXME/HACK/etc. comments, classifies them, and returns
+ * a list of DebtEntry enriched with author, date, and age.
  *
- * @param root Path root proyek yang akan dipindai
- * @returns Array DebtEntry yang ditemukan
+ * @param root Project root path to scan
+ * @returns Array of discovered DebtEntry
  *
  * @example
  * ```ts
  * const debts = scanForDebt("/path/to/project");
- * console.log(`Ditemukan ${debts.length} item utang teknis`);
+ * console.log(`Found ${debts.length} tech debt items`);
  * ```
  */
 export function scanForDebt(root: string): DebtEntry[] {
   const resolvedRoot = resolve(root);
   const allFiles = walkFiles(resolvedRoot);
 
-  // Muat item yang sudah ada untuk referensi (non-duplikasi)
+  // Load existing items for reference (de-duplication)
   const existingItems = loadItems();
   const existingKeySet = new Set(existingItems.map((i) => `${i.file}:${i.line}`));
 
@@ -551,7 +604,7 @@ export function scanForDebt(root: string): DebtEntry[] {
     for (let i = 0; i < lines.length; i++) {
       const lineText = lines[i];
 
-      // Quick bail-out: harus mengandung marker komentar
+      // Quick bail-out: must contain comment marker
       if (!/\/\/|#|<!--?|\/\*/.test(lineText)) continue;
 
       const match = DEBT_COMMENT_REGEX.exec(lineText);
@@ -562,14 +615,14 @@ export function scanForDebt(root: string): DebtEntry[] {
       const description = extractDescription(rawMessage || rawTag);
       const lineNum = i + 1;
 
-      // Skip duplikasi
+      // Skip duplicates
       const uniqueKey = `${relFile}:${lineNum}`;
       if (existingKeySet.has(uniqueKey)) continue;
 
-      // Klasifikasi otomatis
+      // Automatic classification
       const classification = classifyDebt(description);
 
-      // Enrich dengan git blame
+      // Enrich with git blame
       const author = blameAuthor(file, lineNum);
       const date = blameDate(file, lineNum);
       const age = date ? daysSince(date) : 0;
@@ -591,7 +644,7 @@ export function scanForDebt(root: string): DebtEntry[] {
     }
   }
 
-  // Gabungkan item baru dengan yang sudah ada, update yang sudah ada
+  // Merge new items with existing ones, update existing ones
   const mergedItems = mergeItems(existingItems, newItems);
   saveItems(mergedItems);
   appendHistory({ event: "scan", found: newItems.length, total: mergedItems.length });
@@ -600,14 +653,14 @@ export function scanForDebt(root: string): DebtEntry[] {
 }
 
 /**
- * Menggabungkan item baru dengan item yang sudah ada.
- * Item yang sudah ada dipertahankan (termasuk status resolved).
- * Item baru ditambahkan. Item yang tidak lagi muncul di file
- * tetap disimpan (untuk referensi history), tapi bisa di-filter.
+ * Merges new items with existing items.
+ * Existing items are preserved (including resolved status).
+ * New items are added. Items that no longer appear in files
+ * are kept (for history reference), but can be filtered.
  *
- * @param existing Items yang sudah tersimpan
- * @param newItems Items baru dari hasil scan
- * @returns Array gabungan
+ * @param existing Previously stored items
+ * @param newItems New items from the scan
+ * @returns Merged array
  */
 function mergeItems(existing: DebtEntry[], newItems: DebtEntry[]): DebtEntry[] {
   const existingMap = new Map<string, DebtEntry>();
@@ -616,7 +669,7 @@ function mergeItems(existing: DebtEntry[], newItems: DebtEntry[]): DebtEntry[] {
     existingMap.set(key, item);
   }
 
-  // Tambahkan item baru yang belum ada
+  // Add new items that don't exist yet
   for (const item of newItems) {
     const key = `${item.file}:${item.line}`;
     if (!existingMap.has(key)) {
@@ -630,27 +683,27 @@ function mergeItems(existing: DebtEntry[], newItems: DebtEntry[]): DebtEntry[] {
 // ─── Query & Report ───────────────────────────────────────────────────
 
 /**
- * Mendapatkan semua item utang yang masih open.
+ * Gets all open debt items.
  *
- * @returns Array DebtEntry yang berstatus open
+ * @returns Array of DebtEntry with open status
  */
 export function getOpenDebts(): DebtEntry[] {
   return loadItems().filter((i) => i.status === "open");
 }
 
 /**
- * Mendapatkan daftar utang yang dikelompokkan per module.
+ * Gets debt items grouped by module.
  *
- * Module didefinisikan sebagai directory level-1.
- * Contoh: `src/`, `docs/`, `tests/`
+ * A module is defined as a level-1 directory.
+ * Example: `src/`, `docs/`, `tests/`
  *
- * @returns Record dengan key nama module, value array DebtEntry
+ * @returns Record with module name as key, DebtEntry array as value
  *
  * @example
  * ```ts
  * const byModule = getDebtByModule();
  * for (const [module, items] of Object.entries(byModule)) {
- *   console.log(`${module}: ${items.length} item`);
+ *   console.log(`${module}: ${items.length} items`);
  * }
  * ```
  */
@@ -670,9 +723,9 @@ export function getDebtByModule(): Record<string, DebtEntry[]> {
 }
 
 /**
- * Mendapatkan daftar utang yang dikelompokkan per tipe.
+ * Gets debt items grouped by type.
  *
- * @returns Record dengan key tipe utang, value array DebtEntry
+ * @returns Record with debt type as key, DebtEntry array as value
  *
  * @example
  * ```ts
@@ -695,18 +748,18 @@ export function getDebtByType(): Record<DebtType, DebtEntry[]> {
 }
 
 /**
- * Menghitung metrik dan skor utang teknis.
+ * Calculates tech debt metrics and score.
  *
- * Skor dihitung dengan bobot: critical = 10, major = 5, minor = 1.
- * Skor total memberikan gambaran umum tentang tingkat utang teknis.
+ * Score is calculated with weights: critical = 10, major = 5, minor = 1.
+ * The total score provides an overview of the overall tech debt level.
  *
- * @returns DebtStats dengan semua metrik agregat
+ * @returns DebtStats with all aggregate metrics
  *
  * @example
  * ```ts
  * const stats = getDebtScore();
- * console.log(`Skor utang: ${stats.score}`);
- * console.log(`Total item: ${stats.total}`);
+ * console.log(`Debt score: ${stats.score}`);
+ * console.log(`Total items: ${stats.total}`);
  * ```
  */
 export function getDebtScore(): DebtStats {
@@ -741,7 +794,7 @@ export function getDebtScore(): DebtStats {
     totalAge += item.age;
   }
 
-  // Hitung skor kumulatif
+  // Calculate cumulative score
   const score = Object.entries(bySeverity).reduce((acc, [sev, count]) => {
     return acc + count * (SEVERITY_WEIGHTS[sev as DebtSeverity] ?? 1);
   }, 0);
@@ -764,18 +817,18 @@ export function getDebtScore(): DebtStats {
 }
 
 /**
- * Memeriksa apakah skor utang teknis melebihi ambang budget yang ditentukan.
+ * Checks whether the tech debt score exceeds the specified budget threshold.
  *
- * Budget threshold default adalah 100. Jika skor melebihi threshold,
- * maka dianggap perlu ada tindakan pengurangan utang teknis.
+ * The default budget threshold is 100. If the score exceeds the threshold,
+ * it is considered that tech debt reduction actions are needed.
  *
- * @param threshold Ambang batas skor (default: 100)
- * @returns Boolean true jika melebihi budget
+ * @param threshold Score threshold (default: 100)
+ * @returns BudgetCheckResult with exceeded status and details
  *
  * @example
  * ```ts
  * if (isDebtBudgetExceeded(50)) {
- *   console.log("Budget utang teknis terlampaui!");
+ *   console.log("Tech debt budget exceeded!");
  * }
  * ```
  */
@@ -792,17 +845,17 @@ export function isDebtBudgetExceeded(threshold: number = 100): BudgetCheckResult
 }
 
 /**
- * Menandai item utang sebagai resolved (selesai diperbaiki).
+ * Marks a debt item as resolved (fixed).
  *
- * Mencatat timestamp resolved dan menyimpan perubahan ke storage.
+ * Records the resolved timestamp and saves changes to storage.
  *
- * @param id ID dari DebtEntry yang akan di-resolve
- * @returns Boolean true jika berhasil, false jika ID tidak ditemukan
+ * @param id ID of the DebtEntry to resolve
+ * @returns Boolean true if successful, false if ID not found
  *
  * @example
  * ```ts
  * const success = markResolved("debt-1234567890-abc123");
- * if (success) console.log("Item berhasil di-resolve");
+ * if (success) console.log("Item successfully resolved");
  * ```
  */
 export function markResolved(id: string): boolean {
@@ -827,10 +880,10 @@ export function markResolved(id: string): boolean {
 }
 
 /**
- * Membatalkan status resolved, mengembalikan item ke status open.
+ * Reverses the resolved status, returning the item to open status.
  *
- * @param id ID dari DebtEntry yang akan di-reopen
- * @returns Boolean true jika berhasil
+ * @param id ID of the DebtEntry to reopen
+ * @returns Boolean true if successful
  */
 export function markOpen(id: string): boolean {
   const items = loadItems();
@@ -854,12 +907,12 @@ export function markOpen(id: string): boolean {
 }
 
 /**
- * Mendapatkan laporan utang teknis lengkap setelah melakukan scan.
+ * Gets a complete tech debt report after running a scan.
  *
- * Menggabungkan hasil scan dengan statistik dan metadata laporan.
+ * Combines scan results with statistics and report metadata.
  *
- * @param root Path root proyek yang akan dipindai
- * @returns DebtReport dengan semua informasi
+ * @param root Project root path to scan
+ * @returns DebtReport with all information
  *
  * @example
  * ```ts
@@ -883,11 +936,11 @@ export function getDebtReport(root: string): DebtReport {
 // ─── Format ───────────────────────────────────────────────────────────
 
 /**
- * Memformat daftar item utang teknis menjadi tabel Markdown yang rapi.
+ * Formats a list of tech debt items into a clean Markdown table.
  *
- * @param items Daftar DebtEntry yang akan diformat
- * @param stats Statistik utang (opsional, untuk ringkasan)
- * @returns String Markdown
+ * @param items List of DebtEntry to format
+ * @param stats Debt statistics (optional, for summary)
+ * @returns Markdown string
  *
  * @example
  * ```ts
@@ -898,37 +951,41 @@ export function getDebtReport(root: string): DebtReport {
 export function formatDebtReport(items: DebtEntry[], stats?: DebtStats): string {
   const lines: string[] = [];
 
-  lines.push("# Laporan Utang Teknis");
+  lines.push("# Tech Debt Report");
   lines.push("");
 
   if (stats) {
-    lines.push(`**Total item:** ${stats.total} (${stats.open} open, ${stats.resolved} resolved)`);
-    lines.push(`**Skor utang:** ${stats.score}`);
-    lines.push(`**Rata-rata usia:** ${stats.averageAge} hari`);
-    lines.push(`**Item kritis:** ${stats.bySeverity.critical}`);
-    lines.push(`**Item major:** ${stats.bySeverity.major}`);
+    lines.push(`**Total items:** ${stats.total} (${stats.open} open, ${stats.resolved} resolved)`);
+    lines.push(`**Debt score:** ${stats.score}`);
+    lines.push(`**Average age:** ${stats.averageAge} days`);
+    lines.push(`**Critical items:** ${stats.bySeverity.critical}`);
+    lines.push(`**Major items:** ${stats.bySeverity.major}`);
     lines.push("");
   }
 
-  lines.push("## Detail Item");
+  lines.push("## Item Details");
   lines.push("");
-  lines.push("| ID | File | Line | Tipe | Severity | Usia (hr) | Author | Deskripsi |");
+  lines.push("| ID | File | Line | Type | Severity | Age (d) | Author | Description |");
   lines.push("|-----|------|------|------|----------|-----------|--------|-----------|");
 
   for (const item of items) {
     const idShort = item.id.slice(0, 16);
     const author = item.author ?? "-";
-    const desc = escapeMarkdown(item.description.length > 60 ? item.description.slice(0, 60) + "..." : item.description);
-    lines.push(`| ${idShort} | ${item.file} | ${item.line} | ${item.type} | ${item.severity} | ${item.age} | ${author} | ${desc} |`);
+    const desc = escapeMarkdown(
+      item.description.length > 60 ? item.description.slice(0, 60) + "..." : item.description,
+    );
+    lines.push(
+      `| ${idShort} | ${item.file} | ${item.line} | ${item.type} | ${item.severity} | ${item.age} | ${author} | ${desc} |`,
+    );
   }
 
   lines.push("");
 
-  // Ringkasan berdasarkan tipe
+  // Summary by type
   if (stats) {
-    lines.push("## Ringkasan per Tipe");
+    lines.push("## Summary by Type");
     lines.push("");
-    lines.push("| Tipe | Jumlah |");
+    lines.push("| Type | Count |");
     lines.push("|------|--------|");
     for (const [type, count] of Object.entries(stats.byType).sort((a, b) => b[1] - a[1])) {
       if (count > 0) {
@@ -937,10 +994,10 @@ export function formatDebtReport(items: DebtEntry[], stats?: DebtStats): string 
     }
     lines.push("");
 
-    // Ringkasan per severity
-    lines.push("## Ringkasan per Severity");
+    // Summary by severity
+    lines.push("## Summary by Severity");
     lines.push("");
-    lines.push("| Severity | Jumlah | Bobot | Sub-skor |");
+    lines.push("| Severity | Count | Weight | Sub-score |");
     lines.push("|----------|--------|-------|----------|");
     for (const [severity, count] of Object.entries(stats.bySeverity).sort((a, b) => {
       const order: Record<string, number> = { critical: 0, major: 1, minor: 2 };
@@ -957,13 +1014,13 @@ export function formatDebtReport(items: DebtEntry[], stats?: DebtStats): string 
 }
 
 /**
- * Membuat dashboard visual utang teknis dalam format Markdown.
+ * Creates a visual tech debt dashboard in Markdown format.
  *
- * Dashboard menampilkan ringkasan visual dengan progress bar ASCII
- * untuk severity distribution, top modules, dan item paling tua.
+ * The dashboard displays a visual summary with ASCII progress bars
+ * for severity distribution, top modules, and oldest items.
  *
- * @param stats Statistik utang teknis dari getDebtScore()
- * @returns String Markdown dashboard
+ * @param stats Tech debt statistics from getDebtScore()
+ * @returns Markdown dashboard string
  *
  * @example
  * ```ts
@@ -974,13 +1031,13 @@ export function formatDebtReport(items: DebtEntry[], stats?: DebtStats): string 
 export function formatDebtDashboard(stats: DebtStats): string {
   const lines: string[] = [];
 
-  lines.push("# Dashboard Utang Teknis");
+  lines.push("# Tech Debt Dashboard");
   lines.push("");
   lines.push(`> **Generated:** ${new Date().toISOString()}`);
   lines.push("");
 
   // Score card
-  lines.push("## Skor Utang");
+  lines.push("## Debt Score");
   lines.push("");
   lines.push(`\`\`\``);
   const barWidth = 30;
@@ -990,12 +1047,12 @@ export function formatDebtDashboard(stats: DebtStats): string {
   lines.push(`  Score: ${stats.score} / ${maxScore}`);
   lines.push(`  [${bar}]`);
   lines.push(`  Items: ${stats.total} (${stats.open} open, ${stats.resolved} resolved)`);
-  lines.push(`  Rata-rata usia: ${stats.averageAge} hari`);
+  lines.push(`  Average age: ${stats.averageAge} days`);
   lines.push(`\`\`\``);
   lines.push("");
 
   // Severity breakdown
-  lines.push("## Breakdown Severity");
+  lines.push("## Severity Breakdown");
   lines.push("");
   lines.push("```");
   const totalSeverity = stats.bySeverity.critical + stats.bySeverity.major + stats.bySeverity.minor;
@@ -1008,7 +1065,7 @@ export function formatDebtDashboard(stats: DebtStats): string {
   lines.push("");
 
   // Type breakdown
-  lines.push("## Breakdown Tipe");
+  lines.push("## Type Breakdown");
   lines.push("");
   lines.push("```");
   const totalType = Object.values(stats.byType).reduce((a, b) => a + b, 0);
@@ -1024,7 +1081,7 @@ export function formatDebtDashboard(stats: DebtStats): string {
   // Top modules
   const modules = Object.entries(stats.byModule).sort((a, b) => b[1] - a[1]);
   if (modules.length > 0) {
-    lines.push("## Top Modules (5 teratas)");
+    lines.push("## Top Modules (top 5)");
     lines.push("");
     lines.push("```");
     const maxModuleCount = Math.max(modules[0][1], 1);
@@ -1035,19 +1092,19 @@ export function formatDebtDashboard(stats: DebtStats): string {
     lines.push("");
   }
 
-  // Ringkasan
-  lines.push("## Ringkasan");
+  // Summary
+  lines.push("## Summary");
   lines.push("");
-  lines.push("| Metrik | Nilai |");
+  lines.push("| Metric | Value |");
   lines.push("|--------|-------|");
   lines.push(`| Total item | ${stats.total} |`);
   lines.push(`| Open | ${stats.open} |`);
   lines.push(`| Resolved | ${stats.resolved} |`);
-  lines.push(`| Skor utang | ${stats.score} |`);
-  lines.push(`| Rata-rata usia | ${stats.averageAge} hari |`);
-  lines.push(`| Item kritis | ${stats.bySeverity.critical} |`);
-  lines.push(`| Item major | ${stats.bySeverity.major} |`);
-  lines.push(`| Item minor | ${stats.bySeverity.minor} |`);
+  lines.push(`| Debt score | ${stats.score} |`);
+  lines.push(`| Average age | ${stats.averageAge} days |`);
+  lines.push(`| Critical items | ${stats.bySeverity.critical} |`);
+  lines.push(`| Major items | ${stats.bySeverity.major} |`);
+  lines.push(`| Minor items | ${stats.bySeverity.minor} |`);
 
   return lines.join("\n");
 }
@@ -1055,13 +1112,13 @@ export function formatDebtDashboard(stats: DebtStats): string {
 // ─── Format Helpers ───────────────────────────────────────────────────
 
 /**
- * Membuat progress bar ASCII horizontal.
+ * Creates a horizontal ASCII progress bar.
  *
- * @param label Label untuk baris ini
- * @param value Nilai saat ini
- * @param max Nilai maksimum (untuk proporsi)
- * @param weight Bobot tampilan (untuk spacing)
- * @returns String baris dengan progress bar
+ * @param label Label for this row
+ * @param value Current value
+ * @param max Maximum value (for proportion)
+ * @param weight Display weight (for spacing)
+ * @returns Row string with progress bar
  */
 function formatBar(label: string, value: number, max: number, weight?: number): string {
   const barMax = 20;
@@ -1072,21 +1129,21 @@ function formatBar(label: string, value: number, max: number, weight?: number): 
 }
 
 /**
- * Menambahkan padding spasi di kanan string hingga panjang tertentu.
+ * Pads a string with spaces on the right to a given length.
  *
- * @param str String yang akan dipadding
- * @param len Panjang target
- * @returns String dengan padding
+ * @param str String to pad
+ * @param len Target length
+ * @returns Padded string
  */
 function padEnd(str: string, len: number): string {
   return str + " ".repeat(Math.max(0, len - str.length));
 }
 
 /**
- * Melakukan escape karakter Markdown yang bermakna khusus.
+ * Escapes characters that have special meaning in Markdown.
  *
- * @param text Teks yang akan di-escape
- * @returns Teks yang sudah di-escape
+ * @param text Text to escape
+ * @returns Escaped text
  */
 function escapeMarkdown(text: string): string {
   return text.replace(/\|/g, "\\|").replace(/\n/g, " ").replace(/\r/g, "");
@@ -1095,17 +1152,17 @@ function escapeMarkdown(text: string): string {
 // ─── Cleanup ──────────────────────────────────────────────────────────
 
 /**
- * Menghapus item utang yang sudah resolved lebih dari `daysOld` hari.
+ * Removes debt items that have been resolved for more than `daysOld` days.
  *
- * Berguna untuk membersihkan history dari item lama yang sudah tidak relevan.
+ * Useful for cleaning up history from old items that are no longer relevant.
  *
- * @param daysOld Usia minimum resolved (dalam hari) untuk dihapus
- * @returns Jumlah item yang dihapus
+ * @param daysOld Minimum resolved age (in days) for deletion
+ * @returns Number of items deleted
  *
  * @example
  * ```ts
- * const deleted = cleanResolvedDebts(90); // Hapus resolved >90 hari
- * console.log(`${deleted} item dibersihkan`);
+ * const deleted = cleanResolvedDebts(90); // Remove resolved >90 days
+ * console.log(`${deleted} items cleaned up`);
  * ```
  */
 export function cleanResolvedDebts(daysOld: number = 90): number {
@@ -1130,11 +1187,11 @@ export function cleanResolvedDebts(daysOld: number = 90): number {
 }
 
 /**
- * Mereset semua data utang teknis.
+ * Resets all tech debt data.
  *
- * Menghapus semua item dari storage. Gunakan dengan hati-hati.
+ * Removes all items from storage. Use with caution.
  *
- * @returns Boolean true jika berhasil
+ * @returns Boolean true if successful
  */
 export function resetAllDebts(): boolean {
   try {
@@ -1148,14 +1205,14 @@ export function resetAllDebts(): boolean {
 }
 
 /**
- * Mengekspor seluruh data utang teknis sebagai JSON.
+ * Exports all tech debt data as JSON.
  *
- * @returns String JSON yang bisa diparsing oleh CLI
+ * @returns JSON string parseable by CLI
  *
  * @example
  * ```ts
  * const json = exportDebtJSON();
- * console.log(json); // output ke stdout
+ * console.log(json); // output to stdout
  * ```
  */
 export function exportDebtJSON(): string {

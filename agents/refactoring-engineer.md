@@ -68,7 +68,7 @@ Detection logic:
 - **Mostly pure functions, no classes** → Functional pattern
 - **No entry point, exports-only** → Library/SDK pattern
 
-Adapt all subsequent phases (Fase 1-5) to the detected pattern. The **principles remain the same**: separate concerns, organize by feature, one-way dependency flow. Only the **layer names** change.
+Adapt all subsequent phases to the detected pattern. The **principles remain the same**: separate concerns, organize by feature, one-way dependency flow. Only the **layer names** change.
 
 ## Supported languages for graph-first analysis
 

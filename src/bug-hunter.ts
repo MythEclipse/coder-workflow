@@ -1,18 +1,17 @@
 #!/usr/bin/env node
 /**
- * Bug Hunter — Detektor pola bug otomatis untuk source code.
+ * Bug Hunter — Automatic bug pattern detector for source code.
  *
- * Memindai file, direktori, dan git diff untuk mendeteksi pola-pola
- * yang dikenal sebagai sumber bug umum. Hasil deteksi disimpan dalam
- * format JSONL di .claude/bug-hunter/findings.jsonl untuk analisis
- * lebih lanjut.
+ * Scans files, directories, and git diffs to detect patterns known
+ * as common bug sources. Detection results are stored in JSONL format
+ * in .claude/bug-hunter/findings.jsonl for further analysis.
  *
- * Arsitektur:
- * 1. Built-in patterns mencakup 6 kategori: null-safety, error-handling,
+ * Architecture:
+ * 1. Built-in patterns cover 6 categories: null-safety, error-handling,
  *    boundary, security, async, performance.
- * 2. scan*() functions memindai konten dan mencocokkan dengan pattern aktif.
- * 3. Hasil temuan disimpan ke file JSONL untuk persistensi.
- * 4. Format*() functions menghasilkan output human-readable.
+ * 2. scan*() functions scan content and match against active patterns.
+ * 3. Results are saved to a JSONL file for persistence.
+ * 4. Format*() functions produce human-readable output.
  */
 
 import {
@@ -28,7 +27,7 @@ import { join, resolve } from "node:path";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 /**
- * Representasi kategori pola bug.
+ * Representation of a bug pattern category.
  */
 export type BugCategory =
   | "null-safety"
@@ -40,89 +39,89 @@ export type BugCategory =
   | "performance";
 
 /**
- * Representasi tingkat keparahan bug.
+ * Representation of a bug severity level.
  */
 export type BugSeverity = "critical" | "high" | "medium" | "low";
 
 /**
- * Representasi pola bug yang akan dideteksi.
+ * Representation of a bug pattern to detect.
  */
 export interface BugPattern {
-  /** ID unik untuk pola ini (digunakan untuk suppress) */
+  /** Unique identifier for this pattern (used for suppression) */
   id: string;
-  /** Nama deskriptif pola bug */
+  /** Descriptive name of the bug pattern */
   name: string;
-  /** Penjelasan singkat tentang pola ini */
+  /** Brief explanation of this pattern */
   description: string;
-  /** Tingkat keparahan */
+  /** Severity level */
   severity: BugSeverity;
-  /** Pattern regex atau string literal untuk mencocokkan kode */
+  /** Pattern regex or string literal to match against code */
   pattern: RegExp;
-  /** Bahasa pemrograman yang relevan */
+  /** Relevant programming languages */
   languages: string[];
-  /** Kategori pola */
+  /** Pattern category */
   category: BugCategory;
-  /** Saran perbaikan umum */
+  /** General fix suggestion */
   suggestedFix: string;
-  /** Apakah pattern sedang aktif (bisa di-nonaktifkan) */
+  /** Whether the pattern is active (can be suppressed) */
   active: boolean;
 }
 
 /**
- * Representasi satu temuan bug dalam file.
+ * Representation of a single bug finding in a file.
  */
 export interface BugFinding {
-  /** Path file tempat bug ditemukan */
+  /** Path to the file where the bug was found */
   file: string;
-  /** Nomor baris tempat pola cocok */
+  /** Line number where the pattern matched */
   line: number;
-  /** ID pattern yang cocok */
+  /** ID of the matched pattern */
   pattern: string;
-  /** Tingkat keparahan */
+  /** Severity level */
   severity: BugSeverity;
-  /** Deskripsi temuan */
+  /** Description of the finding */
   description: string;
-  /** Saran perbaikan spesifik untuk temuan ini */
+  /** Specific fix suggestion for this finding */
   suggestedFix: string;
-  /** Konten baris yang bermasalah */
+  /** Content of the problematic line */
   content: string;
-  /** Timestamp deteksi */
+  /** Detection timestamp */
   timestamp: string;
 }
 
 /**
- * Laporan bug lengkap untuk satu sesi scan.
+ * Complete bug report for a single scan session.
  */
 export interface BugReport {
-  /** Total temuan */
+  /** Total number of findings */
   totalFindings: number;
-  /** Daftar temuan */
+  /** List of findings */
   findings: BugFinding[];
-  /** Breakdown berdasarkan severity */
+  /** Breakdown by severity */
   bySeverity: Record<string, number>;
-  /** Breakdown berdasarkan kategori */
+  /** Breakdown by category */
   byCategory: Record<string, number>;
-  /** Breakdown berdasarkan file */
+  /** Breakdown by file */
   byFile: Record<string, number>;
-  /** Jumlah file yang di-scan */
+  /** Number of files scanned */
   filesScanned: number;
-  /** Timestamp laporan */
+  /** Report timestamp */
   timestamp: string;
 }
 
 /**
- * Statistik dari storage historis.
+ * Statistics from historical storage.
  */
 export interface BugHunterStats {
-  /** Total temuan sepanjang masa */
+  /** Total findings of all time */
   totalFindings: number;
-  /** Jumlah file yang pernah di-scan */
+  /** Number of files ever scanned */
   totalFilesScanned: number;
-  /** Temuan un-resolved */
+  /** Unresolved findings */
   unresolvedFindings: number;
-  /** Pattern yang sedang aktif */
+  /** Active patterns */
   activePatterns: number;
-  /** Pattern yang di-suppress */
+  /** Suppressed patterns */
   suppressedPatterns: number;
 }
 
@@ -133,7 +132,7 @@ const FINDINGS_FILE = "findings.jsonl";
 const SUPPRESSED_FILE = "suppressed.json";
 
 /**
- * Extension file yang didukung untuk scanning.
+ * Supported file extensions for scanning.
  */
 const SUPPORTED_EXTENSIONS = new Set([
   ".ts",
@@ -154,7 +153,7 @@ const SUPPORTED_EXTENSIONS = new Set([
 ]);
 
 /**
- * Direktori yang selalu dilewati saat scan.
+ * Directories always skipped during scan.
  */
 const SKIP_DIRS = new Set([
   "node_modules",
@@ -172,137 +171,134 @@ const SKIP_DIRS = new Set([
 // ─── Built-in Bug Patterns (minimal 15) ─────────────────────────────────
 
 /**
- * Mendapatkan daftar built-in pattern bug yang akan dideteksi.
- * Mencakup 6 kategori dengan total lebih dari 15 pattern.
+ * Returns the list of built-in bug patterns to detect.
+ * Covers 6 categories with more than 15 patterns total.
  *
- * @returns {BugPattern[]} Daftar pattern bug default
+ * @returns {BugPattern[]} List of default bug patterns
  */
 export function getBugPatterns(): BugPattern[] {
   return [
     // ── Null Safety ────────────────────────────────────────────────────
     {
       id: "null-nullable-no-check",
-      name: "Nullable tanpa null check",
+      name: "Nullable without null check",
       description:
-        "Mengakses properti atau method dari nilai nullable tanpa melakukan null check terlebih dahulu",
+        "Accessing properties or methods of a nullable value without performing a null check first",
       severity: "critical",
       pattern: /\b(\w+)(\.\w+)+\b(?!\s*\?\.)(?<![?!])/,
       languages: ["ts", "js", "kt", "swift"],
       category: "null-safety",
-      suggestedFix:
-        "Gunakan optional chaining (?.) atau tambahkan null guard (if/guard) sebelum akses",
+      suggestedFix: "Use optional chaining (?.) or add a null guard (if/guard) before access",
       active: true,
     },
     {
       id: "null-bang-without-guard",
-      name: "Non-null assertion (!) tanpa guard",
+      name: "Non-null assertion (!) without guard",
       description:
-        "Menggunakan operator non-null assertion (!) tanpa memastikan nilai tidak null sebelumnya",
+        "Using the non-null assertion operator (!) without ensuring the value is not null beforehand",
       severity: "high",
       pattern: /\b\w+!\s*\./,
       languages: ["ts"],
       category: "null-safety",
-      suggestedFix:
-        "Gunakan optional chaining (?.) atau validasi terlebih dahulu dengan if statement",
+      suggestedFix: "Use optional chaining (?.) or validate with an if statement first",
       active: true,
     },
     {
       id: "null-assign-nullable-to-nonnull",
-      name: "Nullable di-assign ke non-null tanpa check",
-      description: "Meng-assign nilai nullable ke variabel non-null tanpa validasi",
+      name: "Nullable assigned to non-null without check",
+      description: "Assigning a nullable value to a non-null variable without validation",
       severity: "high",
       pattern: /const\s+\w+\s*[=:]\s*\w+\??\./,
       languages: ["ts", "js", "kt"],
       category: "null-safety",
       suggestedFix:
-        "Gunakan null coalescing (??) dengan default value atau tambahkan null check sebelum assignment",
+        "Use null coalescing (??) with a default value or add a null check before assignment",
       active: true,
     },
 
     // ── Error Handling ─────────────────────────────────────────────────
     {
       id: "err-empty-catch",
-      name: "Catch block kosong",
-      description: "Blok catch yang kosong menelan error tanpa penanganan atau logging",
+      name: "Empty catch block",
+      description: "An empty catch block swallows errors without handling or logging",
       severity: "medium",
       pattern: /catch\s*\([^)]*\)\s*\{\s*\}/,
       languages: ["ts", "js", "java", "kt", "cpp", "swift", "rb", "php"],
       category: "error-handling",
       suggestedFix:
-        "Log error ke console atau throw ulang dengan pesan yang lebih deskriptif. Jangan biarkan catch kosong.",
+        "Log the error to console or re-throw with a more descriptive message. Do not leave catch blocks empty.",
       active: true,
     },
     {
       id: "err-promise-without-catch",
-      name: "Promise tanpa .catch()",
-      description: "Panggilan Promise tanpa menambahkan .catch() untuk menangani rejection",
+      name: "Promise without .catch()",
+      description: "Calling a Promise without adding .catch() to handle rejection",
       severity: "high",
       pattern: /\.then\s*\([^)]*\)\s*(?!\s*\.\s*catch\b)/,
       languages: ["ts", "js"],
       category: "error-handling",
-      suggestedFix: "Tambahkan .catch() handler di akhir Promise chain untuk menangani rejection",
+      suggestedFix: "Add a .catch() handler at the end of the Promise chain to handle rejection",
       active: true,
     },
     {
       id: "err-async-without-try",
-      name: "Async function tanpa try/catch",
+      name: "Async function without try/catch",
       description:
-        "Fungsi async yang tidak memiliki blok try/catch untuk menangani promise rejection",
+        "An async function that does not have a try/catch block to handle promise rejection",
       severity: "medium",
       pattern: /async\s+(?:function\s+\w+\s*)?\([^)]*\)\s*\{[^}]*(?!try)/,
       languages: ["ts", "js", "py"],
       category: "error-handling",
-      suggestedFix: "Bungkus kode dalam blok try/catch untuk menangani potential rejection",
+      suggestedFix: "Wrap the code in a try/catch block to handle potential rejection",
       active: true,
     },
     {
       id: "err-throw-literal",
       name: "Throw non-Error literal",
       description:
-        "Melempar exception dengan tipe non-Error (string, number, object) yang kehilangan stack trace",
+        "Throwing an exception with a non-Error type (string, number, object) that loses stack trace information",
       severity: "medium",
       pattern: /throw\s+(['"`]|\d+|null\b|undefined\b)/,
       languages: ["ts", "js", "java", "kt", "cpp"],
       category: "error-handling",
-      suggestedFix: "Gunakan 'throw new Error(\"...\")' agar stack trace terekam dengan baik",
+      suggestedFix: "Use 'throw new Error(\"...\")' so the stack trace is properly recorded",
       active: true,
     },
 
     // ── Boundary ───────────────────────────────────────────────────────
     {
       id: "bnd-array-index-without-length",
-      name: "Akses array index tanpa length check",
-      description:
-        "Mengakses elemen array dengan index tanpa memeriksa panjang array terlebih dahulu",
+      name: "Array index access without length check",
+      description: "Accessing an array element by index without checking the array length first",
       severity: "high",
       pattern: /\b\w+\[\s*\w+\s*\]/,
       languages: ["ts", "js", "java", "kt", "go", "rs", "cpp", "py", "rb", "php"],
       category: "boundary",
       suggestedFix:
-        "Periksa panjang array (array.length) sebelum mengakses index, atau gunakan optional chaining array.at()",
+        "Check the array length (array.length) before accessing an index, or use optional chaining with array.at()",
       active: true,
     },
     {
       id: "bnd-division-without-zero-guard",
-      name: "Division tanpa zero guard",
-      description: "Operasi pembagian tanpa memeriksa apakah penyebut bernilai nol",
+      name: "Division without zero guard",
+      description: "A division operation without checking whether the divisor is zero",
       severity: "critical",
       pattern: /\b\w+\s*\/\s*\w+\b/,
       languages: ["ts", "js", "java", "kt", "go", "rs", "cpp", "py", "rb", "php"],
       category: "boundary",
-      suggestedFix: "Tambahkan guard clause untuk memastikan penyebut tidak nol sebelum pembagian",
+      suggestedFix: "Add a guard clause to ensure the divisor is not zero before dividing",
       active: true,
     },
     {
       id: "bnd-substring-without-length",
-      name: "Substring/Substr tanpa boundary check",
-      description: "Pemotongan string menggunakan substring/substr tanpa memeriksa panjang string",
+      name: "Substring/Substr without boundary check",
+      description: "Slicing a string using substring/substr without checking the string length",
       severity: "medium",
       pattern: /\.substring\s*\(|\.substr\s*\(|\.slice\s*\(/,
       languages: ["ts", "js", "java", "kt"],
       category: "boundary",
       suggestedFix:
-        "Pastikan panjang string memenuhi batas minimal sebelum melakukan pemotongan, atau gunakan Math.min() untuk clamp",
+        "Ensure the string length meets the minimum required before slicing, or use Math.min() to clamp boundaries",
       active: true,
     },
 
@@ -310,121 +306,115 @@ export function getBugPatterns(): BugPattern[] {
     {
       id: "sec-sql-concatenation",
       name: "SQL string concatenation",
-      description: "Membangun query SQL dengan concatenation string yang rentan SQL injection",
+      description:
+        "Building SQL queries with string concatenation that is vulnerable to SQL injection",
       severity: "critical",
       pattern: /(?:query|execute|run)\s*\(\s*[`'"]\s*\+\s*/,
       languages: ["ts", "js", "py", "rb", "php", "java", "go"],
       category: "security",
-      suggestedFix:
-        "Gunakan parameterized query / prepared statement untuk menghindari SQL injection",
+      suggestedFix: "Use parameterized queries / prepared statements to avoid SQL injection",
       active: true,
     },
     {
       id: "sec-eval-usage",
-      name: "Penggunaan eval() atau Function()",
+      name: "Usage of eval() or Function()",
       description:
-        "Menggunakan eval() atau constructor Function() yang mengeksekusi string sebagai kode — sangat berbahaya",
+        "Using eval() or the Function() constructor which executes strings as code — extremely dangerous",
       severity: "critical",
       pattern: /\beval\s*\(|\bnew\s+Function\s*\(/,
       languages: ["ts", "js", "py"],
       category: "security",
       suggestedFix:
-        "Hindari eval(). Gunakan parser yang aman atau pendekatan alternatif untuk kebutuhan runtime evaluation",
+        "Avoid eval(). Use a safe parser or an alternative approach for runtime evaluation needs",
       active: true,
     },
     {
       id: "sec-innerhtml",
       name: "innerHTML / outerHTML assignment",
-      description: "Meng-assign user input langsung ke innerHTML yang rentan XSS attack",
+      description: "Assigning user input directly to innerHTML which is vulnerable to XSS attacks",
       severity: "critical",
       pattern: /\.innerHTML\s*=|\.outerHTML\s*=|\.insertAdjacentHTML\s*\(/,
       languages: ["ts", "js", "tsx", "jsx"],
       category: "security",
       suggestedFix:
-        "Gunakan textContent untuk teks biasa, atau sanitasi input terlebih dahulu sebelum memasukkan ke innerHTML",
+        "Use textContent for plain text, or sanitize input first before inserting into innerHTML",
       active: true,
     },
     {
       id: "sec-hardcoded-secret",
       name: "Hardcoded credential/secret",
-      description: "Kredensial, API key, atau token hardcoded langsung di source code",
+      description: "Credentials, API keys, or tokens hardcoded directly in source code",
       severity: "critical",
       pattern:
         /(?:api[_-]?key|apikey|secret|password|token|credential)\s*[:=]\s*['"][A-Za-z0-9_\-]{16,}['"]/i,
       languages: ["ts", "js", "py", "go", "rs", "java", "rb", "php"],
       category: "security",
-      suggestedFix:
-        "Gunakan environment variable atau secret management service untuk menyimpan kredensial",
+      suggestedFix: "Use environment variables or a secret management service to store credentials",
       active: true,
     },
 
     // ── Async ──────────────────────────────────────────────────────────
     {
       id: "async-callback-without-error",
-      name: "Callback tanpa error argument",
+      name: "Callback without error argument",
       description:
-        "Callback function yang tidak memiliki parameter error (Node.js callback convention)",
+        "A callback function that does not have an error parameter (Node.js callback convention)",
       severity: "medium",
       pattern: /\bcb\s*\([^)]*\w+\s*\)|\bcallback\s*\([^)]*\w+\s*\)/,
       languages: ["ts", "js"],
       category: "async",
       suggestedFix:
-        "Ikuti Node.js callback convention: callback(error, result). Parameter error harus ada untuk menangani failure.",
+        "Follow the Node.js callback convention: callback(error, result). The error parameter must be present to handle failure.",
       active: true,
     },
     {
       id: "async-missing-await",
-      name: "Missing await pada Promise call",
+      name: "Missing await on Promise call",
       description:
-        "Memanggil async function tanpa await, sehingga Promise tidak di-resolve sebelum digunakan",
+        "Calling an async function without await, so the Promise is not resolved before use",
       severity: "high",
       pattern:
         /(?:await\s+)?\b\w+\s*=\s*\w+\([^)]*\)\s*;\s*\n\s*\w+\.(?:then|catch|finally)\b(?!.*\bawait\b)/,
       languages: ["ts", "js"],
       category: "async",
-      suggestedFix:
-        "Tambahkan await sebelum pemanggilan async function, atau gunakan .then() chain",
+      suggestedFix: "Add await before calling the async function, or use a .then() chain",
       active: true,
     },
     {
       id: "async-promise-in-promise",
-      name: "Promise di dalam Promise (nested)",
-      description:
-        "Membuat Promise baru di dalam executor Promise lain yang menyebabkan callback hell",
+      name: "Nested Promise inside Promise",
+      description: "Creating a new Promise inside another Promise executor causing callback hell",
       severity: "low",
       pattern: /new\s+Promise\s*\([^)]*\)[^;]*\bnew\s+Promise\b/,
       languages: ["ts", "js"],
       category: "async",
-      suggestedFix:
-        "Gunakan Promise chaining (.then()) atau async/await untuk menghindari Promise bersarang",
+      suggestedFix: "Use Promise chaining (.then()) or async/await to avoid nested Promises",
       active: true,
     },
 
     // ── Performance ────────────────────────────────────────────────────
     {
       id: "perf-nested-loops",
-      name: "Nested loop O(n²) potensial",
+      name: "Potential nested loop O(n²)",
       description:
-        "Loop bersarang (nested for/forEach) yang berpotensi O(n²) dan bisa menjadi bottleneck",
+        "Nested loops (for/forEach) that potentially run in O(n²) and could become a bottleneck",
       severity: "low",
       pattern: /(?:for\s*\([^)]+\)[\s\S]*?for\s*\(|forEach\s*\([^)]*\)[\s\S]*?forEach\s*\()/,
       languages: ["ts", "js", "java", "kt", "go", "rs", "cpp", "py", "rb", "php"],
       category: "performance",
-      suggestedFix:
-        "Gunakan Map/Set untuk lookup O(1) atau restrukturisasi algoritma untuk menghindari O(n²)",
+      suggestedFix: "Use Map/Set for O(1) lookups or restructure the algorithm to avoid O(n²)",
       active: true,
     },
     {
       id: "perf-large-array-spread",
       name: "Large array spread operator",
       description:
-        "Menggunakan spread operator (...) untuk menggabungkan array besar, mengalokasi memori baru",
+        "Using the spread operator (...) to concatenate large arrays, allocating new memory",
       severity: "low",
       pattern: /\[\s*\.\.\.\s*\w+\s*,\s*\.\.\.\s*\w+/,
       languages: ["ts", "js", "tsx", "jsx"],
       category: "performance",
-      suggestedFix:
-        "Gunakan .push() dengan spread atau array mutation methods untuk array yang sangat besar",
+      suggestedFix: "Use .push() with spread or array mutation methods for very large arrays",
       active: true,
     },
   ];
@@ -433,10 +423,10 @@ export function getBugPatterns(): BugPattern[] {
 // ─── Storage Functions ────────────────────────────────────────────────────
 
 /**
- * Memastikan direktori storage bug-hunter ada.
- * Membuat direktori jika belum ada.
+ * Ensures the bug-hunter storage directory exists.
+ * Creates the directory if it does not exist.
  *
- * @returns {string} Path absolut ke direktori storage
+ * @returns {string} Absolute path to the storage directory
  */
 function ensureStorageDir(): string {
   const dir = join(process.cwd(), STORAGE_DIR);
@@ -447,9 +437,9 @@ function ensureStorageDir(): string {
 }
 
 /**
- * Load daftar ID pattern yang di-suppress dari file storage.
+ * Loads the list of suppressed pattern IDs from storage.
  *
- * @returns {string[]} Daftar ID pattern yang dinonaktifkan
+ * @returns {string[]} List of disabled pattern IDs
  */
 function loadSuppressedPatterns(): string[] {
   const dir = ensureStorageDir();
@@ -467,9 +457,9 @@ function loadSuppressedPatterns(): string[] {
 }
 
 /**
- * Menyimpan daftar ID pattern yang di-suppress ke file storage.
+ * Saves the list of suppressed pattern IDs to storage.
  *
- * @param {string[]} ids - Daftar ID pattern yang dinonaktifkan
+ * @param {string[]} ids - List of disabled pattern IDs
  */
 function saveSuppressedPatterns(ids: string[]): void {
   const dir = ensureStorageDir();
@@ -479,11 +469,11 @@ function saveSuppressedPatterns(ids: string[]): void {
 // ─── Pattern Management ───────────────────────────────────────────────────
 
 /**
- * Non-aktifkan pattern tertentu dari deteksi.
- * ID pattern yang di-suppress disimpan ke .claude/bug-hunter/suppressed.json.
+ * Disables a specific pattern from detection.
+ * Suppressed pattern IDs are saved to .claude/bug-hunter/suppressed.json.
  *
- * @param {string} patternId - ID pattern yang akan dinonaktifkan
- * @throws {Error} Jika patternId tidak ditemukan di daftar built-in patterns
+ * @param {string} patternId - ID of the pattern to disable
+ * @throws {Error} If patternId is not found in the built-in patterns list
  */
 export function suppressPattern(patternId: string): void {
   const patterns = getBugPatterns();
@@ -491,7 +481,7 @@ export function suppressPattern(patternId: string): void {
 
   if (!exists) {
     throw new Error(
-      `Pattern dengan ID "${patternId}" tidak ditemukan. Gunakan getBugPatterns() untuk melihat daftar pattern yang tersedia.`,
+      `Pattern with ID "${patternId}" not found. Use getBugPatterns() to see the list of available patterns.`,
     );
   }
 
@@ -503,9 +493,9 @@ export function suppressPattern(patternId: string): void {
 }
 
 /**
- * Aktifkan kembali pattern yang sebelumnya di-suppress.
+ * Re-enables a previously suppressed pattern.
  *
- * @param {string} patternId - ID pattern yang akan diaktifkan kembali
+ * @param {string} patternId - ID of the pattern to re-enable
  */
 export function unsuppressPattern(patternId: string): void {
   const suppressed = loadSuppressedPatterns().filter((id) => id !== patternId);
@@ -513,9 +503,9 @@ export function unsuppressPattern(patternId: string): void {
 }
 
 /**
- * Mendapatkan daftar pattern aktif (tidak di-suppress).
+ * Returns the list of active patterns (not suppressed).
  *
- * @returns {BugPattern[]} Daftar pattern yang aktif untuk deteksi
+ * @returns {BugPattern[]} List of patterns active for detection
  */
 function getActivePatterns(): BugPattern[] {
   const suppressed = new Set(loadSuppressedPatterns());
@@ -525,10 +515,10 @@ function getActivePatterns(): BugPattern[] {
 // ─── Core Scanning Logic ──────────────────────────────────────────────────
 
 /**
- * Memeriksa apakah ekstensi file didukung untuk scanning.
+ * Checks whether a file extension is supported for scanning.
  *
- * @param {string} filePath - Path file
- * @returns {boolean} true jika ekstensi didukung
+ * @param {string} filePath - File path
+ * @returns {boolean} true if the extension is supported
  */
 function isSupportedFile(filePath: string): boolean {
   const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
@@ -536,10 +526,10 @@ function isSupportedFile(filePath: string): boolean {
 }
 
 /**
- * Mendapatkan bahasa dari ekstensi file.
+ * Gets the language from a file extension.
  *
- * @param {string} filePath - Path file
- * @returns {string} Nama bahasa pemrograman
+ * @param {string} filePath - File path
+ * @returns {string} Programming language name
  */
 function getLanguageFromExtension(filePath: string): string {
   const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
@@ -564,14 +554,14 @@ function getLanguageFromExtension(filePath: string): string {
 }
 
 /**
- * Memindai satu baris konten terhadap semua pattern aktif.
+ * Scans a single line of content against all active patterns.
  *
- * @param {string} content - Konten baris
- * @param {number} lineNumber - Nomor baris (1-based)
- * @param {string} filePath - Path file sumber
- * @param {string} language - Bahasa pemrograman
- * @param {BugPattern[]} patterns - Daftar pattern aktif
- * @returns {BugFinding[]} Temuan yang cocok untuk baris ini
+ * @param {string} content - Line content
+ * @param {number} lineNumber - Line number (1-based)
+ * @param {string} filePath - Source file path
+ * @param {string} language - Programming language
+ * @param {BugPattern[]} patterns - List of active patterns
+ * @returns {BugFinding[]} Matched findings for this line
  */
 function scanLine(
   content: string,
@@ -583,7 +573,7 @@ function scanLine(
   const findings: BugFinding[] = [];
 
   for (const pattern of patterns) {
-    // Skip jika bahasa tidak relevan
+    // Skip if language is not relevant
     if (!pattern.languages.includes(language) && !pattern.languages.includes("*")) continue;
 
     try {
@@ -600,7 +590,7 @@ function scanLine(
         });
       }
     } catch {
-      // Skip pattern yang regex-nya error
+      // Skip patterns whose regex has an error
       continue;
     }
   }
@@ -611,12 +601,12 @@ function scanLine(
 // ─── Public Scan Functions ────────────────────────────────────────────────
 
 /**
- * Memindai konten git diff untuk mendeteksi pola bug.
- * Berguna untuk pre-commit hook dan code review.
+ * Scans git diff content for bug patterns.
+ * Useful for pre-commit hooks and code review.
  *
- * @param {string} diffContent - Konten git diff (output dari git diff)
- * @param {string} language - Bahasa pemrograman (ts, js, py, dll)
- * @returns {BugFinding[]} Daftar temuan bug dalam diff
+ * @param {string} diffContent - Git diff content (output from git diff)
+ * @param {string} language - Programming language (ts, js, py, etc.)
+ * @returns {BugFinding[]} List of bug findings in the diff
  */
 export function scanDiffForBugs(diffContent: string, language: string): BugFinding[] {
   const findings: BugFinding[] = [];
@@ -633,43 +623,43 @@ export function scanDiffForBugs(diffContent: string, language: string): BugFindi
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Track file yang sedang di-diff
+      // Track the file currently being diffed
       const fileMatch = line.match(/^\+\+\+\s+(?:b\/)?(.+)$/);
       if (fileMatch) {
         currentFile = fileMatch[1];
         continue;
       }
 
-      // Hanya scan baris tambahan (diawali +)
+      // Only scan added lines (prefixed with +)
       if (!line.startsWith("+") || line.startsWith("+++")) continue;
 
-      const contentLine = line.slice(1).trim(); // buang leading +
+      const contentLine = line.slice(1).trim(); // strip leading +
       if (!contentLine) continue;
 
       const lineFindings = scanLine(contentLine, i + 1, currentFile, language, patterns);
       findings.push(...lineFindings);
     }
   } catch (error) {
-    // Silent fail - return temuan yang sudah didapat
+    // Silent fail - return findings collected so far
   }
 
   return findings;
 }
 
 /**
- * Memindai satu file untuk mendeteksi pola bug.
- * Membaca file dari disk dan mengecek setiap baris terhadap pattern aktif.
+ * Scans a single file for bug patterns.
+ * Reads the file from disk and checks each line against active patterns.
  *
- * @param {string} filePath - Path absolut ke file yang akan di-scan
- * @returns {BugFinding[]} Daftar temuan bug dalam file
+ * @param {string} filePath - Absolute path to the file to scan
+ * @returns {BugFinding[]} List of bug findings in the file
  */
 export function scanFileForBugs(filePath: string): BugFinding[] {
   const findings: BugFinding[] = [];
 
   try {
-    // Validasi file
+    // Validate file
     if (!existsSync(filePath)) {
-      throw new Error(`File tidak ditemukan: ${filePath}`);
+      throw new Error(`File not found: ${filePath}`);
     }
 
     if (!isSupportedFile(filePath)) {
@@ -689,12 +679,12 @@ export function scanFileForBugs(filePath: string): BugFinding[] {
       findings.push(...lineFindings);
     }
 
-    // Simpan temuan ke storage
+    // Save findings to storage
     if (findings.length > 0) {
       appendFindings(findings);
     }
   } catch (error) {
-    // Throw biar caller bisa handle
+    // Re-throw so the caller can handle it
     throw error;
   }
 
@@ -702,11 +692,11 @@ export function scanFileForBugs(filePath: string): BugFinding[] {
 }
 
 /**
- * Memindai seluruh direktori untuk mendeteksi pola bug.
- * Rekursif mencari file dengan ekstensi yang didukung.
+ * Scans an entire directory for bug patterns.
+ * Recursively finds files with supported extensions.
  *
- * @param {string} dirPath - Path absolut ke direktori yang akan di-scan
- * @returns {BugFinding[]} Daftar temuan bug di seluruh direktori
+ * @param {string} dirPath - Absolute path to the directory to scan
+ * @returns {BugFinding[]} List of bug findings across the directory
  */
 export function scanDirectoryForBugs(dirPath: string): BugFinding[] {
   const allFindings: BugFinding[] = [];
@@ -715,7 +705,7 @@ export function scanDirectoryForBugs(dirPath: string): BugFinding[] {
     const resolvedPath = resolve(dirPath);
 
     if (!existsSync(resolvedPath)) {
-      throw new Error(`Direktori tidak ditemukan: ${dirPath}`);
+      throw new Error(`Directory not found: ${dirPath}`);
     }
 
     const files = walkFiles(resolvedPath);
@@ -725,7 +715,7 @@ export function scanDirectoryForBugs(dirPath: string): BugFinding[] {
         const fileFindings = scanFileForBugs(file);
         allFindings.push(...fileFindings);
       } catch {
-        // Skip file yang gagal di-scan
+        // Skip files that failed to scan
         continue;
       }
     }
@@ -737,10 +727,10 @@ export function scanDirectoryForBugs(dirPath: string): BugFinding[] {
 }
 
 /**
- * Rekursif mengumpulkan file-file yang didukung dari direktori.
+ * Recursively collects supported files from a directory.
  *
- * @param {string} root - Path direktori root
- * @returns {string[]} Daftar path file yang ditemukan
+ * @param {string} root - Root directory path
+ * @returns {string[]} List of discovered file paths
  */
 function walkFiles(root: string): string[] {
   const result: string[] = [];
@@ -769,7 +759,7 @@ function walkFiles(root: string): string[] {
       }
     }
   } catch {
-    // Return hasil yang sudah didapat
+    // Return results collected so far
   }
 
   return result;
@@ -778,9 +768,9 @@ function walkFiles(root: string): string[] {
 // ─── Storage ──────────────────────────────────────────────────────────────
 
 /**
- * Menyimpan temuan ke file JSONL storage.
+ * Saves findings to the JSONL storage file.
  *
- * @param {BugFinding[]} findings - Daftar temuan yang akan disimpan
+ * @param {BugFinding[]} findings - List of findings to save
  */
 function appendFindings(findings: BugFinding[]): void {
   const dir = ensureStorageDir();
@@ -791,17 +781,17 @@ function appendFindings(findings: BugFinding[]): void {
       appendFileSync(filePath, JSON.stringify(finding) + "\n", "utf-8");
     }
   } catch {
-    // Non-critical — tetap return findings walau gagal simpan
+    // Non-critical — still return findings even if saving fails
   }
 }
 
 /**
- * Membaca semua temuan dari file storage JSONL.
+ * Reads all findings from the JSONL storage file.
  *
- * @param {object} [options] - Filter opsi
- * @param {BugSeverity} [options.severity] - Filter berdasarkan severity
- * @param {number} [options.limit] - Batas jumlah temuan yang direturn
- * @returns {BugFinding[]} Daftar temuan dari storage
+ * @param {object} [options] - Filter options
+ * @param {BugSeverity} [options.severity] - Filter by severity
+ * @param {number} [options.limit] - Maximum number of findings to return
+ * @returns {BugFinding[]} List of findings from storage
  */
 export function getStoredFindings(options?: {
   severity?: BugSeverity;
@@ -831,7 +821,7 @@ export function getStoredFindings(options?: {
       }
     }
   } catch {
-    // Return kosong jika gagal baca
+    // Return empty if read fails
   }
 
   // Sort by timestamp descending
@@ -843,18 +833,18 @@ export function getStoredFindings(options?: {
 // ─── Report Building ──────────────────────────────────────────────────────
 
 /**
- * Membangun laporan bug dari daftar temuan.
+ * Builds a bug report from a list of findings.
  *
- * @param {BugFinding[]} findings - Daftar temuan
- * @param {number} [filesScanned=0] - Jumlah file yang di-scan
- * @returns {BugReport} Laporan bug terstruktur
+ * @param {BugFinding[]} findings - List of findings
+ * @param {number} [filesScanned=0] - Number of files scanned
+ * @returns {BugReport} Structured bug report
  */
 export function buildReport(findings: BugFinding[], filesScanned: number = 0): BugReport {
   const bySeverity: Record<string, number> = {};
   const byCategory: Record<string, number> = {};
   const byFile: Record<string, number> = {};
 
-  // Ambil data kategori dari pattern
+  // Get category data from patterns
   const patternCategories = new Map<string, BugCategory>();
   for (const pattern of getBugPatterns()) {
     patternCategories.set(pattern.id, pattern.category);
@@ -882,37 +872,37 @@ export function buildReport(findings: BugFinding[], filesScanned: number = 0): B
 // ─── Format Functions ─────────────────────────────────────────────────────
 
 /**
- * Memformat satu temuan bug menjadi string human-readable.
+ * Formats a single bug finding as a human-readable string.
  *
- * @param {BugFinding} finding - Temuan yang akan diformat
- * @returns {string} Representasi string dari temuan
+ * @param {BugFinding} finding - The finding to format
+ * @returns {string} String representation of the finding
  */
 export function formatFinding(finding: BugFinding): string {
   const severityTag = getSeverityTag(finding.severity);
 
   return [
     `${severityTag} [${finding.pattern}] ${finding.file}:${finding.line}`,
-    `     Deskripsi: ${finding.description}`,
-    `     Kode:      ${finding.content}`,
-    `     Saran:     ${finding.suggestedFix}`,
+    `     Description: ${finding.description}`,
+    `     Code:        ${finding.content}`,
+    `     Suggestion:  ${finding.suggestedFix}`,
   ].join("\n");
 }
 
 /**
- * Memformat daftar temuan menjadi laporan lengkap human-readable.
+ * Formats a list of findings into a complete human-readable report.
  *
- * @param {BugFinding[]} findings - Daftar temuan
- * @param {number} [filesScanned=0] - Jumlah file yang di-scan
- * @returns {string} Laporan lengkap dalam format string
+ * @param {BugFinding[]} findings - List of findings
+ * @param {number} [filesScanned=0] - Number of files scanned
+ * @returns {string} Complete report as a formatted string
  */
 export function formatBugReport(findings: BugFinding[], filesScanned: number = 0): string {
   if (findings.length === 0) {
     return [
       "# Bug Hunter Report",
       "",
-      "**Selamat! Tidak ada bug pattern yang terdeteksi.**",
+      "**No bug patterns detected.**",
       "",
-      `File di-scan: ${filesScanned}`,
+      `Files scanned: ${filesScanned}`,
       `Timestamp: ${new Date().toISOString()}`,
     ].join("\n");
   }
@@ -922,14 +912,14 @@ export function formatBugReport(findings: BugFinding[], filesScanned: number = 0
 
   lines.push("# Bug Hunter Report");
   lines.push("");
-  lines.push(`**Total temuan:** ${report.totalFindings}`);
-  lines.push(`**File di-scan:** ${report.filesScanned}`);
+  lines.push(`**Total findings:** ${report.totalFindings}`);
+  lines.push(`**Files scanned:** ${report.filesScanned}`);
   lines.push(`**Timestamp:** ${report.timestamp}`);
   lines.push("");
 
   // Summary by severity
-  lines.push("## Ringkasan berdasarkan Severity");
-  lines.push("| Severity | Jumlah |");
+  lines.push("## Summary by Severity");
+  lines.push("| Severity | Count |");
   lines.push("|----------|--------|");
   const severityOrder: BugSeverity[] = ["critical", "high", "medium", "low"];
   for (const sev of severityOrder) {
@@ -941,8 +931,8 @@ export function formatBugReport(findings: BugFinding[], filesScanned: number = 0
   lines.push("");
 
   // Summary by category
-  lines.push("## Ringkasan berdasarkan Kategori");
-  lines.push("| Kategori | Jumlah |");
+  lines.push("## Summary by Category");
+  lines.push("| Category | Count |");
   lines.push("|----------|--------|");
   const categoryLabels: Record<string, string> = {
     "null-safety": "Null Safety",
@@ -960,8 +950,8 @@ export function formatBugReport(findings: BugFinding[], filesScanned: number = 0
   lines.push("");
 
   // Breakdown by file (top 10)
-  lines.push("## Berdasarkan File (Top 10)");
-  lines.push("| File | Temuan |");
+  lines.push("## By File (Top 10)");
+  lines.push("| File | Findings |");
   lines.push("|------|--------|");
   const topFiles = Object.entries(report.byFile)
     .sort((a, b) => b[1] - a[1])
@@ -971,8 +961,8 @@ export function formatBugReport(findings: BugFinding[], filesScanned: number = 0
   }
   lines.push("");
 
-  // Detail temuan
-  lines.push("## Detail Temuan");
+  // Finding details
+  lines.push("## Finding Details");
   for (const finding of findings) {
     lines.push("");
     lines.push(formatFinding(finding));
@@ -982,10 +972,10 @@ export function formatBugReport(findings: BugFinding[], filesScanned: number = 0
 }
 
 /**
- * Mendapatkan tag severity untuk ditampilkan di output.
+ * Gets a severity tag for display in output.
  *
- * @param {BugSeverity} severity - Tingkat severity
- * @returns {string} Tag severity dalam format string
+ * @param {BugSeverity} severity - Severity level
+ * @returns {string} Severity tag as a formatted string
  */
 function getSeverityTag(severity: BugSeverity): string {
   const tags: Record<BugSeverity, string> = {
@@ -998,16 +988,16 @@ function getSeverityTag(severity: BugSeverity): string {
 }
 
 /**
- * Mendapatkan label severity yang lebih deskriptif.
+ * Gets a more descriptive severity label.
  *
- * @param {BugSeverity} severity - Tingkat severity
- * @returns {string} Label severity
+ * @param {BugSeverity} severity - Severity level
+ * @returns {string} Severity label
  */
 function getSeverityLabel(severity: BugSeverity): string {
   const labels: Record<BugSeverity, string> = {
-    critical: "Critical — harus segera diperbaiki",
-    high: "High — prioritas tinggi",
-    medium: "Medium — perlu diperhatikan",
+    critical: "Critical — must be fixed immediately",
+    high: "High — high priority",
+    medium: "Medium — needs attention",
     low: "Low — best practice",
   };
   return labels[severity] ?? severity;
@@ -1016,21 +1006,21 @@ function getSeverityLabel(severity: BugSeverity): string {
 // ─── Stats ────────────────────────────────────────────────────────────────
 
 /**
- * Mendapatkan statistik dari storage bug-hunter.
+ * Gets statistics from bug-hunter storage.
  *
- * @returns {BugHunterStats} Statistik lengkap
+ * @returns {BugHunterStats} Complete statistics
  */
 export function getBugHunterStats(): BugHunterStats {
   const findings = getStoredFindings();
   const suppressed = loadSuppressedPatterns();
   const allPatterns = getBugPatterns();
 
-  // Hitung unresolved findings (yang severity-nya masih high/critical)
+  // Count unresolved findings (those with high/critical severity)
   const unresolvedFindings = findings.filter(
     (f) => f.severity === "critical" || f.severity === "high",
   ).length;
 
-  // Estimasi unique files dari stored findings
+  // Estimate unique files from stored findings
   const uniqueFiles = new Set(findings.map((f) => f.file));
 
   return {
@@ -1045,19 +1035,19 @@ export function getBugHunterStats(): BugHunterStats {
 // ─── CLI Entry Point ──────────────────────────────────────────────────────
 
 /**
- * Entry point untuk CLI. Memproses argumen command line dan
- * menjalankan operasi yang diminta.
+ * CLI entry point. Processes command line arguments and
+ * executes the requested operation.
  *
- * Argumen yang didukung:
- * - file <path>: Scan satu file
- * - dir <path>: Scan direktori
- * - diff <lang>: Scan dari stdin (diff content)
- * - list: Tampilkan daftar pattern
- * - suppress <id>: Non-aktifkan pattern
- * - unsuppress <id>: Aktifkan kembali pattern
- * - stats: Tampilkan statistik
+ * Supported arguments:
+ * - file <path>: Scan a single file
+ * - dir <path>: Scan a directory
+ * - diff <lang>: Scan from stdin (diff content)
+ * - list: Display the pattern list
+ * - suppress <id>: Disable a pattern
+ * - unsuppress <id>: Re-enable a pattern
+ * - stats: Display statistics
  *
- * @param {string[]} args - Argumen CLI
+ * @param {string[]} args - CLI arguments
  * @returns {void}
  */
 export function main(args: string[]): void {
@@ -1087,7 +1077,7 @@ export function main(args: string[]): void {
         const language = args[1] || "ts";
         let diffContent = "";
 
-        // Baca dari stdin
+        // Read from stdin
         const stdin = readFileSync("/dev/stdin", "utf-8");
         diffContent = stdin;
 
@@ -1100,19 +1090,19 @@ export function main(args: string[]): void {
         const patterns = getBugPatterns();
         const suppressed = new Set(loadSuppressedPatterns());
 
-        console.log("# Bug Hunter — Daftar Pattern");
-        console.log(`\nTotal pattern: ${patterns.length}`);
-        console.log(`Aktif: ${patterns.length - suppressed.size}`);
-        console.log(`Di-suppress: ${suppressed.size}\n`);
+        console.log("# Bug Hunter — Pattern List");
+        console.log(`\nTotal patterns: ${patterns.length}`);
+        console.log(`Active: ${patterns.length - suppressed.size}`);
+        console.log(`Suppressed: ${suppressed.size}\n`);
 
         for (const pattern of patterns) {
-          const status = pattern.active && !suppressed.has(pattern.id) ? "[AKTIF]" : "[OFF]";
+          const status = pattern.active && !suppressed.has(pattern.id) ? "[ACTIVE]" : "[OFF]";
           console.log(`${status} ${pattern.id}`);
-          console.log(`     Nama:        ${pattern.name}`);
+          console.log(`     Name:        ${pattern.name}`);
           console.log(`     Severity:    ${pattern.severity}`);
-          console.log(`     Kategori:    ${pattern.category}`);
-          console.log(`     Bahasa:      ${pattern.languages.join(", ")}`);
-          console.log(`     Deskripsi:   ${pattern.description}`);
+          console.log(`     Category:    ${pattern.category}`);
+          console.log(`     Languages:   ${pattern.languages.join(", ")}`);
+          console.log(`     Description: ${pattern.description}`);
           console.log("");
         }
         break;
@@ -1125,7 +1115,7 @@ export function main(args: string[]): void {
           process.exit(1);
         }
         suppressPattern(patternId);
-        console.log(`Pattern "${patternId}" telah dinonaktifkan.`);
+        console.log(`Pattern "${patternId}" has been disabled.`);
         break;
       }
 
@@ -1136,35 +1126,35 @@ export function main(args: string[]): void {
           process.exit(1);
         }
         unsuppressPattern(patternId);
-        console.log(`Pattern "${patternId}" telah diaktifkan kembali.`);
+        console.log(`Pattern "${patternId}" has been re-enabled.`);
         break;
       }
 
       case "stats": {
         const stats = getBugHunterStats();
-        console.log("# Bug Hunter — Statistik");
-        console.log(`\nTotal temuan tersimpan: ${stats.totalFindings}`);
-        console.log(`File pernah di-scan:    ${stats.totalFilesScanned}`);
-        console.log(`Temuan unresolved:      ${stats.unresolvedFindings}`);
-        console.log(`Pattern aktif:          ${stats.activePatterns}`);
-        console.log(`Pattern di-suppress:    ${stats.suppressedPatterns}`);
+        console.log("# Bug Hunter — Statistics");
+        console.log(`\nTotal stored findings: ${stats.totalFindings}`);
+        console.log(`Files ever scanned:    ${stats.totalFilesScanned}`);
+        console.log(`Unresolved findings:   ${stats.unresolvedFindings}`);
+        console.log(`Active patterns:       ${stats.activePatterns}`);
+        console.log(`Suppressed patterns:   ${stats.suppressedPatterns}`);
         break;
       }
 
       default: {
         console.log(`
-Bug Hunter — Detektor pola bug otomatis
+Bug Hunter — Automatic bug pattern detector
 
-Penggunaan:
-  bug-hunter file <path>         Scan satu file
-  bug-hunter dir [path]          Scan direktori (default: cwd)
-  bug-hunter diff <language>     Scan diff dari stdin
-  bug-hunter list                Tampilkan daftar pattern
-  bug-hunter suppress <id>       Non-aktifkan pattern
-  bug-hunter unsuppress <id>     Aktifkan kembali pattern
-  bug-hunter stats               Tampilkan statistik storage
+Usage:
+  bug-hunter file <path>         Scan a single file
+  bug-hunter dir [path]          Scan a directory (default: cwd)
+  bug-hunter diff <language>     Scan diff from stdin
+  bug-hunter list                Display the pattern list
+  bug-hunter suppress <id>       Disable a pattern
+  bug-hunter unsuppress <id>     Re-enable a pattern
+  bug-hunter stats               Display storage statistics
 
-Contoh:
+Examples:
   bug-hunter file src/app.ts
   bug-hunter dir src/
   git diff HEAD~1 | bug-hunter diff ts

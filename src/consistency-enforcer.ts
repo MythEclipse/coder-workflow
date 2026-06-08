@@ -1,139 +1,165 @@
 #!/usr/bin/env node
 /**
- * Consistency Enforcer — Penegak Konsistensi Kode
+ * Consistency Enforcer
  *
- * Mendeteksi, memvalidasi, dan memperbaiki inkonsistensi pola kode
- * di seluruh basis kode dengan cara:
- * 1. Memindai kode yang ada untuk mengekstrak pola dominan (project pattern profile)
- * 2. Memvalidasi file terhadap profile untuk menemukan pelanggaran
- * 3. Belajar dari edit user untuk meningkatkan deteksi pola
- * 4. Memberikan saran perbaikan yang actionable
+ * Detects, validates, and fixes code pattern inconsistencies
+ * across the codebase by:
+ * 1. Scanning existing code to extract dominant patterns (project pattern profile)
+ * 2. Validating files against the profile to find violations
+ * 3. Learning from user edits to improve pattern detection
+ * 4. Providing actionable fix suggestions
  *
- * Penyimpanan:
- * - .claude/consistency-enforcer/pattern-profile.json — profile pola proyek
- * - .claude/consistency-enforcer/violations.log — riwayat pelanggaran
+ * Storage:
+ * - .claude/consistency-enforcer/pattern-profile.json — project pattern profile
+ * - .claude/consistency-enforcer/violations.log — violation history
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /**
- * Profile pola proyek yang mendeskripsikan konvensi dominan.
- * Digunakan sebagai acuan validasi konsistensi.
+ * Project pattern profile describing dominant conventions.
+ * Used as a reference for consistency validation.
  */
 export interface ProjectPatternProfile {
-  /** Konvensi penamaan per jenis file/entity, misal: { "component": "PascalCase", "function": "camelCase", "file": "kebab-case" } */
+  /** Naming convention per file type/entity, e.g. { "component": "PascalCase", "function": "camelCase", "file": "kebab-case" } */
   namingConventions: Record<string, string>;
-  /** Gaya import yang dominan: "default", "named", "mixed" */
+  /** Dominant import style: "default", "named", "mixed" */
   importStyle: string;
-  /** Pola error handling: "try-catch", "callback", "result-type", "mixed" */
+  /** Error handling pattern: "try-catch", "callback", "result-type", "mixed" */
   errorHandling: string;
-  /** Organisasi file: "feature-based", "type-based", "flat", "mixed" */
+  /** File organization: "feature-based", "type-based", "flat", "mixed" */
   fileOrganization: string;
-  /** Library/library yang lebih disukai dalam proyek */
+  /** Preferred libraries in the project */
   preferredLibs: string[];
-  /** Struktur komponen: "function", "class", "arrow-function", "mixed" */
+  /** Component structure: "function", "class", "arrow-function", "mixed" */
   componentStructure: string;
-  /** Pola testing: "describe-it", "test", "assert", "vitest", "jest", "mixed" */
+  /** Test pattern: "describe-it", "test", "assert", "vitest", "jest", "mixed" */
   testPattern: string;
-  /** Timestamp pembuatan profile */
+  /** Profile creation timestamp */
   createdAt: string;
-  /** Timestamp update terakhir */
+  /** Profile last update timestamp */
   updatedAt: string;
 }
 
 /**
- * Sebuah pelanggaran konsistensi yang ditemukan dalam file.
+ * A consistency violation found in a file.
  */
 export interface ConsistencyViolation {
-  /** ID unik pelanggaran */
+  /** Unique violation ID */
   id: string;
-  /** Path file relatif terhadap root proyek */
+  /** File path relative to project root */
   file: string;
-  /** Nomor baris tempat pelanggaran (0 jika tidak spesifik) */
+  /** Line number of the violation (0 if not specific) */
   line: number;
-  /** Kategori pelanggaran */
-  category: "naming" | "import-style" | "error-handling" | "file-org" | "lib-preference" | "component-structure" | "test-pattern";
-  /** Deskripsi pelanggaran */
+  /** Violation category */
+  category:
+    | "naming"
+    | "import-style"
+    | "error-handling"
+    | "file-org"
+    | "lib-preference"
+    | "component-structure"
+    | "test-pattern";
+  /** Violation description */
   message: string;
-  /** Severity: "error" = harus diperbaiki, "warning" = sebaiknya diperbaiki, "info" = saran */
+  /** Severity: "error" = must fix, "warning" = should fix, "info" = suggestion */
   severity: "error" | "warning" | "info";
-  /** Nilai yang ditemukan */
+  /** Value found */
   actual: string;
-  /** Nilai yang diharapkan berdasarkan profile */
+  /** Expected value based on profile */
   expected: string;
-  /** Timestamp deteksi */
+  /** Detection timestamp */
   detectedAt: string;
 }
 
 /**
- * Hasil pembelajaran dari edit user.
+ * Learning result from user edits.
  */
 export interface LearnedPattern {
-  /** Pola yang dipelajari */
+  /** Pattern learned */
   pattern: string;
-  /** Tingkat kepercayaan 0.0 - 1.0 */
+  /** Confidence level 0.0 - 1.0 */
   confidence: number;
-  /** Kategori pola */
+  /** Pattern category */
   category: string;
-  /** Contoh dari kode user */
+  /** Example from user code */
   example: string;
-  /** Timestamp pembelajaran */
+  /** Learning timestamp */
   learnedAt: string;
 }
 
 /**
- * Saran perbaikan untuk sebuah pelanggaran.
+ * Fix suggestion for a violation.
  */
 export interface FixSuggestion {
-  /** Path file yang perlu diperbaiki */
+  /** File path needing a fix */
   file: string;
-  /** Nomor baris */
+  /** Line number */
   line: number;
-  /** Saran kode pengganti (jika tersedia) */
+  /** Suggested replacement code (if available) */
   suggestedFix: string;
-  /** Penjelasan mengapa perubahan ini diperlukan */
+  /** Explanation of why this change is needed */
   rationale: string;
 }
 
 /**
- * Laporan konsistensi untuk satu atau banyak file.
+ * Consistency report for one or many files.
  */
 export interface ConsistencyReport {
-  /** Skor konsistensi keseluruhan 0-100 */
+  /** Overall consistency score 0-100 */
   score: number;
-  /** Total pelanggaran ditemukan */
+  /** Total violations found */
   totalViolations: number;
-  /** Rincian per kategori */
+  /** Breakdown by category */
   byCategory: Record<string, number>;
-  /** Rincian per severity */
+  /** Breakdown by severity */
   bySeverity: Record<string, number>;
-  /** Daftar pelanggaran */
+  /** List of violations */
   violations: ConsistencyViolation[];
-  /** Saran perbaikan (jika ada) */
+  /** Fix suggestions (if any) */
   suggestions: FixSuggestion[];
-  /** Timestamp laporan */
+  /** Report timestamp */
   generatedAt: string;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-/** Direktori penyimpanan data consistency enforcer */
+/** Consistency enforcer data storage directory */
 const STORAGE_DIR = ".claude/consistency-enforcer";
-/** File profile pola proyek */
+/** Project pattern profile file */
 const PROFILE_FILE = "pattern-profile.json";
-/** File log pelanggaran */
+/** Violation log file */
 const VIOLATIONS_LOG = "violations.log";
 
-/** Ekstensi file yang dikenali untuk pemindaian */
+/** Recognized file extensions for scanning */
 const RECOGNIZED_EXTENSIONS = new Set([
-  ".ts", ".js", ".tsx", ".jsx", ".py", ".go", ".rs",
-  ".java", ".rb", ".php", ".swift", ".kt", ".scala",
+  ".ts",
+  ".js",
+  ".tsx",
+  ".jsx",
+  ".py",
+  ".go",
+  ".rs",
+  ".java",
+  ".rb",
+  ".php",
+  ".swift",
+  ".kt",
+  ".scala",
 ]);
 
-/** Mapping ekstensi ke bahasa */
+/** Extension to language mapping */
 const EXT_TO_LANG: Record<string, string> = {
   ".ts": "TypeScript",
   ".js": "JavaScript",
@@ -150,16 +176,24 @@ const EXT_TO_LANG: Record<string, string> = {
   ".scala": "Scala",
 };
 
-/** Direktori yang selalu dilewati saat pemindaian */
+/** Directories always skipped during scanning */
 const SKIP_DIRS = new Set([
-  "node_modules", "dist", ".git", "build", ".next", "vendor",
-  ".gradle", "generated", "coverage", ".claude",
+  "node_modules",
+  "dist",
+  ".git",
+  "build",
+  ".next",
+  "vendor",
+  ".gradle",
+  "generated",
+  "coverage",
+  ".claude",
 ]);
 
 // ─── Internal Helpers ───────────────────────────────────────────────────────
 
 /**
- * Memastikan direktori penyimpanan ada, membuat jika belum.
+ * Ensures the storage directory exists, creates it if not.
  */
 function ensureStorageDir(): string {
   const dir = join(process.cwd(), STORAGE_DIR);
@@ -170,7 +204,7 @@ function ensureStorageDir(): string {
 }
 
 /**
- * Membaca file JSON dengan error handling.
+ * Reads a JSON file with error handling.
  */
 function readJSON<T>(filePath: string, fallback: T): T {
   try {
@@ -184,7 +218,7 @@ function readJSON<T>(filePath: string, fallback: T): T {
 }
 
 /**
- * Menulis file JSON dengan formatting.
+ * Writes a JSON file with formatting.
  */
 function writeJSON(filePath: string, data: unknown): void {
   const dir = dirname(filePath);
@@ -195,15 +229,15 @@ function writeJSON(filePath: string, data: unknown): void {
 }
 
 /**
- * Melakukan escaping karakter khusus RegExp.
+ * Escapes special RegExp characters.
  */
 function escapeRegExp(value: string): string {
   return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
 }
 
 /**
- * Menentukan gaya penamaan dari sebuah string.
- * Mengembalikan "PascalCase", "camelCase", "snake_case", "kebab-case", "UPPER_CASE", atau "unknown".
+ * Determines the naming style of a string.
+ * Returns "PascalCase", "camelCase", "snake_case", "kebab-case", "UPPER_CASE", or "unknown".
  */
 function detectNamingStyle(name: string): string {
   if (/^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)*$/.test(name)) return "PascalCase";
@@ -215,7 +249,7 @@ function detectNamingStyle(name: string): string {
 }
 
 /**
- * Membaca isi file teks, mengembalikan string kosong jika gagal.
+ * Reads file content safely, returns empty string on failure.
  */
 function readFileSafe(filePath: string): string {
   try {
@@ -226,7 +260,7 @@ function readFileSafe(filePath: string): string {
 }
 
 /**
- * Menulis log pelanggaran ke file violations.log (append).
+ * Appends a violation to the violations.log file.
  */
 function appendViolationLog(violation: ConsistencyViolation): void {
   try {
@@ -234,12 +268,12 @@ function appendViolationLog(violation: ConsistencyViolation): void {
     const logPath = join(dir, VIOLATIONS_LOG);
     appendFileSync(logPath, JSON.stringify(violation) + "\n", "utf-8");
   } catch {
-    // gagal logging — non-critical
+    // logging failed — non-critical
   }
 }
 
 /**
- * Mereset log pelanggaran (menimpa dengan konten baru).
+ * Resets the violation log (overwrites with new content).
  */
 function resetViolationLog(violations: ConsistencyViolation[]): void {
   try {
@@ -253,7 +287,7 @@ function resetViolationLog(violations: ConsistencyViolation[]): void {
 }
 
 /**
- * Membaca log pelanggaran yang tersimpan.
+ * Reads the stored violation log.
  */
 function readViolationLog(): ConsistencyViolation[] {
   try {
@@ -266,7 +300,7 @@ function readViolationLog(): ConsistencyViolation[] {
       try {
         violations.push(JSON.parse(line) as ConsistencyViolation);
       } catch {
-        // skip korup
+        // skip corrupt entries
       }
     }
     return violations;
@@ -278,14 +312,14 @@ function readViolationLog(): ConsistencyViolation[] {
 // ─── Project Pattern Detection ─────────────────────────────────────────────
 
 /**
- * Memindai direktori proyek untuk mengekstrak pola dominan dari kode yang ada.
+ * Scans a project directory to extract dominant patterns from existing code.
  *
- * Fungsi ini melakukan walk pada struktur direktori, membaca file-file sumber,
- * dan menganalisis konvensi penamaan, gaya import, pola error handling,
- * organisasi file, library yang digunakan, struktur komponen, dan pola testing.
+ * This function walks the directory structure, reads source files,
+ * and analyzes naming conventions, import styles, error handling patterns,
+ * file organization, used libraries, component structure, and test patterns.
  *
- * @param root - Path absolut atau relatif ke root proyek
- * @returns ProjectPatternProfile — objek profile pola proyek
+ * @param root - Absolute or relative path to the project root
+ * @returns ProjectPatternProfile — project pattern profile object
  *
  * @example
  * ```ts
@@ -308,13 +342,13 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
   };
 
   try {
-    // Kumpulkan file-file yang akan dianalisis
+    // Collect files to analyze
     const files = collectSourceFiles(resolvedRoot);
     if (files.length === 0) {
       return defaultProfile;
     }
 
-    // Statistik untuk setiap kategori
+    // Statistics for each category
     const namingCounts: Record<string, Record<string, number>> = {};
     let importDefaultCount = 0;
     let importNamedCount = 0;
@@ -332,13 +366,13 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
     let testGlobalCount = 0;
     let assertCount = 0;
 
-    // Deteksi organisasi file: lihat struktur direktori
+    // Detect file organization: look at directory structure
     const dirEntries = collectDirectoryStructure(resolvedRoot);
     totalDirs = dirEntries.total;
     featureDirs = dirEntries.featureDirs;
     typeDirs = dirEntries.typeDirs;
 
-    // Analisis setiap file
+    // Analyze each file
     for (const file of files) {
       const content = readFileSafe(file);
       if (!content) continue;
@@ -346,45 +380,52 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
       const ext = extname(file);
       const lang = EXT_TO_LANG[ext] ?? "Unknown";
 
-      // Inisialisasi counter penamaan untuk bahasa ini
+      // Initialize naming counter for this language
       if (!namingCounts[lang]) {
-        namingCounts[lang] = { PascalCase: 0, camelCase: 0, snake_case: 0, "kebab-case": 0, UPPER_CASE: 0, unknown: 0 };
+        namingCounts[lang] = {
+          PascalCase: 0,
+          camelCase: 0,
+          snake_case: 0,
+          "kebab-case": 0,
+          UPPER_CASE: 0,
+          unknown: 0,
+        };
       }
 
-      // Deteksi konvensi penamaan dari identifier (fungsi, kelas, variabel, konstanta)
+      // Detect naming conventions from identifiers (functions, classes, variables, constants)
       detectNamingFromContent(content, namingCounts[lang]);
 
-      // Deteksi gaya import
+      // Detect import style
       const importStats = detectImportStyle(content);
       importDefaultCount += importStats.defaultImports;
       importNamedCount += importStats.namedImports;
 
-      // Deteksi pola error handling
+      // Detect error handling patterns
       const errorStats = detectErrorHandlingPattern(content);
       tryCatchCount += errorStats.tryCatch;
       callbackCount += errorStats.callback;
       resultTypeCount += errorStats.resultType;
 
-      // Deteksi library yang digunakan
+      // Detect libraries used
       const libs = detectUsedLibraries(content);
       for (const lib of libs) {
         libUsage[lib] = (libUsage[lib] ?? 0) + 1;
       }
 
-      // Deteksi struktur komponen (React components, classes, functions)
+      // Detect component structure (React components, classes, functions)
       const compStats = detectComponentStructure(content, ext);
       functionCompCount += compStats.functionDeclaration;
       classCompCount += compStats.classDeclaration;
       arrowFnCompCount += compStats.arrowFunction;
 
-      // Deteksi pola testing
+      // Detect test patterns
       const testStats = detectTestPattern(content);
       describeItCount += testStats.describeIt;
       testGlobalCount += testStats.testGlobal;
       assertCount += testStats.assert;
     }
 
-    // Hitung dominasi naming convention per bahasa
+    // Calculate dominant naming convention per language
     const namingConventions: Record<string, string> = {};
     for (const [lang, counts] of Object.entries(namingCounts)) {
       let maxCount = 0;
@@ -400,7 +441,7 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
       }
     }
 
-    // Tentukan gaya import dominan
+    // Determine dominant import style
     const totalImports = importDefaultCount + importNamedCount;
     let importStyle = "mixed";
     if (totalImports > 0) {
@@ -410,7 +451,7 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
       else importStyle = "mixed";
     }
 
-    // Tentukan pola error handling dominan
+    // Determine dominant error handling pattern
     const totalErrorPatterns = tryCatchCount + callbackCount + resultTypeCount;
     let errorHandling = "mixed";
     if (totalErrorPatterns > 0) {
@@ -423,7 +464,7 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
       }
     }
 
-    // Tentukan organisasi file
+    // Determine file organization
     let fileOrganization = "mixed";
     if (totalDirs > 0) {
       const featureRatio = featureDirs / totalDirs;
@@ -433,13 +474,13 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
       else if (totalDirs < 3) fileOrganization = "flat";
     }
 
-    // Tentukan library yang paling disukai (top 5)
+    // Determine most preferred libraries (top 5)
     const preferredLibs = Object.entries(libUsage)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([lib]) => lib);
 
-    // Tentukan struktur komponen dominan
+    // Determine dominant component structure
     const totalCompPatterns = functionCompCount + classCompCount + arrowFnCompCount;
     let componentStructure = "mixed";
     if (totalCompPatterns > 0) {
@@ -450,7 +491,7 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
       else if (arrowFnCompCount / totalCompPatterns > 0.6) componentStructure = "arrow-function";
     }
 
-    // Tentukan pola testing dominan
+    // Determine dominant test pattern
     const totalTestPatterns = describeItCount + testGlobalCount + assertCount;
     let testPattern = "mixed";
     if (totalTestPatterns > 0) {
@@ -475,18 +516,18 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
       updatedAt: new Date().toISOString(),
     };
 
-    // Simpan profile ke storage
+    // Save profile to storage
     saveProfile(profile);
 
     return profile;
   } catch (error) {
-    // Jika terjadi error, kembalikan default profile
+    // If an error occurs, return the default profile
     return defaultProfile;
   }
 }
 
 /**
- * Mengumpulkan semua file sumber yang relevan dari direktori.
+ * Collects all relevant source files from a directory.
  */
 function collectSourceFiles(root: string): string[] {
   const result: string[] = [];
@@ -524,7 +565,7 @@ function collectSourceFiles(root: string): string[] {
 }
 
 /**
- * Membaca isi direktori dengan aman.
+ * Safely reads directory contents.
  */
 function readdirSafe(dir: string): string[] {
   try {
@@ -535,7 +576,7 @@ function readdirSafe(dir: string): string[] {
 }
 
 /**
- * Mendapatkan status file dengan aman.
+ * Safely gets file stats.
  */
 function statSafe(path: string): ReturnType<typeof statSync> | null {
   try {
@@ -546,9 +587,13 @@ function statSafe(path: string): ReturnType<typeof statSync> | null {
 }
 
 /**
- * Menganalisis struktur direktori untuk menentukan organisasi file.
+ * Analyzes directory structure to determine file organization.
  */
-function collectDirectoryStructure(root: string): { total: number; featureDirs: number; typeDirs: number } {
+function collectDirectoryStructure(root: string): {
+  total: number;
+  featureDirs: number;
+  typeDirs: number;
+} {
   let total = 0;
   let featureDirs = 0;
   let typeDirs = 0;
@@ -562,13 +607,19 @@ function collectDirectoryStructure(root: string): { total: number; featureDirs: 
 
     total++;
 
-    // Feature directory biasanya berisi file-file dengan nama domain (users, orders, auth)
-    if (/^(users|orders|auth|payments|products|carts|admin|api|modules|features|domains)/i.test(entry)) {
+    // Feature directories usually contain domain-named files (users, orders, auth)
+    if (
+      /^(users|orders|auth|payments|products|carts|admin|api|modules|features|domains)/i.test(entry)
+    ) {
       featureDirs++;
     }
 
-    // Type-based directory biasanya berisi nama generik (components, services, utils, hooks)
-    if (/^(components|services|utils|hooks|helpers|middlewares|controllers|models|views|templates)/i.test(entry)) {
+    // Type-based directories usually contain generic names (components, services, utils, hooks)
+    if (
+      /^(components|services|utils|hooks|helpers|middlewares|controllers|models|views|templates)/i.test(
+        entry,
+      )
+    ) {
       typeDirs++;
     }
   }
@@ -577,14 +628,14 @@ function collectDirectoryStructure(root: string): { total: number; featureDirs: 
 }
 
 /**
- * Mendeteksi konvensi penamaan dari konten file.
+ * Detects naming conventions from file content.
  */
 function detectNamingFromContent(content: string, counts: Record<string, number>): void {
-  // Deteksi kelas (PascalCase)
+  // Detect classes (PascalCase)
   const classMatches = content.match(/\bclass\s+([A-Z][a-zA-Z0-9]+)\b/g);
   if (classMatches) counts.PascalCase += classMatches.length;
 
-  // Deteksi fungsi (camelCase atau PascalCase untuk React components)
+  // Detect functions (camelCase or PascalCase for React components)
   const fnMatches = content.match(/\bfunction\s+([a-zA-Z_$][\w$]+)\b/g);
   if (fnMatches) {
     for (const match of fnMatches) {
@@ -594,21 +645,29 @@ function detectNamingFromContent(content: string, counts: Record<string, number>
     }
   }
 
-  // Deteksi variabel/konstanta dengan assignment
+  // Detect variables/constants with assignment
   const constMatches = content.match(/\b(?:const|let|var)\s+([a-zA-Z_$][\w$]*)\s*[=:]/g);
   if (constMatches) {
     for (const match of constMatches) {
-      const name = match.replace(/^(?:const|let|var)\s+/, "").replace(/\s*[=:]\s*$/, "").trim();
+      const name = match
+        .replace(/^(?:const|let|var)\s+/, "")
+        .replace(/\s*[=:]\s*$/, "")
+        .trim();
       const style = detectNamingStyle(name);
       if (counts[style] !== undefined) counts[style]++;
     }
   }
 
-  // Deteksi exports (named exports)
-  const exportMatches = content.match(/\bexport\s+(?:const|let|var|function|class|interface|type)\s+([a-zA-Z_$][\w$]*)/g);
+  // Detect exports (named exports)
+  const exportMatches = content.match(
+    /\bexport\s+(?:const|let|var|function|class|interface|type)\s+([a-zA-Z_$][\w$]*)/g,
+  );
   if (exportMatches) {
     for (const match of exportMatches) {
-      const name = match.replace(/^export\s+(?:const|let|var|function|class|interface|type)\s+/, "");
+      const name = match.replace(
+        /^export\s+(?:const|let|var|function|class|interface|type)\s+/,
+        "",
+      );
       const style = detectNamingStyle(name);
       if (counts[style] !== undefined) counts[style]++;
     }
@@ -616,25 +675,25 @@ function detectNamingFromContent(content: string, counts: Record<string, number>
 }
 
 /**
- * Mendeteksi gaya import (named vs default) dari konten.
+ * Detects import style (named vs default) from content.
  */
 function detectImportStyle(content: string): { defaultImports: number; namedImports: number } {
   let defaultImports = 0;
   let namedImports = 0;
 
-  // Import default: import X from 'y'
+  // Default import: import X from 'y'
   const defaultMatches = content.match(/^import\s+[A-Za-z_$][\w$]*\s+from\s+/gm);
   if (defaultMatches) defaultImports += defaultMatches.length;
 
-  // Import named: import { X } from 'y'
+  // Named import: import { X } from 'y'
   const namedMatches = content.match(/^import\s+\{[^}]*\}\s+from\s+/gm);
   if (namedMatches) namedImports += namedMatches.length;
 
-  // Import named multi-line: import { \n X \n } from 'y'
+  // Multi-line named import: import { \n X \n } from 'y'
   const namedMulti = content.match(/^import\s+\{[\s\S]*?\}\s+from\s+/gm);
   if (namedMulti) namedImports += namedMulti.length - (namedMatches?.length ?? 0);
 
-  // Juga deteksi import * as
+  // Also detect import * as
   const namespaceMatches = content.match(/^import\s+\*\s+as\s+/gm);
   if (namespaceMatches) defaultImports += namespaceMatches.length;
 
@@ -642,26 +701,32 @@ function detectImportStyle(content: string): { defaultImports: number; namedImpo
 }
 
 /**
- * Mendeteksi pola error handling dari konten.
+ * Detects error handling patterns from content.
  */
-function detectErrorHandlingPattern(content: string): { tryCatch: number; callback: number; resultType: number } {
+function detectErrorHandlingPattern(content: string): {
+  tryCatch: number;
+  callback: number;
+  resultType: number;
+} {
   const tryCatch = (content.match(/\btry\s*\{/g) ?? []).length;
-  const callback = (content.match(/\(err(?:or)?\s*(?:,|\))/g) ?? []).length +
-                   (content.match(/\b(err|error)\s*=>/g) ?? []).length;
-  const resultType = (content.match(/\bResult\b/g) ?? []).length +
-                     (content.match(/\bOk\b|\bErr\b/g) ?? []).length +
-                     (content.match(/\bEither\b/g) ?? []).length;
+  const callback =
+    (content.match(/\(err(?:or)?\s*(?:,|\))/g) ?? []).length +
+    (content.match(/\b(err|error)\s*=>/g) ?? []).length;
+  const resultType =
+    (content.match(/\bResult\b/g) ?? []).length +
+    (content.match(/\bOk\b|\bErr\b/g) ?? []).length +
+    (content.match(/\bEither\b/g) ?? []).length;
 
   return { tryCatch, callback, resultType };
 }
 
 /**
- * Mendeteksi library yang digunakan dari konten import/require.
+ * Detects libraries used from import/require statements.
  */
 function detectUsedLibraries(content: string): string[] {
   const libs: string[] = [];
 
-  // Cari import from 'library-name'
+  // Find import from 'library-name'
   const importMatches = content.matchAll(/from\s+['"]([^'"/]+)['"]/g);
   for (const match of importMatches) {
     if (match[1] && !match[1].startsWith(".") && !match[1].startsWith("/")) {
@@ -669,7 +734,7 @@ function detectUsedLibraries(content: string): string[] {
     }
   }
 
-  // Cari require('library-name')
+  // Find require('library-name')
   const requireMatches = content.matchAll(/require\s*\(\s*['"]([^'"/]+)['"]/g);
   for (const match of requireMatches) {
     if (match[1] && !match[1].startsWith(".") && !match[1].startsWith("/")) {
@@ -681,7 +746,7 @@ function detectUsedLibraries(content: string): string[] {
 }
 
 /**
- * Mendeteksi struktur komponen dari konten berdasarkan ekstensi file.
+ * Detects component structure from content based on file extension.
  */
 function detectComponentStructure(
   content: string,
@@ -690,24 +755,33 @@ function detectComponentStructure(
   const functionDeclaration = (content.match(/\bfunction\s+[A-Z][a-zA-Z0-9]*\s*\(/g) ?? []).length;
   const classDeclaration = (content.match(/\bclass\s+[A-Z][a-zA-Z0-9]*/g) ?? []).length;
 
-  // Arrow function yang berbentuk `const X = (...) =>` (potensi komponen)
-  const arrowFunction = ext === ".tsx" || ext === ".jsx"
-    ? (content.match(/\bconst\s+[A-Z][a-zA-Z0-9]*\s*=\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/g) ?? []).length
-    : 0;
+  // Arrow functions of the form `const X = (...) =>` (potential components)
+  const arrowFunction =
+    ext === ".tsx" || ext === ".jsx"
+      ? (
+          content.match(/\bconst\s+[A-Z][a-zA-Z0-9]*\s*=\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/g) ??
+          []
+        ).length
+      : 0;
 
   return { functionDeclaration, classDeclaration, arrowFunction };
 }
 
 /**
- * Mendeteksi pola testing dari konten file.
+ * Detects test patterns from file content.
  */
-function detectTestPattern(content: string): { describeIt: number; testGlobal: number; assert: number } {
-  const describeIt = (content.match(/\bdescribe\s*\(/g) ?? []).length +
-                     (content.match(/\bit\s*\(/g) ?? []).length;
+function detectTestPattern(content: string): {
+  describeIt: number;
+  testGlobal: number;
+  assert: number;
+} {
+  const describeIt =
+    (content.match(/\bdescribe\s*\(/g) ?? []).length + (content.match(/\bit\s*\(/g) ?? []).length;
   const testGlobal = (content.match(/\btest\s*\(/g) ?? []).length;
-  const assert = (content.match(/\bassert\s*\./g) ?? []).length +
-                 (content.match(/\bexpect\s*\(/g) ?? []).length +
-                 (content.match(/\bassert\s*\(/g) ?? []).length;
+  const assert =
+    (content.match(/\bassert\s*\./g) ?? []).length +
+    (content.match(/\bexpect\s*\(/g) ?? []).length +
+    (content.match(/\bassert\s*\(/g) ?? []).length;
 
   return { describeIt, testGlobal, assert };
 }
@@ -715,7 +789,7 @@ function detectTestPattern(content: string): { describeIt: number; testGlobal: n
 // ─── Profile Persistence ────────────────────────────────────────────────────
 
 /**
- * Menyimpan profile ke file storage.
+ * Saves the profile to the storage file.
  */
 function saveProfile(profile: ProjectPatternProfile): void {
   try {
@@ -727,9 +801,9 @@ function saveProfile(profile: ProjectPatternProfile): void {
 }
 
 /**
- * Membaca profile dari file storage.
+ * Reads the profile from the storage file.
  *
- * @returns ProjectPatternProfile atau null jika belum ada
+ * @returns ProjectPatternProfile or null if none exists
  */
 export function loadProfile(): ProjectPatternProfile | null {
   try {
@@ -742,9 +816,9 @@ export function loadProfile(): ProjectPatternProfile | null {
 }
 
 /**
- * Menghapus profile dari storage.
+ * Removes the profile from storage.
  *
- * @returns true jika berhasil dihapus, false jika tidak ada
+ * @returns true if successfully deleted, false if none existed
  */
 export function clearProfile(): boolean {
   try {
@@ -761,15 +835,15 @@ export function clearProfile(): boolean {
 // ─── File Validation ────────────────────────────────────────────────────────
 
 /**
- * Memvalidasi sebuah file terhadap profile konsistensi proyek.
+ * Validates a file against the project's consistency profile.
  *
- * Membaca file, menganalisis kontennya, dan membandingkan dengan
- * pola-pola yang terdefinisi di profile. Mengembalikan daftar
- * pelanggaran yang ditemukan.
+ * Reads the file, analyzes its content, and compares it against
+ * the patterns defined in the profile. Returns a list of
+ * violations found.
  *
- * @param filePath - Path absolut file yang akan divalidasi
- * @param profile - ProjectPatternProfile yang digunakan sebagai acuan
- * @returns ConsistencyViolation[] — daftar pelanggaran (kosong jika patuh)
+ * @param filePath - Absolute path to the file to validate
+ * @param profile - ProjectPatternProfile used as reference
+ * @returns ConsistencyViolation[] — list of violations (empty if compliant)
  *
  * @example
  * ```ts
@@ -797,71 +871,75 @@ export function validateFileAgainstProfile(
     const ext = extname(filePath);
     const lang = EXT_TO_LANG[ext] ?? "unknown";
 
-    // 1. Validasi konvensi penamaan untuk bahasa yang dikenali
+    // 1. Validate naming convention for recognized language
     if (profile.namingConventions[lang]) {
       const expectedStyle = profile.namingConventions[lang];
       const namingViolations = validateNamingConvention(content, expectedStyle, filePath);
       violations.push(...namingViolations);
     }
 
-    // 2. Validasi gaya import
+    // 2. Validate import style
     if (profile.importStyle !== "mixed") {
       const importViolations = validateImportStyle(content, profile.importStyle, filePath);
       violations.push(...importViolations);
     }
 
-    // 3. Validasi pola error handling
+    // 3. Validate error handling pattern
     if (profile.errorHandling !== "mixed") {
       const errorViolations = validateErrorHandling(content, profile.errorHandling, filePath);
       violations.push(...errorViolations);
     }
 
-    // 4. Validasi library preference
+    // 4. Validate library preference
     if (profile.preferredLibs.length > 0) {
       const libViolations = validateLibPreference(content, profile.preferredLibs, filePath);
       violations.push(...libViolations);
     }
 
-    // 5. Validasi struktur komponen untuk file tsx/jsx
+    // 5. Validate component structure for tsx/jsx files
     if ((ext === ".tsx" || ext === ".jsx") && profile.componentStructure !== "mixed") {
-      const compViolations = validateComponentStructure(content, profile.componentStructure, filePath);
+      const compViolations = validateComponentStructure(
+        content,
+        profile.componentStructure,
+        filePath,
+      );
       violations.push(...compViolations);
     }
 
-    // 6. Validasi pola testing untuk file test
+    // 6. Validate test pattern for test files
     if (isTestFile(filePath) && profile.testPattern !== "mixed") {
       const testViolations = validateTestPattern(content, profile.testPattern, filePath);
       violations.push(...testViolations);
     }
 
-    // Beri ID unik dan timestamp ke setiap pelanggaran
+    // Assign unique ID and timestamp to each violation
     const enrichedViolations = violations.map((v) => ({
       ...v,
       id: `violation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       detectedAt: now,
     }));
 
-    // Log pelanggaran untuk riwayat
+    // Log violations for history
     for (const v of enrichedViolations) {
       appendViolationLog(v);
     }
 
     return enrichedViolations;
   } catch (error) {
-    // Jika validasi gagal total, kembalikan array kosong
+    // If validation fails entirely, return empty array
     return [];
   }
 }
 
 /**
- * Memvalidasi banyak file terhadap profile konsistensi proyek.
+ * Validates multiple files against the project's consistency profile.
  *
- * Memanggil validateFileAgainstProfile untuk setiap file dan
- * mengumpulkan semua pelanggaran dalam satu array.
+ * Calls validateFileAgainstProfile for each file and
+ * collects all violations into a single array.
  *
- * @param filePaths - Array path absolut file yang akan divalidasi
- * @param profile - ProjectPatternProfile yang digunakan sebagai acuan
- * @returns ConsistencyViolation[] — gabungan pelanggaran dari semua file
+ * @param filePaths - Array of absolute file paths to validate
+ * @param profile - ProjectPatternProfile used as reference
+ * @returns ConsistencyViolation[] — combined violations from all files
  *
  * @example
  * ```ts
@@ -879,7 +957,7 @@ export function validateFilesAgainstProfile(
       const violations = validateFileAgainstProfile(filePath, profile);
       allViolations.push(...violations);
     } catch {
-      // Skip file yang gagal divalidasi
+      // Skip files that fail validation
       continue;
     }
   }
@@ -888,19 +966,21 @@ export function validateFilesAgainstProfile(
 }
 
 /**
- * Memeriksa apakah sebuah file adalah file test berdasarkan nama/路径.
+ * Checks whether a file is a test file based on its name/path.
  */
 function isTestFile(filePath: string): boolean {
   const base = basename(filePath);
-  return /\.(test|spec|e2e|integration)\.(ts|js|tsx|jsx)$/.test(base) ||
-         /\.(test|spec)\.(py|go|rs)$/.test(base) ||
-         base.startsWith("test_") ||
-         base.endsWith("_test.go") ||
-         base.endsWith("_test.rs");
+  return (
+    /\.(test|spec|e2e|integration)\.(ts|js|tsx|jsx)$/.test(base) ||
+    /\.(test|spec)\.(py|go|rs)$/.test(base) ||
+    base.startsWith("test_") ||
+    base.endsWith("_test.go") ||
+    base.endsWith("_test.rs")
+  );
 }
 
 /**
- * Memvalidasi konvensi penamaan dalam konten file.
+ * Validates naming conventions in file content.
  */
 function validateNamingConvention(
   content: string,
@@ -909,7 +989,7 @@ function validateNamingConvention(
 ): ConsistencyViolation[] {
   const violations: ConsistencyViolation[] = [];
 
-  // Periksa kelas
+  // Check classes
   const classRegex = /\bclass\s+([a-zA-Z_$][\w$]*)/g;
   let match: RegExpExecArray | null;
   while ((match = classRegex.exec(content)) !== null) {
@@ -920,7 +1000,7 @@ function validateNamingConvention(
         file: filePath,
         line: countLinesUpTo(content, match.index),
         category: "naming",
-        message: `Nama kelas "${name}" seharusnya menggunakan ${expectedStyle}`,
+        message: `Class name "${name}" should use ${expectedStyle}`,
         severity: "error",
         actual: name,
         expected: `${name.charAt(0).toUpperCase()}${name.slice(1)}`,
@@ -929,19 +1009,19 @@ function validateNamingConvention(
     }
   }
 
-  // Periksa fungsi/konstanta untuk camelCase (jika profile menuntut)
+  // Check functions/constants for camelCase (if profile requires it)
   if (expectedStyle === "camelCase") {
     const constRegex = /\bconst\s+([A-Z][a-zA-Z0-9]+)\s*[=:]/g;
     while ((match = constRegex.exec(content)) !== null) {
       const name = match[1];
-      // Lewati konstanta UPPER_CASE
+      // Skip UPPER_CASE constants
       if (/^[A-Z0-9_]+$/.test(name)) continue;
       violations.push({
         id: "",
         file: filePath,
         line: countLinesUpTo(content, match.index),
         category: "naming",
-        message: `Nama konstanta "${name}" sebaiknya camelCase, bukan PascalCase`,
+        message: `Constant "${name}" should use camelCase, not PascalCase`,
         severity: "warning",
         actual: name,
         expected: `${name.charAt(0).toLowerCase()}${name.slice(1)}`,
@@ -973,7 +1053,7 @@ function validateImportStyle(
       file: filePath,
       line: 1,
       category: "import-style",
-      message: `Proyek ini dominan menggunakan named imports, tetapi ditemukan ${defaultImports} default import`,
+      message: `Project predominantly uses named imports, but found ${defaultImports} default import(s)`,
       severity: "warning",
       actual: `${defaultImports} default imports`,
       expected: "named imports",
@@ -987,7 +1067,7 @@ function validateImportStyle(
       file: filePath,
       line: 1,
       category: "import-style",
-      message: `Proyek ini dominan menggunakan default imports, tetapi ditemukan ${namedImports} named imports`,
+      message: `Project predominantly uses default imports, but found ${namedImports} named import(s)`,
       severity: "warning",
       actual: `${namedImports} named imports`,
       expected: "default imports",
@@ -1019,7 +1099,7 @@ function validateErrorHandling(
       file: filePath,
       line: 1,
       category: "error-handling",
-      message: "Proyek ini dominan menggunakan try/catch, tetapi ditemukan pola callback",
+      message: "Project predominantly uses try/catch, but found callback patterns",
       severity: "warning",
       actual: `${patterns.callback} callback patterns`,
       expected: "try/catch",
@@ -1033,7 +1113,7 @@ function validateErrorHandling(
       file: filePath,
       line: 1,
       category: "error-handling",
-      message: "Proyek ini dominan menggunakan Result type, tetapi ditemukan try/catch",
+      message: "Project predominantly uses Result type, but found try/catch",
       severity: "info",
       actual: `${patterns.tryCatch} try/catch blocks`,
       expected: "Result type",
@@ -1057,18 +1137,18 @@ function validateLibPreference(
 
   // Daftar library populer yang mungkin jadi alternatif
   const alternatives: Record<string, string[]> = {
-    "lodash": ["lodash-es"],
-    "moment": ["date-fns", "dayjs"],
-    "axios": ["fetch", "ky"],
-    "express": ["fastify", "hono"],
-    "redux": ["zustand", "jotai"],
+    lodash: ["lodash-es"],
+    moment: ["date-fns", "dayjs"],
+    axios: ["fetch", "ky"],
+    express: ["fastify", "hono"],
+    redux: ["zustand", "jotai"],
     "styled-components": ["tailwindcss", "css-modules"],
-    "enzyme": ["@testing-library/react"],
-    "mocha": ["vitest", "jest"],
-    "chai": ["vitest", "jest"],
-    "sinon": ["vitest", "jest"],
-    "request": ["node-fetch", "undici"],
-    "bluebird": ["native-promise"],
+    enzyme: ["@testing-library/react"],
+    mocha: ["vitest", "jest"],
+    chai: ["vitest", "jest"],
+    sinon: ["vitest", "jest"],
+    request: ["node-fetch", "undici"],
+    bluebird: ["native-promise"],
   };
 
   for (const lib of usedLibs) {
@@ -1082,7 +1162,7 @@ function validateLibPreference(
             file: filePath,
             line: 1,
             category: "lib-preference",
-            message: `Library "${lib}" memiliki alternatif yang lebih disukai: "${preferred}"`,
+            message: `Library "${lib}" has a preferred alternative: "${preferred}"`,
             severity: "info",
             actual: lib,
             expected: preferred,
@@ -1092,14 +1172,14 @@ function validateLibPreference(
         }
       }
 
-      // Jika library tidak dikenal sama sekali dan bukan internal, catat sebagai info
+      // If the library is unknown and not internal, record as info
       if (!lib.startsWith(".") && !preferredLibs.includes(lib)) {
         violations.push({
           id: "",
           file: filePath,
           line: 1,
           category: "lib-preference",
-          message: `Library "${lib}" tidak ada dalam preferensi proyek: [${preferredLibs.join(", ")}]`,
+          message: `Library "${lib}" is not in the project preferences: [${preferredLibs.join(", ")}]`,
           severity: "info",
           actual: lib,
           expected: preferredLibs.join(" or "),
@@ -1113,7 +1193,7 @@ function validateLibPreference(
 }
 
 /**
- * Memvalidasi struktur komponen untuk file React.
+ * Validates component structure for React files.
  */
 function validateComponentStructure(
   content: string,
@@ -1132,7 +1212,7 @@ function validateComponentStructure(
       file: filePath,
       line: 1,
       category: "component-structure",
-      message: `Proyek menggunakan function components, tetapi ditemukan ${stats.classDeclaration} class components`,
+      message: `Project uses function components, but found ${stats.classDeclaration} class component(s)`,
       severity: "warning",
       actual: `${stats.classDeclaration} class declarations`,
       expected: "function declarations",
@@ -1146,7 +1226,7 @@ function validateComponentStructure(
       file: filePath,
       line: 1,
       category: "component-structure",
-      message: "Proyek menggunakan arrow function components, tetapi ditemukan function declarations",
+      message: "Project uses arrow function components, but found function declarations",
       severity: "info",
       actual: `${stats.functionDeclaration} function declarations`,
       expected: "arrow functions",
@@ -1176,7 +1256,7 @@ function validateTestPattern(
         file: filePath,
         line: 1,
         category: "test-pattern",
-        message: `Proyek menggunakan describe/it, tetapi ditemukan ${stats.testGlobal} test() calls`,
+        message: `Project uses describe/it, but found ${stats.testGlobal} test() call(s)`,
         severity: "warning",
         actual: `${stats.testGlobal} test() calls`,
         expected: "describe/it pattern",
@@ -1189,7 +1269,7 @@ function validateTestPattern(
 }
 
 /**
- * Menghitung nomor baris dari index tertentu dalam string.
+ * Counts the line number from a given index in a string.
  */
 function countLinesUpTo(content: string, index: number): number {
   if (index <= 0) return 1;
@@ -1203,26 +1283,23 @@ function countLinesUpTo(content: string, index: number): number {
 // ─── Learning from User Edits ───────────────────────────────────────────────
 
 /**
- * Mempelajari pola dari perubahan yang dilakukan user.
+ * Learns patterns from user-made changes.
  *
- * Membandingkan konten asli dan konten setelah diedit untuk mengekstrak
- * pola yang mungkin menjadi preferensi user. Fungsi ini mendeteksi
- * perubahan dalam konvensi penamaan, gaya import, dan struktur kode.
+ * Compares original and edited content to extract
+ * patterns that may be user preferences. This function detects
+ * changes in naming conventions, import styles, and code structure.
  *
- * @param originalContent - Konten file sebelum diedit
- * @param editedContent - Konten file setelah diedit
- * @returns LearnedPattern — pola yang dipelajari beserta confidence score
+ * @param originalContent - File content before editing
+ * @param editedContent - File content after editing
+ * @returns LearnedPattern — learned pattern with confidence score
  *
  * @example
  * ```ts
  * const result = learnFromUserEdit(originalCode, editedCode);
- * console.log(`Pola terdeteksi: ${result.pattern} (confidence: ${result.confidence})`);
+ * console.log(`Detected pattern: ${result.pattern} (confidence: ${result.confidence})`);
  * ```
  */
-export function learnFromUserEdit(
-  originalContent: string,
-  editedContent: string,
-): LearnedPattern {
+export function learnFromUserEdit(originalContent: string, editedContent: string): LearnedPattern {
   const now = new Date().toISOString();
 
   try {
@@ -1236,7 +1313,7 @@ export function learnFromUserEdit(
       };
     }
 
-    // Jika sama persis, tidak ada yang dipelajari
+    // If identical, nothing to learn
     if (originalContent === editedContent) {
       return {
         pattern: "no-change",
@@ -1247,7 +1324,7 @@ export function learnFromUserEdit(
       };
     }
 
-    // Analisis perubahan naming convention
+    // Analyze naming convention changes
     const originalNaming = analyzeNamingChanges(originalContent, editedContent);
     if (originalNaming) {
       return {
@@ -1259,7 +1336,7 @@ export function learnFromUserEdit(
       };
     }
 
-    // Analisis perubahan import style
+    // Analyze import style changes
     const importChange = analyzeImportStyleChange(originalContent, editedContent);
     if (importChange) {
       return {
@@ -1271,7 +1348,7 @@ export function learnFromUserEdit(
       };
     }
 
-    // Analisis perubahan error handling
+    // Analyze error handling changes
     const errorChange = analyzeErrorHandlingChange(originalContent, editedContent);
     if (errorChange) {
       return {
@@ -1283,7 +1360,7 @@ export function learnFromUserEdit(
       };
     }
 
-    // Tidak ada pola yang terdeteksi secara spesifik
+    // No specific pattern detected
     return {
       pattern: "generic-edit",
       confidence: 0.3,
@@ -1303,30 +1380,28 @@ export function learnFromUserEdit(
 }
 
 /**
- * Menganalisis perubahan konvensi penamaan antara original dan edited.
+ * Analyzes naming convention changes between original and edited content.
  */
 function analyzeNamingChanges(
   original: string,
   edited: string,
 ): { style: string; confidence: number; example: string } | null {
-  // Cari identifier baru yang muncul di edited tapi tidak di original
+  // Find new identifiers that appear in edited but not in original
   const originalIdentifiers = extractIdentifiers(original);
   const editedIdentifiers = extractIdentifiers(edited);
 
-  const newIdentifiers = editedIdentifiers.filter(
-    (id) => !originalIdentifiers.includes(id),
-  );
+  const newIdentifiers = editedIdentifiers.filter((id) => !originalIdentifiers.includes(id));
 
   if (newIdentifiers.length === 0) return null;
 
-  // Hitung distribusi gaya penamaan identifier baru
+  // Calculate naming style distribution for new identifiers
   const styleCounts: Record<string, number> = {};
   for (const id of newIdentifiers) {
     const style = detectNamingStyle(id);
     styleCounts[style] = (styleCounts[style] ?? 0) + 1;
   }
 
-  // Cari style dominan
+  // Find dominant style
   let dominantStyle = "unknown";
   let maxCount = 0;
   for (const [style, count] of Object.entries(styleCounts)) {
@@ -1345,23 +1420,21 @@ function analyzeNamingChanges(
 }
 
 /**
- * Menganalisis perubahan gaya import.
+ * Analyzes import style changes.
  */
 function analyzeImportStyleChange(
   original: string,
   edited: string,
 ): { style: string; confidence: number; example: string } | null {
-  // Cari import baru di edited
+  // Find new imports in edited content
   const originalImports = extractImports(original);
   const editedImports = extractImports(edited);
 
-  const newImports = editedImports.filter(
-    (imp) => !originalImports.includes(imp),
-  );
+  const newImports = editedImports.filter((imp) => !originalImports.includes(imp));
 
   if (newImports.length === 0) return null;
 
-  // Hitung gaya import baru
+  // Count new import styles
   let defaultCount = 0;
   let namedCount = 0;
   for (const imp of newImports) {
@@ -1389,7 +1462,7 @@ function analyzeImportStyleChange(
 }
 
 /**
- * Menganalisis perubahan pola error handling.
+ * Analyzes error handling pattern changes.
  */
 function analyzeErrorHandlingChange(
   original: string,
@@ -1418,16 +1491,16 @@ function analyzeErrorHandlingChange(
 }
 
 /**
- * Mengekstrak identifier (nama fungsi, kelas, variabel) dari konten.
+ * Extracts identifiers (function names, classes, variables) from content.
  */
 function extractIdentifiers(content: string): string[] {
   const identifiers = new Set<string>();
 
-  // Kelas
+  // Classes
   const classMatches = content.matchAll(/\bclass\s+([a-zA-Z_$][\w$]*)/g);
   for (const m of classMatches) identifiers.add(m[1]);
 
-  // Fungsi
+  // Functions
   const fnMatches = content.matchAll(/\bfunction\s+([a-zA-Z_$][\w$]*)/g);
   for (const m of fnMatches) identifiers.add(m[1]);
 
@@ -1435,7 +1508,7 @@ function extractIdentifiers(content: string): string[] {
   const typeMatches = content.matchAll(/\b(?:interface|type)\s+([a-zA-Z_$][\w$]*)/g);
   for (const m of typeMatches) identifiers.add(m[1]);
 
-  // Konstanta/variabel level modul dengan export
+  // Module-level constants/variables with export
   const constMatches = content.matchAll(/\b(?:export\s+)?(?:const|let|var)\s+([a-zA-Z_$][\w$]*)/g);
   for (const m of constMatches) identifiers.add(m[1]);
 
@@ -1443,7 +1516,7 @@ function extractIdentifiers(content: string): string[] {
 }
 
 /**
- * Mengekstrak pernyataan import dari konten.
+ * Extracts import statements from content.
  */
 function extractImports(content: string): string[] {
   const imports: string[] = [];
@@ -1456,13 +1529,13 @@ function extractImports(content: string): string[] {
 }
 
 /**
- * Mengekstrak potongan kode yang berubah antara dua versi.
+ * Extracts the code snippet that changed between two versions.
  */
 function extractChangedSnippet(original: string, edited: string): string {
   const origLines = original.split("\n");
   const editLines = edited.split("\n");
 
-  // Cari baris pertama yang berbeda
+  // Find first differing line
   for (let i = 0; i < Math.min(origLines.length, editLines.length); i++) {
     if (origLines[i] !== editLines[i]) {
       const start = Math.max(0, i - 1);
@@ -1471,7 +1544,7 @@ function extractChangedSnippet(original: string, edited: string): string {
     }
   }
 
-  // Jika panjang berbeda, ambil dari bagian yang baru
+  // If lengths differ, take from the new portion
   if (editLines.length > origLines.length) {
     return editLines.slice(origLines.length).join("\n").slice(0, 200);
   }
@@ -1482,18 +1555,18 @@ function extractChangedSnippet(original: string, edited: string): string {
 // ─── Fix Suggestions ───────────────────────────────────────────────────────
 
 /**
- * Membuat saran perbaikan untuk sebuah pelanggaran konsistensi.
+ * Creates a fix suggestion for a consistency violation.
  *
- * Berdasarkan kategori dan tipe pelanggaran, fungsi ini menghasilkan
- * saran perbaikan yang spesifik dan actionable.
+ * Based on the category and type of violation, this function generates
+ * specific and actionable fix suggestions.
  *
- * @param violation - Pelanggaran yang ingin diperbaiki
- * @returns FixSuggestion — saran perbaikan yang detail
+ * @param violation - The violation to fix
+ * @returns FixSuggestion — detailed fix suggestion
  *
  * @example
  * ```ts
  * const suggestion = suggestFix(violation);
- * console.log(`Perbaiki baris ${suggestion.line}: ${suggestion.suggestedFix}`);
+ * console.log(`Fix line ${suggestion.line}: ${suggestion.suggestedFix}`);
  * ```
  */
 export function suggestFix(violation: ConsistencyViolation): FixSuggestion {
@@ -1505,8 +1578,8 @@ export function suggestFix(violation: ConsistencyViolation): FixSuggestion {
         return {
           file: filePath,
           line: violation.line,
-          suggestedFix: `Ganti "${violation.actual}" menjadi "${violation.expected}"`,
-          rationale: `Mengikuti konvensi penamaan proyek yang menggunakan ${violation.expected}`,
+          suggestedFix: `Replace "${violation.actual}" with "${violation.expected}"`,
+          rationale: `Follow the project naming convention which uses ${violation.expected}`,
         };
       }
 
@@ -1516,9 +1589,9 @@ export function suggestFix(violation: ConsistencyViolation): FixSuggestion {
           file: filePath,
           line: violation.line,
           suggestedFix: isDefaultExpected
-            ? "Ubah named imports menjadi default imports: `import X from 'module'`"
-            : "Ubah default imports menjadi named imports: `import { X } from 'module'`",
-          rationale: `Konsisten dengan gaya import yang dominan di proyek ini`,
+            ? "Change named imports to default imports: `import X from 'module'`"
+            : "Change default imports to named imports: `import { X } from 'module'`",
+          rationale: `Be consistent with the dominant import style in this project`,
         };
       }
 
@@ -1528,9 +1601,9 @@ export function suggestFix(violation: ConsistencyViolation): FixSuggestion {
           file: filePath,
           line: violation.line,
           suggestedFix: isTryCatchExpected
-            ? "Bungkus kode dalam blok try/catch:\n\ttry {\n\t  // kode\n\t} catch (error) {\n\t  // handle error\n\t}"
-            : "Gunakan Result type pattern:\n\tconst result = await operation();\n\tif (result.isErr()) { ... }",
-          rationale: `Konsisten dengan pola error handling proyek ini (${violation.expected})`,
+            ? "Wrap code in try/catch block:\n\ttry {\n\t  // code\n\t} catch (error) {\n\t  // handle error\n\t}"
+            : "Use Result type pattern:\n\tconst result = await operation();\n\tif (result.isErr()) { ... }",
+          rationale: `Be consistent with this project's error handling pattern (${violation.expected})`,
         };
       }
 
@@ -1538,8 +1611,8 @@ export function suggestFix(violation: ConsistencyViolation): FixSuggestion {
         return {
           file: filePath,
           line: violation.line,
-          suggestedFix: `Ganti import "${violation.actual}" dengan "${violation.expected}"`,
-          rationale: `Library "${violation.expected}" adalah preferensi yang sudah ditetapkan untuk proyek ini`,
+          suggestedFix: `Replace import "${violation.actual}" with "${violation.expected}"`,
+          rationale: `Library "${violation.expected}" is the established preference for this project`,
         };
       }
 
@@ -1549,9 +1622,9 @@ export function suggestFix(violation: ConsistencyViolation): FixSuggestion {
           file: filePath,
           line: violation.line,
           suggestedFix: useFunction
-            ? "Ubah class component menjadi function component:\n\tfunction Component(props) { ... }"
-            : "Ubah function declaration menjadi arrow function:\n\tconst Component = (props) => { ... }",
-          rationale: `Konsisten dengan struktur komponen yang digunakan di proyek ini (${violation.expected})`,
+            ? "Change class component to function component:\n\tfunction Component(props) { ... }"
+            : "Change function declaration to arrow function:\n\tconst Component = (props) => { ... }",
+          rationale: `Be consistent with the component structure used in this project (${violation.expected})`,
         };
       }
 
@@ -1559,8 +1632,9 @@ export function suggestFix(violation: ConsistencyViolation): FixSuggestion {
         return {
           file: filePath,
           line: violation.line,
-          suggestedFix: "Gunakan describe/it pattern:\n\tdescribe('feature', () => {\n\t  it('should ...', () => { ... });\n\t});",
-          rationale: `Konsisten dengan pola testing yang digunakan di proyek ini (${violation.expected})`,
+          suggestedFix:
+            "Use describe/it pattern:\n\tdescribe('feature', () => {\n\t  it('should ...', () => { ... });\n\t});",
+          rationale: `Be consistent with the test pattern used in this project (${violation.expected})`,
         };
       }
 
@@ -1568,16 +1642,16 @@ export function suggestFix(violation: ConsistencyViolation): FixSuggestion {
         return {
           file: filePath,
           line: violation.line,
-          suggestedFix: "Tinjau dan sesuaikan dengan pola proyek yang sudah ditetapkan",
-          rationale: `Pelanggaran kategori "${violation.category}" perlu disesuaikan`,
+          suggestedFix: "Review and align with established project patterns",
+          rationale: `Violation in category "${violation.category}" needs adjustment`,
         };
     }
   } catch (error) {
     return {
       file: violation.file,
       line: violation.line,
-      suggestedFix: "Tidak dapat membuat saran otomatis",
-      rationale: "Terjadi error saat memproses saran perbaikan",
+      suggestedFix: "Unable to generate automatic suggestion",
+      rationale: "An error occurred while processing the fix suggestion",
     };
   }
 }
@@ -1585,19 +1659,19 @@ export function suggestFix(violation: ConsistencyViolation): FixSuggestion {
 // ─── Scoring ────────────────────────────────────────────────────────────────
 
 /**
- * Menghitung skor konsistensi proyek berdasarkan profile dan pelanggaran.
+ * Calculates the project consistency score based on profile and violations.
  *
- * Skor 100 berarti完全没有 pelanggaran. Setiap pelanggaran
- * mengurangi skor berdasarkan severity-nya: error (-15), warning (-5), info (-1).
+ * Score 100 means zero violations. Each violation
+ * reduces the score based on its severity: error (-15), warning (-5), info (-1).
  *
- * @param profile - ProjectPatternProfile yang digunakan sebagai acuan
- * @param violations - Daftar pelanggaran yang ditemukan
- * @returns number — skor konsistensi 0-100
+ * @param profile - ProjectPatternProfile used as reference
+ * @param violations - List of violations found
+ * @returns number — consistency score 0-100
  *
  * @example
  * ```ts
  * const score = getConsistencyScore(profile, violations);
- * console.log(`Skor konsistensi: ${score}/100`);
+ * console.log(`Consistency score: ${score}/100`);
  * ```
  */
 export function getConsistencyScore(
@@ -1607,7 +1681,7 @@ export function getConsistencyScore(
   try {
     if (!profile || violations.length === 0) return 100;
 
-    // Hitung total pengurangan berdasarkan severity
+    // Calculate total deduction based on severity
     let totalDeduction = 0;
     for (const v of violations) {
       switch (v.severity) {
@@ -1623,13 +1697,13 @@ export function getConsistencyScore(
       }
     }
 
-    // Jika profile baru dibuat (belum memiliki banyak data), kurangi dampaknya
+    // If the profile is newly created (has little data), reduce the impact
     const profileAge = getProfileAge(profile);
     const ageMultiplier = Math.min(profileAge / 7, 1); // threshold 7 hari
 
-    // Base score: pengurangan dikalikan dengan age multiplier
+    // Base score: deduction multiplied by age multiplier
     const rawScore = 100 - totalDeduction * ageMultiplier;
-    // Clamp ke range 0-100
+    // Clamp to range 0-100
     return Math.max(0, Math.min(100, Math.round(rawScore)));
   } catch (error) {
     return 0;
@@ -1637,7 +1711,7 @@ export function getConsistencyScore(
 }
 
 /**
- * Menghitung umur profile dalam hari.
+ * Calculates the profile age in days.
  */
 function getProfileAge(profile: ProjectPatternProfile): number {
   try {
@@ -1653,13 +1727,13 @@ function getProfileAge(profile: ProjectPatternProfile): number {
 // ─── Formatting ────────────────────────────────────────────────────────────
 
 /**
- * Memformat daftar pelanggaran menjadi laporan human-readable (Markdown).
+ * Formats a list of violations into a human-readable Markdown report.
  *
- * Menghasilkan laporan terstruktur dengan ringkasan, rincian per kategori,
- * dan daftar pelanggaran lengkap dengan severity dan saran perbaikan.
+ * Generates a structured report with a summary, breakdown by category,
+ * and a full list of violations with severity and fix suggestions.
  *
- * @param violations - Daftar pelanggaran yang akan diformat
- * @returns string — laporan dalam format Markdown
+ * @param violations - List of violations to format
+ * @returns string — Markdown formatted report
  *
  * @example
  * ```ts
@@ -1673,13 +1747,13 @@ export function formatViolationReport(violations: ConsistencyViolation[]): strin
   const lines: string[] = [];
 
   try {
-    lines.push("# Laporan Pelanggaran Konsistensi");
+    lines.push("# Consistency Violations Report");
     lines.push("");
-    lines.push(`**Total Pelanggaran:** ${violations.length}`);
+    lines.push(`**Total Violations:** ${violations.length}`);
     lines.push("");
 
     if (violations.length === 0) {
-      lines.push("Tidak ada pelanggaran yang ditemukan. Kode sudah konsisten!");
+      lines.push("No violations found. Code is already consistent!");
       lines.push("");
       return lines.join("\n");
     }
@@ -1690,8 +1764,8 @@ export function formatViolationReport(violations: ConsistencyViolation[]): strin
       bySeverity[v.severity] = (bySeverity[v.severity] ?? 0) + 1;
     }
 
-    lines.push("## Ringkasan");
-    lines.push("| Severity | Jumlah |");
+    lines.push("## Summary");
+    lines.push("| Severity | Count |");
     lines.push("|----------|--------|");
     for (const [severity, count] of Object.entries(bySeverity)) {
       const label = severity === "error" ? "Error" : severity === "warning" ? "Warning" : "Info";
@@ -1707,72 +1781,71 @@ export function formatViolationReport(violations: ConsistencyViolation[]): strin
       byCategory[cat].push(v);
     }
 
-    lines.push("## Rincian per Kategori");
+    lines.push("## Breakdown by Category");
     for (const [category, catViolations] of Object.entries(byCategory)) {
-      const catLabel = category
-        .replace(/-/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
+      const catLabel = category.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
       lines.push("");
       lines.push(`### ${catLabel} (${catViolations.length})`);
       lines.push("");
-      lines.push("| Baris | Severity | Pesan |");
-      lines.push("|-------|----------|-------|");
+      lines.push("| Line | Severity | Message |");
+      lines.push("|------|----------|---------|");
 
-      // Urutkan berdasarkan baris
+      // Sort by line number
       catViolations.sort((a, b) => a.line - b.line);
 
       for (const v of catViolations) {
-        const severityIcon = v.severity === "error" ? "Error" : v.severity === "warning" ? "Warning" : "Info";
+        const severityIcon =
+          v.severity === "error" ? "Error" : v.severity === "warning" ? "Warning" : "Info";
         lines.push(`| ${v.line} | ${severityIcon} | ${escapeMd(v.message)} |`);
       }
     }
 
     lines.push("");
 
-    // Daftar detail semua pelanggaran
-    lines.push("## Detail Pelanggaran");
+    // Detailed list of all violations
+    lines.push("## Violation Details");
     lines.push("");
     for (let i = 0; i < violations.length; i++) {
       const v = violations[i];
       lines.push(`### ${i + 1}. ${v.category} — ${v.file}:${v.line}`);
       lines.push("");
-      lines.push(`- **Kategori:** ${v.category}`);
+      lines.push(`- **Category:** ${v.category}`);
       lines.push(`- **Severity:** ${v.severity}`);
       lines.push(`- **File:** ${v.file}`);
-      lines.push(`- **Baris:** ${v.line}`);
-      lines.push(`- **Pesan:** ${v.message}`);
-      lines.push(`- **Ditemukan:** ${v.actual}`);
-      lines.push(`- **Diharapkan:** ${v.expected}`);
+      lines.push(`- **Line:** ${v.line}`);
+      lines.push(`- **Message:** ${v.message}`);
+      lines.push(`- **Found:** ${v.actual}`);
+      lines.push(`- **Expected:** ${v.expected}`);
 
-      // Tambahkan saran perbaikan
+      // Add fix suggestion
       const fix = suggestFix(v);
-      lines.push(`- **Saran:** ${fix.suggestedFix}`);
+      lines.push(`- **Suggestion:** ${fix.suggestedFix}`);
       lines.push("");
     }
 
     lines.push("---");
-    lines.push(`*Laporan digenerate pada ${new Date().toISOString()}*`);
+    lines.push(`*Report generated at ${new Date().toISOString()}*`);
     lines.push("");
   } catch (error) {
-    lines.push("Terjadi error saat memformat laporan.");
+    lines.push("An error occurred while formatting the report.");
   }
 
   return lines.join("\n");
 }
 
 /**
- * Escape karakter Markdown khusus untuk tabel.
+ * Escapes special Markdown characters for tables.
  */
 function escapeMd(text: string): string {
   return text.replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
 
 /**
- * Memformat profile proyek menjadi string human-readable (Markdown).
+ * Formats a project profile into a human-readable Markdown string.
  *
- * @param profile - ProjectPatternProfile yang akan diformat
- * @returns string — representasi Markdown dari profile
+ * @param profile - ProjectPatternProfile to format
+ * @returns string — Markdown representation of the profile
  */
 export function formatProfile(profile: ProjectPatternProfile): string {
   const lines: string[] = [];
@@ -1780,20 +1853,20 @@ export function formatProfile(profile: ProjectPatternProfile): string {
   try {
     lines.push("# Project Pattern Profile");
     lines.push("");
-    lines.push(`- **Dibuat:** ${profile.createdAt}`);
-    lines.push(`- **Diupdate:** ${profile.updatedAt}`);
+    lines.push(`- **Created:** ${profile.createdAt}`);
+    lines.push(`- **Updated:** ${profile.updatedAt}`);
     lines.push("");
 
-    lines.push("## Konvensi Penamaan");
+    lines.push("## Naming Conventions");
     lines.push("");
-    lines.push("| Bahasa | Style |");
+    lines.push("| Language | Style |");
     lines.push("|--------|-------|");
     for (const [lang, style] of Object.entries(profile.namingConventions)) {
       lines.push(`| ${lang} | ${style} |`);
     }
     lines.push("");
 
-    lines.push("## Gaya Kode");
+    lines.push("## Code Style");
     lines.push("");
     lines.push(`- **Import Style:** ${profile.importStyle}`);
     lines.push(`- **Error Handling:** ${profile.errorHandling}`);
@@ -1802,39 +1875,39 @@ export function formatProfile(profile: ProjectPatternProfile): string {
     lines.push(`- **Test Pattern:** ${profile.testPattern}`);
     lines.push("");
 
-    lines.push("## Library Preferensi");
+    lines.push("## Library Preferences");
     lines.push("");
     if (profile.preferredLibs.length > 0) {
       for (const lib of profile.preferredLibs) {
         lines.push(`- \`${lib}\``);
       }
     } else {
-      lines.push("Belum ada preferensi library yang terdeteksi.");
+      lines.push("No library preferences detected yet.");
     }
     lines.push("");
   } catch (error) {
-    lines.push("Terjadi error saat memformat profile.");
+    lines.push("An error occurred while formatting the profile.");
   }
 
   return lines.join("\n");
 }
 
 /**
- * Memformat hasil pembelajaran menjadi string human-readable.
+ * Formats a learned pattern into a human-readable string.
  *
- * @param learned - LearnedPattern yang akan diformat
- * @returns string — representasi Markdown dari pola yang dipelajari
+ * @param learned - LearnedPattern to format
+ * @returns string — Markdown representation of the learned pattern
  */
 export function formatLearnedPattern(learned: LearnedPattern): string {
   const lines: string[] = [];
 
   try {
-    lines.push("# Pola yang Dipelajari");
+    lines.push("# Learned Pattern");
     lines.push("");
-    lines.push(`- **Pola:** ${learned.pattern}`);
-    lines.push(`- **Kategori:** ${learned.category}`);
+    lines.push(`- **Pattern:** ${learned.pattern}`);
+    lines.push(`- **Category:** ${learned.category}`);
     lines.push(`- **Confidence:** ${(learned.confidence * 100).toFixed(0)}%`);
-    lines.push(`- **Waktu:** ${learned.learnedAt}`);
+    lines.push(`- **Time:** ${learned.learnedAt}`);
     lines.push("");
 
     if (learned.example) {
@@ -1855,14 +1928,14 @@ export function formatLearnedPattern(learned: LearnedPattern): string {
 // ─── Aggregated Report ─────────────────────────────────────────────────────
 
 /**
- * Menghasilkan laporan konsistensi lengkap untuk satu atau banyak file.
+ * Generates a complete consistency report for one or more files.
  *
- * Menggabungkan hasil validasi, scoring, dan saran perbaikan
- * dalam satu objek report yang JSON-serializable.
+ * Combines validation results, scoring, and fix suggestions
+ * into a single JSON-serializable report object.
  *
- * @param filePaths - Array path file yang akan divalidasi
- * @param profile - ProjectPatternProfile yang digunakan sebagai acuan
- * @returns ConsistencyReport — laporan lengkap dengan score, violations, dan suggestions
+ * @param filePaths - Array of file paths to validate
+ * @param profile - ProjectPatternProfile used as reference
+ * @returns ConsistencyReport — complete report with score, violations, and suggestions
  */
 export function generateConsistencyReport(
   filePaths: string[],
@@ -1907,40 +1980,40 @@ export function generateConsistencyReport(
 }
 
 /**
- * Memformat ConsistencyReport menjadi string human-readable (Markdown).
+ * Formats a ConsistencyReport into a human-readable Markdown string.
  *
- * @param report - ConsistencyReport yang akan diformat
- * @returns string — laporan dalam format Markdown
+ * @param report - ConsistencyReport to format
+ * @returns string — Markdown formatted report
  */
 export function formatConsistencyReport(report: ConsistencyReport): string {
   const lines: string[] = [];
 
   try {
-    lines.push("# Laporan Konsistensi Kode");
+    lines.push("# Code Consistency Report");
     lines.push("");
-    lines.push(`**Skor Konsistensi:** ${report.score}/100`);
-    lines.push(`**Total Pelanggaran:** ${report.totalViolations}`);
-    lines.push(`**Digenerate:** ${report.generatedAt}`);
+    lines.push(`**Consistency Score:** ${report.score}/100`);
+    lines.push(`**Total Violations:** ${report.totalViolations}`);
+    lines.push(`**Generated:** ${report.generatedAt}`);
     lines.push("");
 
     // Visual rating
     lines.push("## Rating");
     lines.push("");
     if (report.score >= 90) {
-      lines.push("Kode sangat konsisten. Pertahankan!");
+      lines.push("Code is very consistent. Keep it up!");
     } else if (report.score >= 70) {
-      lines.push("Kode cukup konsisten. Beberapa area perlu perbaikan.");
+      lines.push("Code is fairly consistent. Some areas need improvement.");
     } else if (report.score >= 50) {
-      lines.push("Kode perlu perbaikan konsistensi yang signifikan.");
+      lines.push("Code needs significant consistency improvement.");
     } else {
-      lines.push("Kode sangat tidak konsisten. Perlu audit menyeluruh.");
+      lines.push("Code is highly inconsistent. Needs a thorough audit.");
     }
     lines.push("");
 
     if (report.bySeverity && Object.keys(report.bySeverity).length > 0) {
-      lines.push("## Rincian Severity");
-      lines.push("| Severity | Jumlah |");
-      lines.push("|----------|--------|");
+      lines.push("## Severity Breakdown");
+      lines.push("| Severity | Count |");
+      lines.push("|----------|-------|");
       for (const [sev, count] of Object.entries(report.bySeverity)) {
         lines.push(`| ${sev} | ${count} |`);
       }
@@ -1948,9 +2021,9 @@ export function formatConsistencyReport(report: ConsistencyReport): string {
     }
 
     if (report.byCategory && Object.keys(report.byCategory).length > 0) {
-      lines.push("## Rincian Kategori");
-      lines.push("| Kategori | Jumlah |");
-      lines.push("|----------|--------|");
+      lines.push("## Category Breakdown");
+      lines.push("| Category | Count |");
+      lines.push("|----------|-------|");
       for (const [cat, count] of Object.entries(report.byCategory)) {
         const catLabel = cat.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
         lines.push(`| ${catLabel} | ${count} |`);
@@ -1959,40 +2032,40 @@ export function formatConsistencyReport(report: ConsistencyReport): string {
     }
 
     if (report.violations && report.violations.length > 0) {
-      lines.push("## Detail Pelanggaran");
+      lines.push("## Violation Details");
       lines.push("");
       for (let i = 0; i < report.violations.length; i++) {
         const v = report.violations[i];
         lines.push(`### ${i + 1}. ${v.file}:${v.line}`);
         lines.push("");
-        lines.push(`- **Kategori:** ${v.category}`);
+        lines.push(`- **Category:** ${v.category}`);
         lines.push(`- **Severity:** ${v.severity}`);
-        lines.push(`- **Pesan:** ${v.message}`);
-        lines.push(`- **Ditemukan:** \`${v.actual}\``);
-        lines.push(`- **Diharapkan:** \`${v.expected}\``);
+        lines.push(`- **Message:** ${v.message}`);
+        lines.push(`- **Found:** \`${v.actual}\``);
+        lines.push(`- **Expected:** \`${v.expected}\``);
         lines.push("");
       }
     }
 
     if (report.suggestions && report.suggestions.length > 0) {
-      lines.push("## Saran Perbaikan");
+      lines.push("## Fix Suggestions");
       lines.push("");
       for (let i = 0; i < report.suggestions.length; i++) {
         const s = report.suggestions[i];
         lines.push(`### ${i + 1}. ${s.file}:${s.line}`);
         lines.push("");
-        lines.push(`**Saran:** ${s.suggestedFix}`);
+        lines.push(`**Suggestion:** ${s.suggestedFix}`);
         lines.push("");
-        lines.push(`**Alasan:** ${s.rationale}`);
+        lines.push(`**Rationale:** ${s.rationale}`);
         lines.push("");
       }
     }
 
     lines.push("---");
-    lines.push(`*Laporan digenerate pada ${report.generatedAt}*`);
+    lines.push(`*Report generated on ${report.generatedAt}*`);
     lines.push("");
   } catch (error) {
-    lines.push("Terjadi error saat memformat laporan konsistensi.");
+    lines.push("Error formatting consistency report.");
   }
 
   return lines.join("\n");
@@ -2001,10 +2074,10 @@ export function formatConsistencyReport(report: ConsistencyReport): string {
 // ─── Log Management ─────────────────────────────────────────────────────────
 
 /**
- * Membaca riwayat pelanggaran dari log.
+ * Reads violation history from the log.
  *
- * @param options - Filter opsi (limit, category, severity)
- * @returns ConsistencyViolation[] — daftar pelanggaran dari log
+ * @param options - Filter options (limit, category, severity)
+ * @returns ConsistencyViolation[] — list of violations from the log
  */
 export function getViolationLog(options?: {
   limit?: number;
@@ -2039,9 +2112,9 @@ export function getViolationLog(options?: {
 }
 
 /**
- * Menghapus log pelanggaran.
+ * Clears the violation log.
  *
- * @returns boolean — true jika berhasil dihapus
+ * @returns boolean — true if successfully cleared
  */
 export function clearViolationLog(): boolean {
   try {
@@ -2058,25 +2131,22 @@ export function clearViolationLog(): boolean {
 // ─── Bulk Operations ───────────────────────────────────────────────────────
 
 /**
- * Memindai dan memvalidasi seluruh direktori proyek terhadap profile.
+ * Scans and validates an entire project directory against the profile.
  *
- * Melakukan walk pada direktori, menemukan semua file sumber,
- * memvalidasi masing-masing, dan mengembalikan laporan lengkap.
+ * Walks the directory, finds all source files,
+ * validates each one, and returns a complete report.
  *
- * @param root - Path absolut dari direktori proyek
- * @param profile - ProjectPatternProfile (opsional, akan auto-detect jika tidak ada)
- * @returns ConsistencyReport — laporan lengkap
+ * @param root - Absolute path of the project directory
+ * @param profile - ProjectPatternProfile (optional, auto-detected if not provided)
+ * @returns ConsistencyReport — complete report
  */
-export function scanAndValidate(
-  root: string,
-  profile?: ProjectPatternProfile,
-): ConsistencyReport {
+export function scanAndValidate(root: string, profile?: ProjectPatternProfile): ConsistencyReport {
   try {
-    // Jika profile tidak diberikan, deteksi otomatis
+    // If profile is not provided, auto-detect
     const activeProfile = profile ?? detectProjectPatterns(root);
     const files = collectSourceFiles(resolve(root));
 
-    // Batasi untuk performa (max 200 file per scan)
+    // Limit for performance (max 200 files per scan)
     const maxFiles = 200;
     const fileBatch = files.length > maxFiles ? files.slice(0, maxFiles) : files;
 
@@ -2095,10 +2165,10 @@ export function scanAndValidate(
 }
 
 /**
- * Mendapatkan ringkasan profile dan stats dalam satu panggilan.
+ * Gets a profile summary and stats in one call.
  *
- * @param root - Path absolut dari direktori proyek
- * @returns object berisi profile dan statistik
+ * @param root - Absolute path of the project directory
+ * @returns object containing profile and statistics
  */
 export function getConsistencySummary(root: string): {
   profile: ProjectPatternProfile | null;
@@ -2192,10 +2262,7 @@ export function validateFiles(
  * @param editedContent - File content after editing
  * @returns LearnedPattern with confidence score
  */
-export function learnFromEdit(
-  originalContent: string,
-  editedContent: string,
-): LearnedPattern {
+export function learnFromEdit(originalContent: string, editedContent: string): LearnedPattern {
   return learnFromUserEdit(originalContent, editedContent);
 }
 

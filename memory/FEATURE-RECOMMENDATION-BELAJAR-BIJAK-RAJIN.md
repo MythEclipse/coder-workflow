@@ -1,39 +1,39 @@
-# Analisis Workflow AI & Rekomendasi Fitur
+# AI Workflow Analysis & Feature Recommendations
 
-> **Tujuan:** Membuat AI agent di coder-workflow plugin bisa **BELAJAR** dari pengalaman, **BIJAK** dalam mengambil keputusan, dan **RAJIN** dalam menjaga kualitas.
+> **Goal:** Enable AI agents in the coder-workflow plugin to **LEARN** from experience, **WISE** in decision-making, and **DILIGENT** in maintaining quality.
 
 ---
 
-## 📊 Ringkasan Existing State
+## 📊 Existing State Summary
 
-### Yang SUDAH ADA (tapi belum optimal):
+### What Already Exists (but not yet optimal):
 
 | Area | Existing | Gap |
 |------|----------|-----|
-| **Memory** | Cross-Agent Memory, `.coder-memory/`, memory-librarian agent | Hanya menyimpan, jarang dikonsultasi otomatis |
-| **Learning** | Headroom Learn (failure logging, correction matching) | Hanya failure, tidak belajar dari success/user preference |
-| **Session** | Session metrics, hooks lifecycle | Tidak ada cross-session knowledge carryover otomatis |
-| **Quality** | Impact Radius, todo-checker, code-reviewer | Tidak ada proactive guardian yg cegah masalah sebelum terjadi |
-| **Decision** | ADR system | Terlalu formal untuk daily micro-decisions |
-| **Wisdom** | Orchestrator routing, workflow planner | Tidak ada "risk assessment" sebelum task execution |
-| **Rajin** | PreToolUse/PostToolUse hooks, Stop hooks | Reaktif — belum ada automated pre-flight checks |
+| **Memory** | Cross-Agent Memory, `.coder-memory/`, memory-librarian agent | Only stores, rarely auto-consulted |
+| **Learning** | Headroom Learn (failure logging, correction matching) | Only failures, no success/user preference learning |
+| **Session** | Session metrics, hooks lifecycle | No automatic cross-session knowledge carryover |
+| **Quality** | Impact Radius, todo-checker, code-reviewer | No proactive guardian to prevent issues before they occur |
+| **Decision** | ADR system | Too formal for daily micro-decisions |
+| **Wisdom** | Orchestrator routing, workflow planner | No "risk assessment" before task execution |
+| **Diligence** | PreToolUse/PostToolUse hooks, Stop hooks | Reactive — no automated pre-flight checks yet |
 
 ---
 
-## 🧠 PILLAR 1: BELAJAR (Learning System)
+## 🧠 PILLAR 1: LEARN (Learning System)
 
 ### 1.1 Experience Journal — "Project Wisdom Archive"
 
-**Masalah:** Setiap session mulai dari nol. Pelajaran berharga dari sesi sebelumnya hilang.
+**Problem:** Every session starts from zero. Valuable lessons from previous sessions are lost.
 
-**Solusi:** Agent baru **`experience-journal`** yang secara otomatis:
-- **Post-Task Reflection:** Setelah setiap task selesai → catat:
+**Solution:** New **`experience-journal`** agent that automatically:
+- **Post-Task Reflection:** After each task completes → record:
   - What worked? What didn't?
   - Root cause analysis of bugs found
   - Architectural decisions & rationale
-  - Pattern yang berhasil / anti-pattern yang gagal
-- **Auto-Postmortem on Failure:** Ketika task gagal 3x → auto-generate postmortem + store ke memory
-- **Wisdom Retrieval:** Sebelum task dimulai → cari relevant past lessons dari project yang sama
+  - Successful patterns / failed anti-patterns
+- **Auto-Postmortem on Failure:** When a task fails 3× → auto-generate postmortem + store to memory
+- **Wisdom Retrieval:** Before task starts → find relevant past lessons from the same project
 
 **Implementation:**
 ```
@@ -44,17 +44,17 @@ hooks/ → PostTaskReflection hook (auto-trigger)
 
 ### 1.2 Success Pattern Recognition — "What Works"
 
-**Masalah:** Headroom Learn hanya melacak *failures*. Tidak ada sistem yang mencatat *apa yang berhasil*.
+**Problem:** Headroom Learn only tracks *failures*. No system records *what works*.
 
-**Solusi:** Enhance `learn.ts` + hooks untuk:
+**Solution:** Enhance `learn.ts` + hooks to:
 - Track successful test passes (what pattern made tests pass?)
-- Track user-accepted suggestions (user accepted refactor X → tandai sebagai preferensi)
+- Track user-accepted suggestions (user accepted refactor X → mark as preference)
 - Track clean builds (what config worked?)
 - Build "success signature database": `{ task_type, approach, outcome: "success" }`
 
 **Key enhancement:**
 ```typescript
-// Di learn.ts, tambah:
+// In learn.ts, add:
 export interface SuccessRecord {
   taskType: string;
   approach: string;
@@ -67,26 +67,26 @@ export interface SuccessRecord {
 
 ### 1.3 Cross-Session Memory Consolidation
 
-**Masalah:** Memory di `.coder-memory/` dan `.claude/cross-agent-memory/` hanya diisi manual.
+**Problem:** Memory in `.coder-memory/` and `.claude/cross-agent-memory/` is only filled manually.
 
-**Solusi:** Saat `SessionEnd` hook fires (sudah ada!), auto-ekstrak:
-- Keputusan arsitektur → `decision-{date}.md`
-- Pelajaran debugging → `lesson-{bug-pattern}.md`
-- Preferensi user → `preference-{topic}.md`
-- Perubahan penting API → `reference-{module}-{date}.md`
+**Solution:** When `SessionEnd` hook fires (already exists!), auto-extract:
+- Architectural decisions → `decision-{date}.md`
+- Debugging lessons → `lesson-{bug-pattern}.md`
+- User preferences → `preference-{topic}.md`
+- Important API changes → `reference-{module}-{date}.md`
 
-**Hook enhancement:** Tambah `PostSessionEnd` consolidation logic di `session-metrics.sh` atau agent baru.
+**Hook enhancement:** Add `PostSessionEnd` consolidation logic in `session-metrics.sh` or a new agent.
 
 ### 1.4 User Preference Learning Profile
 
-**Masalah:** User punya preferensi style/naming/architecture tapi harus di-repeat di prompt.
+**Problem:** Users have style/naming/architecture preferences but must repeat them in every prompt.
 
-**Solusi:** Bangun preferensi profile yang auto-terbentuk:
-- Dari `CLAUDE.md` → parse explicit preferences
-- Dari user edits → infer pattern (user always renames X to Y → pelajari)
-- Dari code review feedback → catat preferensi reviewer
+**Solution:** Build auto-formed preference profile:
+- From `CLAUDE.md` → parse explicit preferences
+- From user edits → infer pattern (user always renames X to Y → learn)
+- From code review feedback → record reviewer preferences
 
-**Format profil:**
+**Profile format:**
 ```json
 {
   "naming": { "controllers": "Controller", "services": "Service" },
@@ -100,29 +100,29 @@ export interface SuccessRecord {
 
 ---
 
-## 🎯 PILLAR 2: BIJAK (Wisdom Layer)
+## 🎯 PILLAR 2: WISE (Wisdom Layer)
 
 ### 2.1 Risk-Aware Task Execution
 
-**Masalah:** Agent langsung execute tanpa tahu resiko — sering menabrak masalah yang sama.
+**Problem:** Agent executes immediately without knowing the risks — often hitting the same problems.
 
-**Solusi:** Sebelum task execution, lakukan **Risk Assessment Query**:
-1. **Apakah ada past failures di area ini?** → cek `.claude/learn/failures.jsonl`
-2. **Apakah ada similar task sebelumnya?** → cek cross-agent memory
-3. **Apa impact radius-nya?** → sudah ada via Impact Radius Protocol
-4. **Apa recommended approach?** → dari experience journal
+**Solution:** Before task execution, run a **Risk Assessment Query**:
+1. **Are there past failures in this area?** → check `.claude/learn/failures.jsonl`
+2. **Are there similar tasks before?** → check cross-agent memory
+3. **What is the impact radius?** → already exists via Impact Radius Protocol
+4. **What is the recommended approach?** → from experience journal
 
-**Hook integration:** Tambah ke `PreToolUse` untuk `Write/Edit` — sebelum edit, cek risiko.
+**Hook integration:** Add to `PreToolUse` for `Write/Edit` — check risk before editing.
 
 ### 2.2 Lite-ADR — "Micro Decision Log"
 
-**Masalah:** ADR terlalu formal untuk keputusan kecil sehari-hari.
+**Problem:** ADR is too formal for small daily decisions.
 
-**Solusi:** Fitur **Lite-ADR** / **Decision Snapshots**:
-- Setiap kali agent memilih antara beberapa approach → catat sebagai decision snapshot
-- Format minimal: `{ context, options, selected, rationale, timestamp }`
-- Auto-dipanggil saat `sequential_thinking` MCP digunakan
-- Bisa di-query: "Kenapa dulu pilih X daripada Y?"
+**Solution:** **Lite-ADR** / **Decision Snapshots** feature:
+- Every time the agent chooses between multiple approaches → record as a decision snapshot
+- Minimal format: `{ context, options, selected, rationale, timestamp }`
+- Auto-called when `sequential_thinking` MCP is used
+- Queryable: "Why did we choose X over Y?"
 
 **CLI command:**
 ```bash
@@ -133,13 +133,13 @@ coder-workflow decision why "chose prisma over typeorm"
 
 ### 2.3 Trade-off Analysis Engine
 
-**Masalah:** Agent sering memilih solusi tanpa mempertimbangkan trade-offs secara eksplisit.
+**Problem:** Agents often choose solutions without explicitly considering trade-offs.
 
-**Solusi:** Agent **trade-off-analyzer** yang:
-- Saat menerima task → generate 2-3 approach dengan trade-off matrix
-- Pertimbangkan: complexity, maintainability, performance, security, learning curve
-- Rekomendasikan berdasarkan project profile (preferences dari Pillar 1.4)
-- Store decision + trade-off ke experience journal
+**Solution:** **trade-off-analyzer** agent that:
+- When receiving a task → generate 2-3 approaches with trade-off matrix
+- Consider: complexity, maintainability, performance, security, learning curve
+- Recommend based on project profile (preferences from Pillar 1.4)
+- Store decision + trade-off to experience journal
 
 **Trade-off Matrix output:**
 ```
@@ -157,23 +157,23 @@ coder-workflow decision why "chose prisma over typeorm"
 
 ### 2.4 Knowledge Integration Hub
 
-**Masalah:** Agent perlu tahu best practices dari luar kodebase (docs, library updates).
+**Problem:** Agents need to know best practices from outside the codebase (docs, library updates).
 
-**Solusi:** Agent **knowledge-integrator** yang:
-- Gunakan Context7 MCP secara proaktif untuk cek docs/library updates
-- Integrasikan external knowledge dengan project patterns
-- Beri "Did you know?" tips berbasis task context
-- Maintain "library knowledge base" per project
+**Solution:** **knowledge-integrator** agent that:
+- Proactively uses Context7 MCP to check docs/library updates
+- Integrates external knowledge with project patterns
+- Provides "Did you know?" tips based on task context
+- Maintains "library knowledge base" per project
 
 ---
 
-## ⚡ PILLAR 3: RAJIN (Diligence Automation)
+## ⚡ PILLAR 3: DILIGENT (Diligence Automation)
 
 ### 3.1 Pre-Flight Checklist — "Auto Readiness Check"
 
-**Masalah:** Agent langsung kerja tanpa cek kondisi proyek.
+**Problem:** Agents start working without checking project conditions.
 
-**Solusi:** Sebelum task dimulai, auto-run checklist:
+**Solution:** Before task starts, auto-run checklist:
 
 ```
 ☐ Codebase typecheck: [PASS/FAIL]
@@ -185,15 +185,15 @@ coder-workflow decision why "chose prisma over typeorm"
 ☐ Relevant memory entries: [NONE/FOUND]
 ```
 
-**Implementation:** Hook `PreToolUse` untuk `Agent` — sebelum spawn subagent, run checklist.
+**Implementation:** `PreToolUse` hook for `Agent` — run checklist before spawning subagent.
 
 ### 3.2 Proactive Quality Guardian Agent
 
-**Masalah:** Quality check terjadi *setelah* kode ditulis, bukan *sebelum*.
+**Problem:** Quality check happens *after* code is written, not *before*.
 
-**Solusi:** Agent **`quality-guardian`** yang:
-- **Before write:** Cek apakah file punya pre-existing issues (type/lint/test)
-- **During write:** Monitor diff dan cegah regression
+**Solution:** **`quality-guardian`** agent that:
+- **Before write:** Check if file has pre-existing issues (type/lint/test)
+- **During write:** Monitor diff and prevent regression
 - **After write:** Run targeted verification, compare before/after quality score
 - **Always:** Maintain quality trend chart per module
 
@@ -202,18 +202,18 @@ coder-workflow decision why "chose prisma over typeorm"
 Quality Score = (typecheck_before - typecheck_after) + 
                 (lint_warnings_before - lint_warnings_after) + 
                 (test_pass_rate_before - test_pass_rate_after)
-Nilai negatif = regression → BLOCK.
+Negative value = regression → BLOCK.
 ```
 
 ### 3.3 Automated Tech Debt Tracker
 
-**Masalah:** Tech debt menumpuk tanpa ada yang monitor secara sistematis.
+**Problem:** Tech debt accumulates without systematic monitoring.
 
-**Solusi:** Enhance `todo-checker` agent menjadi **debt-tracker**:
-- Klasifikasi TODOs: `TYPE:bug|enhancement|refactor|documentation` + `SEVERITY:critical|major|minor`
+**Solution:** Enhance `todo-checker` agent into **debt-tracker**:
+- Classify TODOs: `TYPE:bug|enhancement|refactor|documentation` + `SEVERITY:critical|major|minor`
 - Track age of each TODO (auto-aging)
 - Generate tech debt dashboard per sprint
-- **NEW:** Debt budget enforcement — jika debt > threshold (e.g., 20 TODOs), blokir feature addition baru
+- **NEW:** Debt budget enforcement — if debt > threshold (e.g., 20 TODOs), block new feature addition
 
 **Tech debt report:**
 ```
@@ -230,17 +230,17 @@ Debt Score: 27/100 ⚠️ (blocked: threshold 25 exceeded)
 
 ### 3.4 Consistency Enforcement Agent
 
-**Masalah:** Developer (manusia atau AI) sering inconsist dalam naming, struktur, pattern.
+**Problem:** Developers (human or AI) are often inconsistent in naming, structure, patterns.
 
-**Solusi:** Agent **`consistency-enforcer`** yang:
-- Define "project pattern profile" dari existing code
+**Solution:** **`consistency-enforcer`** agent that:
+- Define "project pattern profile" from existing code
 - Validate new code against profile
 - Flag inconsistencies: "This controller uses `findAll()` but the project convention is `list()`"
 - Auto-suggest fixes based on dominant pattern
 
 **Pattern profile auto-detect:**
 ```typescript
-// Dari scan kode existing, deteksi:
+// From scanning existing code, detect:
 {
   namingConventions: {
     controllers: "PascalCase + Controller",
@@ -255,43 +255,43 @@ Debt Score: 27/100 ⚠️ (blocked: threshold 25 exceeded)
 
 ### 3.5 Proactive Bug Hunter
 
-**Masalah:** Bug ditemukan di review/test, padahal bisa dicegah lebih awal.
+**Problem:** Bugs are found in review/test, when they could be prevented earlier.
 
-**Solusi:** Agent **`bug-hunter`** yang jalan *bersamaan* dengan implementasi:
-- Scan setiap diff untuk common bug patterns
-- Null check: semua nullable sudah di-handle?
-- Error handling: semua Promise ada .catch()?
+**Solution:** **`bug-hunter`** agent that runs *alongside* implementation:
+- Scan every diff for common bug patterns
+- Null check: all nullable values handled?
+- Error handling: every Promise has .catch()?
 - Boundary: array access, negative numbers, empty states?
 - Security: SQL injection, XSS, auth bypass patterns
 
-**Integration:** Jalankan sebagai parallel subagent saat implementasi.
+**Integration:** Run as a parallel subagent during implementation.
 
-### 3.6 Ceklis Kualitas Otomatis Saat Stop
+### 3.6 Automatic Quality Checklist on Stop
 
-**Masalah:** Sekarang `Stop` hook cuma auto-commit dan update graph.
+**Problem:** Currently `Stop` hook only auto-commits and updates the graph.
 
-**Solusi:** Enhance `Stop` hook untuk:
-1. **Quality Gate:** Jalankan typecheck + lint + test pada file yang diubah
-2. **Debt Check:** Cek apakah ada TODO/FIXME baru yang ditambahkan
-3. **Regression Check:** Bandingkan dengan sebelum perubahan (dari git stash)
-4. **Memory Check:** Apakah ada keputusan penting yang belum di-catat?
-5. **Health Report:** Output ringkasan kualitas
+**Solution:** Enhance `Stop` hook to:
+1. **Quality Gate:** Run typecheck + lint + test on changed files
+2. **Debt Check:** Check if any new TODO/FIXME were added
+3. **Regression Check:** Compare with before changes (from git stash)
+4. **Memory Check:** Are there important decisions not yet recorded?
+5. **Health Report:** Output quality summary
 
 ---
 
 ## 🔄 Recommended Implementation Priority
 
-### Week 1-2: Foundations (RAJIN)
-1. **Pre-Flight Checklist** (3.1) — hooks enhancement, paling cepat impact
+### Week 1-2: Foundations (DILIGENT)
+1. **Pre-Flight Checklist** (3.1) — hooks enhancement, fastest impact
 2. **Quality Guardian Agent** (3.2) — agent definition + basic hooks
 3. **Consistency Enforcer** (3.4) — pattern detection
 
-### Week 3-4: Memory & Learning (BELAJAR)
+### Week 3-4: Memory & Learning (LEARN)
 4. **Experience Journal Agent** (1.1) — new agent + post-task hook
 5. **Cross-Session Consolidation** (1.3) — SessionEnd enhancement
 6. **Success Pattern Recognition** (1.2) — learn.ts enhancement
 
-### Week 5-6: Wisdom Layer (BIJAK)
+### Week 5-6: Wisdom Layer (WISE)
 7. **Risk-Aware Execution** (2.1) — pre-task assessment
 8. **Lite-ADR System** (2.2) — decision snapshots
 9. **Trade-off Analysis** (2.3) — agent definition
@@ -310,18 +310,18 @@ Debt Score: 27/100 ⚠️ (blocked: threshold 25 exceeded)
 | Metric | Before | After |
 |--------|--------|-------|
 | **Bug escape rate** | High (bugs found in review/test) | Low (caught before write) |
-| **Context switch cost** | High (tiap session start from zero) | Low (memory recall otomatis) |
-| **Decision consistency** | Varies per task | Terstandar dengan trade-off docs |
+| **Context switch cost** | High (every session starts from zero) | Low (automatic memory recall) |
+| **Decision consistency** | Varies per task | Standardized with trade-off docs |
 | **Code consistency** | Inconsistent patterns | Project profile enforcement |
 | **Tech debt awareness** | None | Tracked + budgeted |
-| **Learning velocity** | Setiap session ulang | Knowledge accumulation |
-| **Rajin (diligence)** | Reactif (masalah dulu baru cek) | Proaktif (cegah sebelum terjadi) |
+| **Learning velocity** | Every session re-learns | Knowledge accumulation |
+| **Diligence** | Reactive (problems first, then check) | Proactive (prevent before occurrence) |
 
 ---
 
 ## 🏗️ Implementation Pattern
 
-Untuk setiap fitur baru, ikuti pola plugin yang sudah ada:
+For each new feature, follow the existing plugin pattern:
 
 ```
 agents/<feature-name>.md        → Agent definition (frontmatter + system prompt)
@@ -331,34 +331,34 @@ hooks/hooks.json                → Hook integration (auto-trigger)
 ```
 
 ### Shared Anti-Lazy Directive
-Semua agent baru harus inherit `_shared/OVERPOWERED.md` directive:
-1. **Absolute Anti-Reductionism** — jangan oversimplify
+All new agents must inherit the `_shared/OVERPOWERED.md` directive:
+1. **Absolute Anti-Reductionism** — don't oversimplify
 2. **Over-Engineering Mandate** — prefer robust solution
-3. **Zero Suppression** — fix root cause, jangan supresi
-4. **No Dummy Code** — semua solusi real, bukan placeholder
-5. **Strict Anti-Speculation** — jangan halusinasi
+3. **Zero Suppression** — fix root cause, don't suppress
+4. **No Dummy Code** — all real solutions, no placeholders
+5. **Strict Anti-Speculation** — don't hallucinate
 
 ---
 
 ## 📋 Summary: 3 Pillars, 14 Features
 
-| Pillar | Fitur | Tipe | Impact |
-|--------|-------|------|--------|
-| 🧠 **BELAJAR** | Experience Journal | New Agent | High |
-| 🧠 **BELAJAR** | Success Pattern Recognition | Enhancement | Medium |
-| 🧠 **BELAJAR** | Cross-Session Consolidation | Hook Enhancement | High |
-| 🧠 **BELAJAR** | User Preference Profile | New System | Medium |
-| 🎯 **BIJAK** | Risk-Aware Execution | Hook Enhancement | High |
-| 🎯 **BIJAK** | Lite-ADR System | New CLI + Agent | Medium |
-| 🎯 **BIJAK** | Trade-off Analysis | New Agent | Medium |
-| 🎯 **BIJAK** | Knowledge Integration | Agent + Context7 | Medium |
-| ⚡ **RAJIN** | Pre-Flight Checklist | Hook Enhancement | High |
-| ⚡ **RAJIN** | Quality Guardian | New Agent | High |
-| ⚡ **RAJIN** | Tech Debt Tracker | Enhancement | Medium |
-| ⚡ **RAJIN** | Consistency Enforcer | New Agent | Medium |
-| ⚡ **RAJIN** | Proactive Bug Hunter | Parallel Agent | High |
-| ⚡ **RAJIN** | Stop Quality Gate | Hook Enhancement | High |
+| Pillar | Feature | Type | Impact |
+|--------|---------|------|--------|
+| 🧠 **LEARN** | Experience Journal | New Agent | High |
+| 🧠 **LEARN** | Success Pattern Recognition | Enhancement | Medium |
+| 🧠 **LEARN** | Cross-Session Consolidation | Hook Enhancement | High |
+| 🧠 **LEARN** | User Preference Profile | New System | Medium |
+| 🎯 **WISE** | Risk-Aware Execution | Hook Enhancement | High |
+| 🎯 **WISE** | Lite-ADR System | New CLI + Agent | Medium |
+| 🎯 **WISE** | Trade-off Analysis | New Agent | Medium |
+| 🎯 **WISE** | Knowledge Integration | Agent + Context7 | Medium |
+| ⚡ **DILIGENT** | Pre-Flight Checklist | Hook Enhancement | High |
+| ⚡ **DILIGENT** | Quality Guardian | New Agent | High |
+| ⚡ **DILIGENT** | Tech Debt Tracker | Enhancement | Medium |
+| ⚡ **DILIGENT** | Consistency Enforcer | New Agent | Medium |
+| ⚡ **DILIGENT** | Proactive Bug Hunter | Parallel Agent | High |
+| ⚡ **DILIGENT** | Stop Quality Gate | Hook Enhancement | High |
 
 ---
 
-> **Kesimpulan:** Plugin coder-workflow sudah punya fondasi kuat (hooks, agents, memory, orchestrator). Yang kurang adalah **learning loop** (experience → memory → wisdom), **proactive quality**, dan **decision intelligence**. Dengan 14 fitur ini, AI agent tidak akan bekerja seperti fresh graduate setiap kali, tapi seperti senior engineer yang belajar dari setiap pengalaman.
+> **Conclusion:** The coder-workflow plugin already has a strong foundation (hooks, agents, memory, orchestrator). What's missing is the **learning loop** (experience → memory → wisdom), **proactive quality**, and **decision intelligence**. With these 14 features, the AI agent will not work like a fresh graduate every time, but like a senior engineer who learns from every experience.

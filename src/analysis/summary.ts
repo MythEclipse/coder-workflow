@@ -1,4 +1,4 @@
-import type { CodeGraph, CodeGraphNodeType, CodeGraphEdgeType } from "../types.js";
+import type { CodeGraph, CodeGraphEdgeType, CodeGraphNodeType } from "../types.js";
 
 export interface ArchitectureSummary {
   metadata: CodeGraph["metadata"];

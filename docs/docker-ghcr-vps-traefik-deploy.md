@@ -1,39 +1,39 @@
 # General Docker Deploy Guide: GitHub Actions → GHCR → VPS → Traefik
 
-Dokumen ini adalah template umum untuk deploy aplikasi Docker dari repository GitHub ke VPS menggunakan GitHub Actions, GitHub Container Registry (GHCR), Docker Compose, dan Traefik reverse proxy.
+This document is a general template for deploying Docker applications from a GitHub repository to a VPS using GitHub Actions, GitHub Container Registry (GHCR), Docker Compose, and Traefik reverse proxy.
 
-Gunakan placeholder berikut saat menyalin ke repo lain:
+Use the following placeholders when copying to another repo:
 
-| Placeholder | Contoh | Keterangan |
+| Placeholder | Example | Description |
 | --- | --- | --- |
-| `<app-name>` | `docker-manager` | Nama repo/proyek |
-| `<service-name>` | `app` / `orchestra` | Nama service di `docker-compose.yml` |
-| `<container-name>` | `docker-manager-app` | Nama container Docker |
-| `<image>` | `ghcr.io/mytheclipse/docker-manager:main` | Image registry yang dipull VPS |
-| `<domain>` | `docker.asepharyana.tech` | Domain publik aplikasi |
-| `<deploy-dir>` | `/opt/docker-manager` | Direktori aktif project di VPS |
-| `<network>` | `app-shared-net` | Docker network yang dipakai Traefik |
-| `<internal-port>` | `3000` | Port aplikasi di dalam container |
+| `<app-name>` | `docker-manager` | Repository/project name |
+| `<service-name>` | `app` / `orchestra` | Service name in `docker-compose.yml` |
+| `<container-name>` | `docker-manager-app` | Docker container name |
+| `<image>` | `ghcr.io/mytheclipse/docker-manager:main` | Image registry pulled by the VPS |
+| `<domain>` | `docker.asepharyana.tech` | Application public domain |
+| `<deploy-dir>` | `/opt/docker-manager` | Active project directory on VPS |
+| `<network>` | `app-shared-net` | Docker network used by Traefik |
+| `<internal-port>` | `3000` | Application port inside the container |
 | `<entrypoint>` | `websecure` | Traefik entrypoint HTTPS |
 | `<certresolver>` | `letsencrypt` | Traefik cert resolver |
 
-## Prinsip utama
+## Main Principles
 
-1. Build image di CI, jangan build manual di VPS kecuali darurat.
-2. Push image ke registry, misalnya GHCR.
-3. VPS hanya melakukan `git pull`, menulis `.env`, `docker compose pull`, lalu `docker compose up -d`.
-4. Traefik hanya akan route container yang:
-   - berada di network yang sama dengan Traefik,
-   - punya `traefik.enable=true`,
-   - punya rule host yang cocok dengan domain,
-   - punya service port yang benar.
-5. Selalu deploy dari direktori aktif project di VPS, bukan dari file compose sementara di direktori lain.
+1. Build the image in CI, do not build manually on the VPS except in emergencies.
+2. Push the image to a registry, e.g. GHCR.
+3. The VPS only does `git pull`, writes `.env`, `docker compose pull`, then `docker compose up -d`.
+4. Traefik will only route containers that:
+   - are on the same network as Traefik,
+   - have `traefik.enable=true`,
+   - have a host rule matching the domain,
+   - have the correct service port.
+5. Always deploy from the active project directory on the VPS, not from a temporary compose file in another directory.
 
 ## 1. Dockerfile
 
-Dockerfile harus menghasilkan image production yang menjalankan aplikasi pada port internal yang stabil, misalnya `3000`.
+Dockerfile must produce a production image that runs the application on a stable internal port, e.g. `3000`.
 
-Contoh pola umum untuk aplikasi web:
+Example of a common pattern for web applications:
 
 ```dockerfile
 FROM <runtime-image> AS base
@@ -59,26 +59,26 @@ EXPOSE 3000
 CMD ["npm", "start"]
 ```
 
-Sesuaikan bagian berikut untuk framework/runtime masing-masing:
+Adjust the following sections for each framework/runtime:
 
-- Node/Next.js: bisa memakai standalone output.
-- Bun: pakai `oven/bun` dan `bun server.js` / `bun start`.
-- Go/Rust: copy binary final ke image minimal.
-- Python: install dependency dan jalankan ASGI/WSGI server.
+- Node/Next.js: you can use standalone output.
+- Bun: use `oven/bun` and `bun server.js` / `bun start`.
+- Go/Rust: copy the final binary to a minimal image.
+- Python: install dependencies and run an ASGI/WSGI server.
 
-Checklist Dockerfile:
+Dockerfile Checklist:
 
-- Aplikasi bind ke `0.0.0.0`, bukan hanya `localhost`.
-- `EXPOSE` sama dengan port internal aplikasi.
-- Runtime env minimal tersedia (`NODE_ENV`, `PORT`, dan env lain yang diperlukan).
-- Build-time secret hanya dipakai jika memang diperlukan saat build.
-- Jangan bergantung pada command healthcheck seperti `wget`/`curl` jika image runtime tidak menyediakannya.
+- Application binds to `0.0.0.0`, not just `localhost`.
+- `EXPOSE` matches the internal application port.
+- Minimal runtime env is available (`NODE_ENV`, `PORT`, and other required env vars).
+- Build-time secrets are only used if actually needed during the build.
+- Do not rely on healthcheck commands like `wget`/`curl` if the runtime image does not provide them.
 
 ## 2. GitHub Actions build image
 
-Workflow umum: `.github/workflows/deploy.yml`.
+Common workflow: `.github/workflows/deploy.yml`.
 
-Contoh build ke GHCR:
+Example build to GHCR:
 
 ```yaml
 name: Build and Deploy
@@ -134,7 +134,7 @@ jobs:
           cache-to: type=gha,mode=max
 ```
 
-Jika aplikasi membutuhkan build args:
+If the application requires build args:
 
 ```yaml
           build-args: |
@@ -142,17 +142,17 @@ Jika aplikasi membutuhkan build args:
             AUTH_URL=${{ secrets.AUTH_URL }}
 ```
 
-Catatan:
+Notes:
 
-- Jangan memasukkan secret runtime ke image jika tidak wajib untuk build.
-- Secret runtime lebih aman ditulis ke `.env` di VPS saat deploy.
-- Tag branch `main` biasanya menghasilkan image `ghcr.io/<owner>/<repo>:main`.
+- Do not include runtime secrets in the image if they are not required for the build.
+- Runtime secrets are safer to write to `.env` on the VPS during deployment.
+- The `main` branch tag usually produces the image `ghcr.io/<owner>/<repo>:main`.
 
-## 3. GitHub Actions deploy ke VPS
+## 3. GitHub Actions deploy to VPS
 
-Deploy job biasanya berjalan setelah build berhasil.
+The deploy job usually runs after the build succeeds.
 
-Secrets yang umum dibutuhkan:
+Commonly required secrets:
 
 ```env
 VPS_HOST=<ip-or-host>
@@ -161,7 +161,7 @@ VPS_SSH_KEY=<private-key>
 VPS_PORT=22
 ```
 
-Contoh deploy job:
+Example deploy job:
 
 ```yaml
   deploy:
@@ -200,31 +200,31 @@ Contoh deploy job:
             docker compose ps | grep -q "<service-name>.*Up" || exit 1
 ```
 
-Checklist deploy job:
+Deploy job checklist:
 
-- `cd <deploy-dir>` harus menunjuk ke direktori aktif di VPS.
-- `.env` ditulis ulang dari GitHub Secrets agar runtime env konsisten.
-- Network Traefik dibuat jika belum ada.
-- `docker compose pull` wajib agar VPS mengambil image terbaru dari registry.
-- `docker compose up -d` harus dijalankan dari direktori yang sama dengan `docker-compose.yml` aktif.
+- `cd <deploy-dir>` must point to the active directory on the VPS.
+- `.env` is rewritten from GitHub Secrets so that runtime envs are consistent.
+- Traefik network is created if it does not exist.
+- `docker compose pull` is required so the VPS fetches the latest image from the registry.
+- `docker compose up -d` must be run from the same directory as the active `docker-compose.yml`.
 
 ## 4. Setup GitHub Secrets via gh CLI
 
-Sebelum GitHub Actions bisa deploy, isi semua repository secrets yang dipakai workflow. Cara paling cepat adalah memakai GitHub CLI (`gh`).
+Before GitHub Actions can deploy, fill in all the repository secrets used by the workflow. The fastest way is to use the GitHub CLI (`gh`).
 
-Login dulu jika belum:
+Login first if you haven't already:
 
 ```bash
 gh auth login
 ```
 
-Pastikan sedang berada di root repository yang benar, lalu cek secrets yang sudah ada:
+Make sure you are in the correct repository root, then check existing secrets:
 
 ```bash
 gh secret list
 ```
 
-Set secrets VPS:
+Set VPS secrets:
 
 ```bash
 gh secret set VPS_HOST --body "<vps-host>"
@@ -233,9 +233,9 @@ gh secret set VPS_PORT --body "22"
 gh secret set VPS_SSH_KEY < ~/.ssh/id_ed25519
 ```
 
-Jika private key berada di path lain, ganti `~/.ssh/id_ed25519` sesuai file private key yang dipakai untuk SSH ke VPS. Jangan gunakan public key `.pub`.
+If the private key is at a different path, replace `~/.ssh/id_ed25519` with the private key file used for SSH to the VPS. Do not use the `.pub` public key.
 
-Set secrets aplikasi:
+Set application secrets:
 
 ```bash
 gh secret set DATABASE_URL --body "<database-url>"
@@ -243,7 +243,7 @@ gh secret set AUTH_SECRET --body "<auth-secret>"
 gh secret set AUTH_URL --body "https://<domain>"
 ```
 
-Tambahkan secret lain sesuai kebutuhan aplikasi, misalnya:
+Add other secrets as required by the application, for example:
 
 ```bash
 gh secret set APP_URL --body "https://<domain>"
@@ -251,35 +251,35 @@ gh secret set BASE_URL --body "https://<domain>"
 gh secret set API_TOKEN --body "<token>"
 ```
 
-Untuk repo tertentu tanpa harus `cd` ke folder repo:
+For a specific repo without needing to `cd` into the repo folder:
 
 ```bash
 gh secret set VPS_HOST --repo <owner>/<repo> --body "<vps-host>"
 gh secret list --repo <owner>/<repo>
 ```
 
-Untuk secret multiline seperti private key, lebih aman pakai redirect file:
+For multiline secrets like private keys, it is safer to use file redirect:
 
 ```bash
 gh secret set VPS_SSH_KEY --repo <owner>/<repo> < ~/.ssh/id_ed25519
 ```
 
-Verifikasi semua secret yang dibutuhkan workflow sudah terdaftar:
+Verify that all secrets required by the workflow are registered:
 
 ```bash
 gh secret list
 ```
 
-Catatan penting:
+Important notes:
 
-- `gh secret list` hanya menampilkan nama secret, bukan nilainya.
-- Jika secret salah isi, jalankan `gh secret set` lagi dengan nama yang sama untuk overwrite.
-- Pastikan `AUTH_URL`, `APP_URL`, `BASE_URL`, atau env sejenis memakai domain publik production, bukan `localhost`.
-- Pastikan public key dari private key SSH sudah ada di `~/.ssh/authorized_keys` user VPS.
+- `gh secret list` only shows secret names, not their values.
+- If a secret is filled incorrectly, run `gh secret set` again with the same name to overwrite it.
+- Make sure `AUTH_URL`, `APP_URL`, `BASE_URL`, or similar envs use the production public domain, not `localhost`.
+- Make sure the public key from the SSH private key is already in the VPS user's `~/.ssh/authorized_keys`.
 
 ## 5. docker-compose.yml general
 
-Gunakan Compose seperti ini untuk service web di belakang Traefik:
+Use Compose like this for a web service behind Traefik:
 
 ```yaml
 networks:
@@ -308,7 +308,7 @@ services:
       "traefik.http.services.<service-name>.loadbalancer.server.port": "<internal-port>"
 ```
 
-Contoh konkret:
+Concrete example:
 
 ```yaml
 networks:
@@ -337,18 +337,18 @@ services:
       "traefik.http.services.example-app.loadbalancer.server.port": "3000"
 ```
 
-Catatan Compose:
+Compose notes:
 
-- `version` boleh dihapus pada Docker Compose modern; jika ada, biasanya hanya memunculkan warning obsolete.
-- Gunakan `external: true` jika network dibuat dan dipakai bersama oleh Traefik.
-- Nama router dan service Traefik harus unik per aplikasi.
-- Port di label Traefik adalah port internal container, bukan port host.
-- Tidak perlu publish `ports:` jika akses publik lewat Traefik.
-- Hindari healthcheck yang bergantung pada tool yang belum tentu ada di image (`wget`, `curl`). Jika tetap butuh healthcheck, pastikan command tersedia dan endpoint benar.
+- `version` can be omitted in modern Docker Compose; if present, it usually only shows an obsolete warning.
+- Use `external: true` if the network is created and shared by Traefik.
+- Traefik router and service names must be unique per application.
+- The port in the Traefik label is the container internal port, not the host port.
+- There is no need to publish `ports:` if public access goes through Traefik.
+- Avoid healthchecks that depend on tools that may not be present in the image (`wget`, `curl`). If you still need a healthcheck, make sure the command is available and the endpoint is correct.
 
 ## 6. Traefik requirement
 
-Traefik dengan Docker provider minimal perlu konfigurasi seperti ini:
+Traefik with Docker provider minimally needs configuration like this:
 
 ```text
 --providers.docker=true
@@ -359,84 +359,84 @@ Traefik dengan Docker provider minimal perlu konfigurasi seperti ini:
 --entryPoints.websecure.address=:443
 ```
 
-Jika memakai redirect HTTP ke HTTPS:
+If using HTTP to HTTPS redirect:
 
 ```text
 --entryPoints.web.http.redirections.entryPoint.to=websecure
 --entryPoints.web.http.redirections.entryPoint.scheme=https
 ```
 
-Implikasi penting:
+Important implications:
 
-- Semua app yang ingin diroute Traefik harus join `<network>`.
-- Jika `exposedByDefault=false`, setiap app wajib punya label `traefik.enable=true`.
-- Domain harus mengarah ke IP VPS lewat DNS.
-- Jika ada Cloudflare di depan, pastikan SSL mode dan DNS record sesuai kebutuhan.
+- All apps that want to be routed by Traefik must join `<network>`.
+- If `exposedByDefault=false`, every app must have the `traefik.enable=true` label.
+- The domain must point to the VPS IP via DNS.
+- If Cloudflare is in front, make sure the SSL mode and DNS record are configured as needed.
 
-## 7. Manual deploy dari lokal ke VPS
+## 7. Manual deploy from local to VPS
 
-Gunakan manual deploy hanya untuk emergency/debug atau saat CI belum siap.
+Use manual deploy only for emergencies/debugging or when CI is not yet ready.
 
-Upload compose ke direktori aktif:
+Upload compose to the active directory:
 
 ```bash
 scp docker-compose.yml <vps-user>@<vps-host>:<deploy-dir>/docker-compose.yml
 ```
 
-Restart service dari direktori aktif:
+Restart service from the active directory:
 
 ```bash
 ssh <vps-user>@<vps-host> "cd <deploy-dir> && docker compose up -d --pull always <service-name>"
 ```
 
-Contoh:
+Example:
 
 ```bash
 scp docker-compose.yml root@45.127.35.244:/opt/example-app/docker-compose.yml
 ssh root@45.127.35.244 "cd /opt/example-app && docker compose up -d --pull always app"
 ```
 
-Jangan copy ke path yang tidak dipakai deployment, misalnya `/root/docker-compose.yml`, kecuali memang compose project aktif ada di sana.
+Do not copy to a path that is not used by deployment, e.g. `/root/docker-compose.yml`, unless the active compose project is actually there.
 
-## 8. Verifikasi setelah deploy
+## 8. Verification After Deploy
 
-Cek container:
+Check container:
 
 ```bash
 ssh <vps-user>@<vps-host> "docker ps --filter name=<container-name> --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
 ```
 
-Cek log aplikasi:
+Check application logs:
 
 ```bash
 ssh <vps-user>@<vps-host> "docker logs --tail 100 <container-name>"
 ```
 
-Cek domain:
+Check domain:
 
 ```bash
 curl -I https://<domain>/
 ```
 
-Expected response tergantung aplikasi:
+Expected response depends on the application:
 
-- `200 OK`: homepage langsung tampil.
-- `301/302/307/308`: normal jika aplikasi redirect ke login/dashboard.
-- `401/403`: normal jika route memang butuh auth.
-- `404 page not found` dari Traefik: router tidak match atau container tidak terdaftar di Traefik.
-- `502 Bad Gateway`: Traefik menemukan router, tapi tidak bisa connect ke service/port.
+- `200 OK`: homepage appears directly.
+- `301/302/307/308`: normal if the application redirects to login/dashboard.
+- `401/403`: normal if the route requires auth.
+- `404 page not found` from Traefik: router does not match or container is not registered in Traefik.
+- `502 Bad Gateway`: Traefik found the router but cannot connect to the service/port.
 
 ## 9. Debug Traefik 404
 
-Jika domain mengembalikan `404 page not found`, biasanya request sampai ke Traefik tetapi tidak ada router yang match.
+If the domain returns `404 page not found`, the request usually reaches Traefik but no router matches.
 
-Cek label container:
+Check container labels:
 
 ```bash
 ssh <vps-user>@<vps-host> "docker inspect <container-name> --format '{{json .Config.Labels}}'"
 ```
 
-Pastikan ada label:
+Make sure these labels exist:
 
 ```text
 traefik.enable=true
@@ -446,21 +446,21 @@ traefik.http.routers.<router-name>.tls=true
 traefik.http.services.<service-name>.loadbalancer.server.port=<internal-port>
 ```
 
-Cek network:
+Check network:
 
 ```bash
 ssh <vps-user>@<vps-host> "docker network inspect <network>"
 ```
 
-Pastikan container aplikasi dan container Traefik sama-sama ada di network tersebut.
+Make sure the application container and the Traefik container are both on that network.
 
-Cek command/config Traefik:
+Check Traefik command/config:
 
 ```bash
 ssh <vps-user>@<vps-host> "docker inspect traefik --format '{{json .Config.Cmd}}'"
 ```
 
-Cari:
+Look for:
 
 ```text
 --providers.docker=true
@@ -468,65 +468,65 @@ Cari:
 --providers.docker.exposedByDefault=false
 ```
 
-Cek log Traefik:
+Check Traefik logs:
 
 ```bash
 ssh <vps-user>@<vps-host> "docker logs --tail 200 traefik 2>&1 | grep -E '<router-name>|<domain>|error|ERR|warn|WRN' || true"
 ```
 
-Penyebab umum 404:
+Common causes of 404:
 
-- Compose diedit di path yang salah.
-- Container belum direcreate setelah label berubah.
-- Container tidak join network Traefik.
-- `Host()` label salah domain, typo backtick, atau salah router name.
-- `traefik.enable` tidak ada atau bernilai false.
-- Traefik provider memakai network lain.
-- DNS domain belum mengarah ke VPS yang menjalankan Traefik.
+- Compose was edited in the wrong path.
+- Container was not recreated after label changes.
+- Container did not join the Traefik network.
+- `Host()` label has wrong domain, backtick typo, or wrong router name.
+- `traefik.enable` is missing or set to false.
+- Traefik provider is using a different network.
+- DNS domain does not point to the VPS running Traefik.
 
 ## 10. Debug Traefik 502
 
-Jika domain mengembalikan `502 Bad Gateway`, router sudah match tetapi backend tidak bisa diakses.
+If the domain returns `502 Bad Gateway`, the router has matched but the backend is unreachable.
 
-Cek:
+Check:
 
 ```bash
 ssh <vps-user>@<vps-host> "docker logs --tail 100 <container-name>"
 ssh <vps-user>@<vps-host> "docker inspect <container-name> --format '{{json .NetworkSettings.Networks}}'"
 ```
 
-Penyebab umum 502:
+Common causes of 502:
 
-- Aplikasi crash atau belum siap.
-- Aplikasi bind ke `127.0.0.1`, bukan `0.0.0.0`.
-- Label `loadbalancer.server.port` salah.
-- Container tidak listen pada port yang diklaim.
-- Runtime env kurang sehingga aplikasi gagal start.
+- Application crashed or is not ready.
+- Application binds to `127.0.0.1`, not `0.0.0.0`.
+- `loadbalancer.server.port` label is wrong.
+- Container is not listening on the claimed port.
+- Runtime env is insufficient, causing the application to fail to start.
 
 ## 11. Debug container unhealthy
 
-Jika container `unhealthy`, Traefik bisa mengabaikan container atau service dianggap tidak siap.
+If the container is `unhealthy`, Traefik may ignore the container or consider the service not ready.
 
-Cek healthcheck detail:
+Check healthcheck details:
 
 ```bash
 ssh <vps-user>@<vps-host> "docker inspect <container-name> --format '{{json .State.Health}}'"
 ```
 
-Penyebab umum:
+Common causes:
 
-- Healthcheck memakai `curl`/`wget`, tapi binary tidak ada di image.
-- Endpoint healthcheck salah.
-- App butuh waktu start lebih lama dari `start_period`.
-- Healthcheck ke `localhost`/port yang tidak sama dengan app runtime.
+- Healthcheck uses `curl`/`wget`, but the binary is not in the image.
+- Healthcheck endpoint is wrong.
+- App needs more startup time than `start_period`.
+- Healthcheck targets `localhost`/port that does not match the app runtime.
 
-Jika healthcheck tidak penting untuk routing, hapus dulu dari compose. Jika perlu, gunakan endpoint dan command yang pasti tersedia di image.
+If the healthcheck is not important for routing, remove it from compose. If needed, use an endpoint and command that are definitely available in the image.
 
-## 12. Env dan URL publik
+## 12. Env and Public URL
 
-Untuk aplikasi auth/callback, pastikan env URL publik benar.
+For auth/callback applications, make sure the public URL env is correct.
 
-Contoh:
+Examples:
 
 ```env
 APP_URL=https://<domain>
@@ -535,53 +535,53 @@ AUTH_URL=https://<domain>
 NEXTAUTH_URL=https://<domain>
 ```
 
-Nama env bergantung framework/library.
+Env names depend on the framework/library.
 
-Gejala env URL salah:
+Symptoms of incorrect URL env:
 
-- Cookie callback mengarah ke `localhost`.
-- Login redirect ke domain development.
+- Cookie callback points to `localhost`.
+- Login redirect goes to the development domain.
 - OAuth callback mismatch.
-- Link absolut di UI mengarah ke host yang salah.
+- Absolute links in the UI point to the wrong host.
 
-Jika deploy lewat GitHub Actions, cek nilai di:
+If deploying via GitHub Actions, check the values at:
 
 1. GitHub Repository Secrets.
-2. `.env` yang ditulis di VPS.
-3. Runtime env di container:
+2. `.env` written on the VPS.
+3. Runtime env inside the container:
 
 ```bash
 ssh <vps-user>@<vps-host> "docker exec <container-name> env | grep -E 'URL|HOST|AUTH|BASE'"
 ```
 
-## 13. Checklist final per repo
+## 13. Final Checklist Per Repo
 
-Sebelum menganggap deploy selesai:
+Before considering the deployment complete:
 
-- [ ] GitHub Actions build berhasil.
-- [ ] Image terbaru sudah ada di registry.
-- [ ] VPS deploy dari `<deploy-dir>` yang benar.
-- [ ] `.env` VPS berisi secret runtime yang benar.
-- [ ] `docker compose pull` mengambil image terbaru.
-- [ ] Container status `Up`.
-- [ ] Container tidak `unhealthy`, kecuali memang healthcheck belum dipakai.
-- [ ] Container join network Traefik.
-- [ ] Label Traefik aktif dan domain benar.
-- [ ] `curl -I https://<domain>/` tidak lagi mengembalikan Traefik `404`.
-- [ ] Auth/callback URL tidak mengarah ke `localhost`.
+- [ ] GitHub Actions build succeeded.
+- [ ] Latest image is in the registry.
+- [ ] VPS deploys from the correct `<deploy-dir>`.
+- [ ] VPS `.env` contains the correct runtime secrets.
+- [ ] `docker compose pull` fetches the latest image.
+- [ ] Container status is `Up`.
+- [ ] Container is not `unhealthy`, unless a healthcheck is not yet in use.
+- [ ] Container joined the Traefik network.
+- [ ] Traefik labels are active and the domain is correct.
+- [ ] `curl -I https://<domain>/` no longer returns Traefik `404`.
+- [ ] Auth/callback URL does not point to `localhost`.
 
-## 14. Studi kasus: Docker Manager 404 Traefik
+## 14. Case Study: Docker Manager Traefik 404
 
-Contoh masalah yang pernah terjadi:
+Example of a problem that occurred:
 
-- Domain `https://docker.asepharyana.tech/` mengembalikan Traefik `404 page not found`.
-- Compose sempat dicopy ke `/root/docker-compose.yml`, padahal project aktif di VPS memakai `/opt/docker-manager/docker-compose.yml`.
-- Container `orchestra-docker-manager` sempat `unhealthy` karena healthcheck.
-- Setelah compose di path aktif diperbaiki, healthcheck dihapus, dan service direcreate dari `/opt/docker-manager`, domain berubah menjadi `HTTP/2 307` redirect ke `/dashboard`.
+- Domain `https://docker.asepharyana.tech/` returned Traefik `404 page not found`.
+- Compose was copied to `/root/docker-compose.yml`, while the active project on VPS uses `/opt/docker-manager/docker-compose.yml`.
+- Container `orchestra-docker-manager` was `unhealthy` due to a healthcheck.
+- After the compose file in the active path was fixed, the healthcheck was removed, and the service was recreated from `/opt/docker-manager`, the domain changed to `HTTP/2 307` redirect to `/dashboard`.
 
-Pelajaran yang bisa dipakai di repo lain:
+Lessons applicable to other repos:
 
-1. Selalu pastikan path compose aktif di VPS.
-2. Bandingkan label dengan service lain yang sudah berhasil diroute Traefik.
-3. Jangan hanya melihat container `Up`; cek juga apakah Traefik membaca label dan network yang benar.
-4. Response Traefik `404` berarti router tidak match; response `502` berarti router match tapi backend bermasalah.
+1. Always make sure the active compose path on the VPS is correct.
+2. Compare labels with other services that are already successfully routed by Traefik.
+3. Do not just check that the container is `Up`; also verify that Traefik is reading the correct labels and network.
+4. Traefik `404` response means the router does not match; `502` response means the router matches but the backend has an issue.

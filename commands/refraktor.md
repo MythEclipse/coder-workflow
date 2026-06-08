@@ -1,5 +1,5 @@
 ---
-description: Refactor codebase ke arsitektur Modular MVC + Service + Repository
+description: Refactor codebase to Modular MVC + Service + Repository architecture
 argument-hint: [scope-optional]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---

@@ -58,7 +58,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'echo \"\ud83e\udde0 BELAJAR: Ada pengalaman dari sesi lalu. Invoke an experience subagent to check recent records.\" 2>/dev/null; exit 0'",
+            "command": "bash -c 'echo \"\ud83e\udde0 LEARN: You have experience from previous sessions. Invoke an experience subagent to check recent records.\" 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true,
             "statusMessage": "Checking intelligence state..."
@@ -213,7 +213,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"\ud83e\udde0 BELAJAR: Sebelum nulis code, cek experience journal.\\n\u26a1 RAJIN: Jangan tinggal TODO/FIXME.\\n\\nInvoke a preflight subagent untuk readiness check.\\\"}\"'",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"\ud83e\udde0 LEARN: Before writing code, check the experience journal.\\n\u26a1 DILIGENT: Don\\'t leave TODO/FIXME behind.\\n\\nInvoke a preflight subagent for readiness check.\\\"}\"'",
             "timeout": 5
           }
         ]
@@ -223,7 +223,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"\u26a1 RAJIN: Sebelum commit \u2014 invoke preflight, bughunt, or debt scan subagents. Zero dummy code!\\\"}\"'",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"\u26a1 DILIGENT: Before committing \u2014 invoke preflight, bughunt, or debt scan subagents. Zero dummy code!\\\"}\"'",
             "timeout": 5
           }
         ]

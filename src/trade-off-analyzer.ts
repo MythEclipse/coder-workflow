@@ -397,8 +397,7 @@ export function recommend(entry: TradeoffEntry): RecommendationResult {
       lines.push("");
     }
 
-    const confidenceLabel =
-      confidence >= 0.7 ? "high" : confidence >= 0.4 ? "medium" : "low";
+    const confidenceLabel = confidence >= 0.7 ? "high" : confidence >= 0.4 ? "medium" : "low";
     lines.push(
       `Confidence: ${confidenceLabel} (${(confidence * 100).toFixed(1)}%). ` +
         `Based on multi-criteria analysis of ${entry.approaches.length} approach(es).`,
@@ -435,9 +434,7 @@ export function recordOutcome(id: string, outcome: OutcomeType): void {
 
   const valid: OutcomeType[] = ["validated", "wrong", "unknown"];
   if (!valid.includes(outcome)) {
-    throw new Error(
-      `Outcome must be one of: ${valid.join(", ")}. Got: "${outcome}".`,
-    );
+    throw new Error(`Outcome must be one of: ${valid.join(", ")}. Got: "${outcome}".`);
   }
 
   const entries = loadEntries();
@@ -483,7 +480,7 @@ export function querySimilar(context: string, limit?: number): SimilarEntry[] {
       entry: e,
       similarity: contextSimilarity(context, e.context),
     }))
-    .filter((s) => s.similarity > 0.1)        // at least 10% overlap
+    .filter((s) => s.similarity > 0.1) // at least 10% overlap
     .sort((a, b) => b.similarity - a.similarity);
 
   return scored.slice(0, maxResults);
@@ -577,14 +574,13 @@ export function formatMatrix(entry: TradeoffEntry): string {
   // Criteria table
   lines.push("### Approach Comparison");
   lines.push("");
-  lines.push(
-    "| Criteria | " + entry.approaches.map((a) => a.name).join(" | ") + " |",
-  );
-  lines.push(
-    "|----------|" + entry.approaches.map(() => "------").join("|") + "|",
-  );
+  lines.push("| Criteria | " + entry.approaches.map((a) => a.name).join(" | ") + " |");
+  lines.push("|----------|" + entry.approaches.map(() => "------").join("|") + "|");
 
-  const criteriaFields: Record<string, keyof Pick<Approach, "complexity" | "performance" | "maintainability" | "security">> = {
+  const criteriaFields: Record<
+    string,
+    keyof Pick<Approach, "complexity" | "performance" | "maintainability" | "security">
+  > = {
     Complexity: "complexity",
     Performance: "performance",
     Maintainability: "maintainability",
@@ -594,7 +590,8 @@ export function formatMatrix(entry: TradeoffEntry): string {
   for (const [label, field] of Object.entries(criteriaFields)) {
     const vals = entry.approaches.map((a) => {
       const v = a[field] as ComplexityLevel;
-      const icon = v === "high" ? ":green_circle:" : v === "medium" ? ":yellow_circle:" : ":red_circle:";
+      const icon =
+        v === "high" ? ":green_circle:" : v === "medium" ? ":yellow_circle:" : ":red_circle:";
       return `${icon} ${v}`;
     });
     lines.push(`| ${label} | ${vals.join(" | ")} |`);
@@ -743,9 +740,7 @@ export function formatStats(stats: Stats): string {
     unknown: ":grey_question: Unknown",
   };
 
-  for (const [outcome, count] of Object.entries(stats.byOutcome).sort(
-    (a, b) => b[1] - a[1],
-  )) {
+  for (const [outcome, count] of Object.entries(stats.byOutcome).sort((a, b) => b[1] - a[1])) {
     const label = outcomeLabels[outcome] ?? outcome;
     const pct = stats.total > 0 ? ((count / stats.total) * 100).toFixed(1) : "0.0";
     lines.push(`| ${label} | ${count} | ${pct}% |`);
@@ -761,9 +756,7 @@ export function formatStats(stats: Stats): string {
     for (const p of stats.bestPatterns) {
       const bar = progressBar(p.accuracy, 10);
       const pct = (p.accuracy * 100).toFixed(1);
-      lines.push(
-        `| ${p.approach} | ${p.validated} | ${p.wrong} | ${p.total} | ${bar} ${pct}% |`,
-      );
+      lines.push(`| ${p.approach} | ${p.validated} | ${p.wrong} | ${p.total} | ${bar} ${pct}% |`);
     }
     lines.push("");
   }
