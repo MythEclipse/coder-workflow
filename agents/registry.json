@@ -1,151 +1,151 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Single source of truth for agent metadata. Used by coder-orchestrator to validate references and by hooks for agent-discovery logic.",
   "agents": {
     "workflow-planner": {
       "file": "agents/workflow-planner.md",
       "role": "planning",
-      "description": "Decompose requests into Atomic Committable Units with dependency ordering",
+      "description": "Decompose requests into atomic tasks ready for 1:1 swarm dispatch",
       "tools": ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
       "model": "fast"
     },
     "architecture-auditor": {
       "file": "agents/architecture-auditor.md",
       "role": "audit",
-      "description": "Read-only architecture and layer violation audit",
+      "description": "Read-only architecture audit - graph-first layer violation detection",
       "tools": ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
       "model": "fast"
     },
     "code-implementer": {
       "file": "agents/code-implementer.md",
       "role": "implement",
-      "description": "Scoped implementation after plan approval with Impact Radius Protocol",
-      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
+      "description": "Single-task implementer - FILE_MANIFEST, TDD-first, Impact Radius Protocol",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
     },
     "code-reviewer": {
       "file": "agents/code-reviewer.md",
       "role": "review",
-      "description": "Security audits, edge-case detection, and adversarial code review",
-      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
+      "description": "Adversarial code review and security audit - zero trust, verify-first",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "fast"
     },
     "debugging-engineer": {
       "file": "agents/debugging-engineer.md",
       "role": "debug",
-      "description": "Systematic root-cause analysis and error tracing",
+      "description": "5-phase systematic debugging - no fix without root cause first",
       "tools": "*",
       "model": "complex"
     },
     "test-engineer": {
       "file": "agents/test-engineer.md",
       "role": "test",
-      "description": "Test generation, coverage gap detection, TDD scaffolding",
+      "description": "TDD-first, exhaustive test generation, coverage gap detection",
       "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
     },
     "refactoring-engineer": {
       "file": "agents/refactoring-engineer.md",
       "role": "refactor",
-      "description": "Structural transformations toward Modular MVC + Service + Repository",
-      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
+      "description": "Structural transformations to layered modular architecture",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
     },
     "devops-engineer": {
       "file": "agents/devops-engineer.md",
       "role": "deploy",
-      "description": "Docker, CI/CD, Traefik, GHCR, VPS deploy configurations",
+      "description": "Docker, GHCR, GitHub Actions, VPS/Traefik deploy - plan-first",
       "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
     },
     "docs-engineer": {
       "file": "agents/docs-engineer.md",
       "role": "docs",
-      "description": "README, API specs, inline docs, PR descriptions",
-      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
+      "description": "README, API docs, inline docs - accuracy-first, why-not-just-what",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
     },
     "ui-engineer": {
       "file": "agents/ui-engineer.md",
       "role": "ui",
-      "description": "Frontend UI components, state management, CSS/Tailwind, accessibility",
+      "description": "UI components, state, Tailwind/CSS, A11y - pixel-perfect and accessible",
       "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
     },
     "db-architect": {
       "file": "agents/db-architect.md",
       "role": "db",
-      "description": "Database schemas, migrations, query optimization, indexing",
-      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
+      "description": "Schema design, migrations, query optimization, indexing",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
     },
     "quality-guardian": {
       "file": "agents/quality-guardian.md",
       "role": "quality",
-      "description": "Quality gate and consistency enforcement — code smell, best practices, naming, structure, style uniformity",
-      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"],
+      "description": "Code smell detection + consistency enforcement - quality gatekeeper",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "fast"
     },
     "todo-checker": {
       "file": "agents/todo-checker.md",
       "role": "quality",
-      "description": "Scan for leftover TODOs, FIXME comments, dummy/mock code",
+      "description": "Scan for TODOs, FIXME, HACK, dummy code before merge",
       "tools": ["Read", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "fast"
     },
     "diagram-engineer": {
       "file": "agents/diagram-engineer.md",
       "role": "docs",
-      "description": "Generate visual Mermaid diagrams from codebase graph",
-      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*", "mcp__code-review-graph__*"],
+      "description": "Generate Mermaid.js diagrams from CodeGraph for living documentation",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "fast"
     },
     "rollback-engineer": {
       "file": "agents/rollback-engineer.md",
       "role": "debug",
-      "description": "Auto-bisect to find failing commits and propose reverts/fixes",
-      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*", "mcp__code-review-graph__*"],
+      "description": "Auto-bisect to find what commit introduced a bug, revert or patch",
+      "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
     },
     "memory-librarian": {
       "file": "agents/memory-librarian.md",
       "role": "memory",
-      "description": "Read, search, and write to long-term agentic memory bank",
+      "description": "Long-term agentic memory management + cross-source knowledge synthesis",
       "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "fast"
     },
     "multi-repo-orchestrator": {
       "file": "agents/multi-repo-orchestrator.md",
       "role": "orchestrate",
-      "description": "Cross-repository API contracts and multi-workspace synchronization",
+      "description": "Coordinate API contracts across multi-repo workspaces",
       "tools": ["Read", "Edit", "Grep", "Glob", "Bash", "invoke_subagent"],
       "model": "complex"
     },
     "codebase-qa-agent": {
       "file": "agents/codebase-qa-agent.md",
       "role": "qa",
-      "description": "Answer codebase questions by searching docs, code, and CodeGraph",
+      "description": "Answer codebase questions via graph search and semantic search",
       "tools": ["Read", "Grep", "Glob", "Bash"],
       "model": "fast"
     },
     "secret-scanner": {
       "file": "agents/secret-scanner.md",
       "role": "security",
-      "description": "Scan for hardcoded secrets, API keys, tokens, and passwords",
+      "description": "Scan for hardcoded secrets, API keys, tokens, passwords",
       "tools": ["Read", "Grep", "Glob", "Bash"],
       "model": "fast"
     },
     "vulnerability-scanner": {
       "file": "agents/vulnerability-scanner.md",
       "role": "security",
-      "description": "Scan dependencies for known CVEs and generate SBOM",
+      "description": "Scan deps for known CVEs, generate SBOM (SPDX/CycloneDX)",
       "tools": ["Read", "Grep", "Glob", "Bash"],
       "model": "fast"
     },
     "docs-generator": {
       "file": "agents/docs-generator.md",
       "role": "docs",
-      "description": "Generate CONTRIBUTING.md, ARCHITECTURE.md, ADRs, PRs, changelogs",
+      "description": "Generate CONTRIBUTING, ARCHITECTURE, ADRs, PRs, changelogs",
       "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash"],
       "model": "complex"
     }
