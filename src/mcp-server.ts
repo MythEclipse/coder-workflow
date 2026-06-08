@@ -372,19 +372,35 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "find_cycles",
-      description: "Detect circular dependencies before manual search.",
-      inputSchema: { type: "object", properties: {} },
+      description: "Detect circular dependencies in the module graph.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          maxResults: { type: "number", description: "Max cycles to return (default: 50). Set higher for full report." },
+        },
+      },
     },
     {
       name: "find_orphans",
-      description: "Identify orphan files/symbols before manual inspection.",
-      inputSchema: { type: "object", properties: {} },
+      description: "Identify orphan files/symbols — files with no incoming references.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          maxResults: { type: "number", description: "Max orphans to return (default: 50)." },
+        },
+      },
     },
     {
       name: "summarize_architecture",
       description:
-        "Graph‑backed architecture, entry points, modules, dependencies, hotspots before broad exploration.",
-      inputSchema: { type: "object", properties: {} },
+        "Graph‑backed architecture: entry points, modules, dependencies, hotspots. WARNING: can return large data — use maxNodes/maxEdges to limit.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          maxNodes: { type: "number", description: "Max nodes to return (default: all). Set to 100-200 for overview." },
+          maxEdges: { type: "number", description: "Max edges to return (default: all)." },
+        },
+      },
     },
     {
       name: "analyze_quality",
@@ -713,8 +729,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "find_dead_code",
       description:
-        "Detect unused exports, orphan files, and uncalled functions using CodeGraph edge analysis.",
-      inputSchema: { type: "object", properties: {} },
+        "Detect unused exports, orphan files, and uncalled functions using graph edge analysis.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          maxResults: { type: "number", description: "Max dead code items to return (default: 50)." },
+        },
+      },
     },
 
     // ─── Semantic Code Search ──────────────────────────────────────────
@@ -1498,8 +1519,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text(findCycles(await getCachedGraph(root)));
     case "find_orphans":
       return text(findOrphans(await getCachedGraph(root)));
-    case "summarize_architecture":
-      return text(summarizeArchitecture(await getCachedGraph(root)));
+    case "summarize_architecture": {
+      const graph = await getCachedGraph(root);
+      const maxNodes = numberArg(args?.maxNodes) ?? graph.nodes.length;
+      const maxEdges = numberArg(args?.maxEdges) ?? graph.edges.length;
+      const summary = summarizeGraphForBudget(graph, { maxNodes, maxEdges });
+      const freshness = await getGraphFreshness(root);
+      return text({ ...summary, freshness });
+    }
     case "analyze_quality": {
       const report = analyzeGraphQuality(await getCachedGraph(root), root);
       const threshold = readThreshold(args?.failOn);

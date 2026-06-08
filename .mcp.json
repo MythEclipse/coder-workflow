@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "codegraph": {
+      "description": "CodeGraph MCP server — graph-first codebase intelligence: search, query, analyze architecture, detect cycles/orphans, manage ADRs, scan secrets, generate SBOM, and more.",
       "type": "stdio",
       "command": "coder-workflow",
       "args": ["mcp"],
