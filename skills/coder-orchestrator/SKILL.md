@@ -24,7 +24,7 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 |---|---|
 | Implement/build/create | Any feature, function, endpoint, UI |
 | Fix/debug/resolve | Any bug, error, crash, warning |
-| Refactor/reorganize | Any code movement, layer extraction |
+| Refactor/reorganize | Any code movement, layer extraction → `refactoring-engineer` |
 | Audit/review | Architecture, layer, quality |
 | Test/verify | Test writing or running |
 | Deploy/setup | CI/CD, Docker, VPS |
@@ -51,6 +51,16 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 | **i18n helper** | Extract hardcoded strings, check translations |
 | **DB schema** | Prisma/TypeORM schema diff and analysis |
 | **Doctor** | Dev environment and project health check |
+| **UI** | Build/fix frontend components, CSS, A11y |
+| **Diagram** | Generate architecture diagrams from codebase |
+| **DB architect** | Schema design, migrations, optimization |
+| **Quality** | Code smell detection, consistency enforcement |
+| **Documentation generator** | ADR, PR description, changelog, release |
+| **Memory** | Store/retrieve agentic memories |
+| **Rollback** | Auto-bisect to find bug-introducing commit |
+| **Multi-Repo** | Cross-repository API contract changes |
+| **Think** | Structured sequential reasoning |
+| **Brainstorming** | Ideas to spec before implementation |
 | **Stats** | Codebase LOC, languages, dependencies trends |
 
 ## Headroom Feature-Agent Mapping
@@ -62,10 +72,10 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 | PR Description | `pr` | `generate_pr` | `coder-workflow:docs-engineer` |
 | Changelog | `changelog` | `generate_changelog` | `coder-workflow:docs-engineer` |
 | Release | `release` | `create_release` | `coder-workflow:devops-engineer` |
-| Secrets Scan | `secrets` | `scan_secrets` | `coder-workflow:code-reviewer` |
+| Secrets Scan | `secrets` | `scan_secrets` | `coder-workflow:secret-scanner` |
 | ADR | `adr` | `adr_new/list/get/graph` | `coder-workflow:docs-engineer` |
-| Vuln Scan | `vuln-scan` | `scan_vulnerabilities` | `coder-workflow:devops-engineer` |
-| SBOM | `sbom` | `generate_sbom` | `coder-workflow:devops-engineer` |
+| Vuln Scan | `vuln-scan` | `scan_vulnerabilities` | `coder-workflow:vulnerability-scanner` |
+| SBOM | `sbom` | `generate_sbom` | `coder-workflow:vulnerability-scanner` |
 | Codebase QA | `qa` | `answer_question` | `coder-workflow:codebase-qa-agent` |
 | Onboarding Docs | `onboarding-docs` | `generate_onboarding_docs` | `coder-workflow:docs-engineer` |
 | Sprint Report | `sprint` | `sprint_report` | `coder-workflow:devops-engineer` |
@@ -85,6 +95,20 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 | DB Schema | `db-schema` | `parse_prisma_schema` | `coder-workflow:db-architect` |
 | Doctor | `doctor` | `doctor` | `Explore` |
 | Codebase Stats | `stats` | `codebase_stats` | `Explore` |
+| UI Components | `ui` | — | `coder-workflow:ui-engineer` |
+| Architecture Diagram | `diagram` | `export_graph` | `coder-workflow:diagram-engineer` |
+| Quality Gate | `quality` | `quality_gate` | `coder-workflow:quality-guardian` |
+| Consistency | `consistency` | — | `coder-workflow:quality-guardian` |
+| Bug Hunt | `bughunt` | — | `coder-workflow:debugging-engineer` |
+| Doc Generator | `docs-gen` | `generate_onboarding_docs` | `coder-workflow:docs-generator` |
+| Rollback/Bisect | `timetravel` | — | `coder-workflow:rollback-engineer` |
+| Secret Scanner | `secrets` | `scan_secrets` | `coder-workflow:secret-scanner` |
+| Vulnerability | `vuln-scan` | `scan_vulnerabilities` | `coder-workflow:vulnerability-scanner` |
+| Memory | `memory` | `store_memory` / `query_memory` | `coder-workflow:memory-librarian` |
+| Refactoring | `refraktor` | — | `coder-workflow:refactoring-engineer` |
+| Multi-Repo | `multirepo` | — | `coder-workflow:multi-repo-orchestrator` |
+| Brainstorming | `brainstorming` | — | `brainstorming` skill |
+| Sequential Think | `think` | `sequential_thinking` | `general-purpose` |
 
 ## Workflow Sequence
 
