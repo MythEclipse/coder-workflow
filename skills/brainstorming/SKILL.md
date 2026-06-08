@@ -1,119 +1,90 @@
 ---
 name: brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+description: "Use before any creative work — creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements, and design before implementation."
 ---
 
-# Brainstorming Ideas Into Designs
+# Brainstorming: Ideas to Spec
 
-Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
+Turn vague ideas into approved designs through structured exploration. **No code until design is approved.**
 
-Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design and get user approval.
+## HARD GATE
 
-<HARD-GATE>
-Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity.
-</HARD-GATE>
+Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until the spec is designed and user-approved. This applies to EVERY task regardless of perceived simplicity.
 
-## Anti-Pattern: "This Is Too Simple To Need A Design"
+## Process
 
-Every project goes through this process. A todo list, a single-function utility, a config change — all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval.
+### 1. Explore Project Context
 
-## Checklist
+Use tools to understand current state:
+- `mcp__codegraph__summarize_architecture` — understand codebase structure
+- `mcp__codegraph__query_graph` — find relevant modules
+- `git log --oneline -10` — recent commits and active work
+- `Read` relevant files — existing patterns, config
 
-You MUST create a task for each of these items and complete them in order:
+### 2. Clarify Requirements
 
-1. **Explore project context** — check files, docs, recent commits
-2. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
-3. **Propose 2-3 approaches** — with trade-offs and your recommendation
-4. **Present design** — in sections scaled to their complexity, get user approval after each section
-5. **Write design doc** — save to `docs/specs/YYYY-MM-DD-<topic>-design.md` and commit
-6. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope
-7. **User reviews written spec** — ask user to review the spec file before proceeding
-8. **Transition to planning** — invoke `coder-workflow:workflow-planner` to create implementation plan
+One question per message. Focus on: purpose, constraints, success criteria.
+- Prefer multiple-choice questions when possible
+- Assess scope first — if the request covers multiple subsystems, flag for decomposition
+- If too large for one spec, suggest sub-projects
 
-## Process Flow
+### 3. Propose 2-3 Approaches
 
-```dot
-digraph brainstorming {
-    "Explore project context" [shape=box];
-    "Ask clarifying questions" [shape=box];
-    "Propose 2-3 approaches" [shape=box];
-    "Present design sections" [shape=box];
-    "User approves design?" [shape=diamond];
-    "Write design doc" [shape=box];
-    "Spec self-review\n(fix inline)" [shape=box];
-    "User reviews spec?" [shape=diamond];
-    "Invoke coder-workflow:workflow-planner skill" [shape=doublecircle];
+For each: trade-offs, complexity estimate, your recommendation with reasoning.
 
-    "Explore project context" -> "Ask clarifying questions";
-    "Ask clarifying questions" -> "Propose 2-3 approaches";
-    "Propose 2-3 approaches" -> "Present design sections";
-    "Present design sections" -> "User approves design?";
-    "User approves design?" -> "Present design sections" [label="no, revise"];
-    "User approves design?" -> "Write design doc" [label="yes"];
-    "Write design doc" -> "Spec self-review\n(fix inline)";
-    "Spec self-review\n(fix inline)" -> "User reviews spec?";
-    "User reviews spec?" -> "Write design doc" [label="changes requested"];
-    "User reviews spec?" -> "Invoke coder-workflow:workflow-planner skill" [label="approved"];
-}
+### 4. Present Design (Incremental Approval)
+
+Present section-by-section, asking "does this look right?" after each. Cover:
+- Architecture overview
+- Components and their boundaries
+- Data flow
+- Error handling
+- Testing strategy
+
+Design for: **isolation** (single-purpose units), **clear interfaces**, **independent testability**.
+
+### 5. Write Spec Document
+
+Save to `docs/specs/YYYY-MM-DD-<topic>-design.md`
+
+```markdown
+# Design: [Title]
+## Problem Statement
+## Requirements
+## Architecture
+## Components
+## Data Flow
+## Error Handling
+## Testing Strategy
+## Open Questions
 ```
 
-**The terminal state is invoking coder-workflow:workflow-planner.** Do NOT invoke `coder` or any other implementation skill. The ONLY step after brainstorming is `coder-workflow:workflow-planner`.
+### 6. Spec Self-Review
 
-## The Process
+Before asking user to review:
+- [ ] No "TBD", "TODO" placeholders
+- [ ] No internal contradictions between sections
+- [ ] Scope focused enough for single implementation plan
+- [ ] No ambiguous requirements (could be read two ways?)
 
-**Understanding the idea:**
-- Check out the current project state first (files, docs, recent commits)
-- Before asking detailed questions, assess scope: if the request describes multiple independent subsystems, flag this immediately. Don't spend questions refining details of a project that needs to be decomposed first.
-- If the project is too large for a single spec, help the user decompose into sub-projects.
-- Ask questions one at a time to refine the idea. Prefer multiple choice questions when possible.
-- Only one question per message. Focus on understanding: purpose, constraints, success criteria.
+### 7. User Reviews Spec
 
-**Exploring approaches:**
-- Propose 2-3 different approaches with trade-offs
-- Present options conversationally with your recommendation and reasoning
+> "Spec written at `<path>`. Please review before we proceed to implementation planning."
 
-**Presenting the design:**
-- Once you believe you understand what you're building, present the design. Scale each section to its complexity.
-- Ask after each section whether it looks right so far. Cover: architecture, components, data flow, error handling, testing.
+### 8. Transition to Planning
 
-**Design for isolation and clarity:**
-- Break the system into smaller units that each have one clear purpose, communicate through well-defined interfaces, and can be understood and tested independently.
+Invoke `coder-workflow:workflow-planner` for task decomposition.
 
-## After the Design
-
-**Documentation:**
-- Write the validated design (spec) to `docs/specs/YYYY-MM-DD-<topic>-design.md`
-- Commit the design document to git.
-
-**Spec Self-Review:**
-After writing the spec document, look at it with fresh eyes:
-1. **Placeholder scan:** Any "TBD", "TODO"? Fix them.
-2. **Internal consistency:** Do any sections contradict each other?
-3. **Scope check:** Is this focused enough for a single implementation plan?
-4. **Ambiguity check:** Could any requirement be interpreted two different ways? Make it explicit.
-
-**User Review Gate:**
-Ask the user to review the written spec before proceeding:
-> "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan."
-
-**Implementation:**
-- Invoke the `coder-workflow:workflow-planner` skill to create a detailed implementation plan.
+**The ONLY step after brainstorming is `coder-workflow:workflow-planner`. Do NOT invoke `coder-orchestrator` or any implementation skill.**
 
 ## Key Principles
-- **One question at a time** - Don't overwhelm with multiple questions
-- **YAGNI ruthlessly** - Remove unnecessary features from all designs
-- **Explore alternatives** - Always propose 2-3 approaches before settling
-- **Incremental validation** - Present design, get approval before moving on
 
+- One question at a time — don't overwhelm
+- YAGNI ruthlessly — remove unnecessary features
+- Explore alternatives — 2-3 approaches minimum
+- Incremental validation — approve section by section
+- Simple projects still need a design — just a shorter one
 
----
+## Boundaries
 
-# ⚠️ OVERPOWERED ANTI-LAZY DIRECTIVE ⚠️
-
-**MANDATORY CORE OPERATING PRINCIPLE**:
-1. **Absolute Anti-Reductionism**: You are STRICTLY FORBIDDEN from oversimplifying complex problems. Drill down to the absolute root cause, no matter how convoluted.
-2. **Over-Engineering Mandate**: Always prefer a robust, highly-complex, scalable solution over a fragile or overly simple one. Do not output simple "quick fixes".
-3. **Zero Suppression**: Never use `// eslint-disable`, `@ts-ignore`, `@SuppressWarnings`, or equivalent suppression flags. Fix the underlying logic instead.
-4. **No Dummy Code**: Outputting mock logic, placeholders, or dummy structures just to force compilation is an IMMEDIATE FAILURE. You must engineer the real solution.
-
-**Do not ignore these rules under any circumstances.**
+- See `_shared/OVERPOWERED.md`.
