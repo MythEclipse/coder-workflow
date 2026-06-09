@@ -2,13 +2,17 @@
 
 **Coder Workflow** is a Claude Code plugin and CLI toolkit for disciplined software engineering workflows: single-orchestrator routing, graph-first codebase understanding, specialized coding agents, safety hooks, and a CodeGraph MCP server.
 
-It is designed for teams or solo developers who want Claude Code to behave like a structured engineering workflow rather than an ad-hoc chat assistant.
+The orchestrator acts as a **strict top-level manager** — it never reads files or edits code directly. All work is delegated to specialized subagents. Complex, broad requests go through a mandatory pre-flight (Brainstorm → Explore → Plan) before any implementation agent fires.
+
+Designed for teams or solo developers who want Claude Code to behave like a structured engineering workflow rather than an ad-hoc chat assistant.
 
 ---
 
 ## What It Provides
 
-- **Single orchestrator model** — `coder-orchestrator` routes coding work before implementation starts.
+- **Strict orchestrator model** — `coder-orchestrator` is a top-level manager that never reads files or edits code directly. All execution is delegated to specialized subagents.
+- **Two-tier Complexity Gate** — scoped requests (≤3 named files) dispatch immediately; broad/cross-cutting requests run a mandatory Brainstorm → Explore → Plan pre-flight before any implementation agent fires.
+- **Foreground brainstorming** — `Skill(brainstorming)` runs as an interactive, blocking skill in the main context, asking one question at a time and requiring user approval before planning begins.
 - **Graph-first codebase understanding** — CodeGraph MCP tools prefer dependency/call-graph queries over raw grep.
 - **Specialized engineering agents** — planner, implementer, reviewer, debugger, tester, docs, UI, DB, DevOps, refactorer, auditor, and more.
 - **Lifecycle hooks** — session startup, safety guards, graph refresh, task reminders, git operation warnings, and session summaries.
@@ -25,34 +29,41 @@ User request
   ↓
 Claude Code plugin discovery
   ↓
-coder-orchestrator skill
-  ↓
-Specialized agents
-  ├─ workflow-planner
-  ├─ code-implementer
-  ├─ architecture-auditor
-  ├─ debugging-engineer
-  ├─ test-engineer
-  ├─ code-reviewer
-  ├─ docs-engineer
-  ├─ ui-engineer
-  ├─ db-architect
-  ├─ devops-engineer
-  └─ ...
+coder-orchestrator skill  ← manager-only: no direct reads/writes
+  │
+  ├─ Complexity Gate
+  │   ├─ Tier 1 (scoped: ≤3 named files) → direct agent dispatch
+  │   └─ Tier 2 (broad / cross-cutting) → mandatory pre-flight:
+  │       ├─ Step 1: Skill(brainstorming)   ← foreground, interactive, blocks
+  │       │          until user approves design spec
+  │       ├─ Step 2: Explore agent          ← background recon
+  │       └─ Step 3: workflow-planner       ← decomposes into N atomic tasks
+  │
+  └─ Swarm Dispatch (1 Agent() per task, all parallel)
+      ├─ code-implementer
+      ├─ architecture-auditor
+      ├─ debugging-engineer
+      ├─ test-engineer
+      ├─ code-reviewer
+      ├─ refactoring-engineer
+      ├─ docs-engineer
+      ├─ ui-engineer
+      ├─ db-architect
+      ├─ devops-engineer
+      └─ ...
   ↓
 CodeGraph MCP tools
-  ├─ scan_codebase
+  ├─ scan_codebase / update_codebase
   ├─ query_graph
   ├─ analyze_impact
   ├─ search_code
-  ├─ find_cycles
-  ├─ find_orphans
+  ├─ find_cycles / find_orphans
   ├─ quality_gate
   └─ ping
   ↓
 .codegraph/graph.db
 
-─── Headroom Context Layers (new) ───
+─── Headroom Context Layers ───
 
 CCR Compression ─► Compress tool outputs 60-95%
 CacheAligner    ─► Prefix stabilization for KV cache hits
@@ -423,15 +434,51 @@ coder-workflow/
 
 ---
 
+## Orchestrator Behavior
+
+### Manager-Only Mandate
+
+The `coder-orchestrator` skill is configured with `disallowed-tools: [Edit, Write, NotebookEdit, Read, Grep]`. It is a **strict top-level manager** — it cannot and does not read files, grep code, or make edits. Every piece of work is delegated to a subagent.
+
+### Complexity Gate
+
+Before dispatching any agent, the orchestrator classifies the request:
+
+| Gate | Condition | Action |
+|---|---|---|
+| **Tier 1** (scoped) | ≤3 specific files/functions named explicitly | Direct agent dispatch via Routing Table |
+| **Tier 2** (broad) | Codebase-wide, multiple concerns, no target named | Mandatory pre-flight sequence |
+
+**Tier 2 Pre-flight (always in this order):**
+
+1. `Skill(brainstorming)` — foreground, interactive, blocks the conversation. Asks one question at a time, proposes 2-3 approaches, gets user approval, writes a spec doc. **Never spawned as a background agent.**
+2. `Explore agent` — background recon: maps structure, finds duplications, traces call paths.
+3. `coder-workflow:workflow-planner` — decomposes findings into N atomic tasks with `FILE_MANIFEST` per task.
+4. Swarm dispatch — 1 `Agent()` per task, all in parallel.
+
+**Tier 2 trigger keywords:** `codebase`, `everywhere`, `semua`, `seluruh`, `all`, `project-wide`, multiple concerns combined (e.g. `atomic + DRY + logging`).
+
+### Output Contract
+
+Every orchestrator turn starts with:
+
+```
+↳ coder-orchestrator [T1|T2] → [agent-name(s)]: [one-sentence goal]
+```
+
+---
+
 ## Operating Principles
 
-1. **Route coding work through the orchestrator.**
-2. **Use graph tools before raw search where possible.**
-3. **Track tasks and discovered bugs.**
-4. **Prefer subagents for heavy reading, implementation, testing, and review.**
-5. **Keep graph state fresh after edits and git operations.**
-6. **Verify targeted changes before completing work.**
-7. **Avoid dummy code, suppressions, and band-aid fixes.**
+1. **Orchestrator is a manager, not a worker.** It never reads files or edits code directly — all execution goes through subagents.
+2. **Classify scope before dispatching.** Tier 1 (scoped) = direct dispatch. Tier 2 (broad) = Brainstorm → Explore → Plan → Swarm.
+3. **Brainstorm first for underspecified requests.** `Skill(brainstorming)` runs interactively in the main context — never as a background agent.
+4. **Route all coding work through the orchestrator.** Every coding conversation must load `coder-orchestrator` first.
+5. **Use graph tools before raw search.** `query_graph`, `analyze_impact`, and `semantic_search` over grep.
+6. **1 task = 1 subagent.** Never batch tasks into a single agent.
+7. **Keep graph state fresh after edits and git operations.**
+8. **Verify targeted changes before completing work.**
+9. **Avoid dummy code, suppressions, and band-aid fixes.**
 
 ---
 
