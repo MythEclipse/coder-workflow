@@ -58,25 +58,32 @@ Any of these signals → Tier 2:
 → **Mandatory pre-flight sequence (in order, no skipping):**
 
 ```
-Step 1 — Explore (parallel recon)
-  Spawn: Explore agent
-  Goal:  Map codebase structure, identify modules, find duplications,
-         locate logging gaps, detect monolithic functions
-  Wait for: Explore agent output
+Step 1 — Brainstorm (only if request is underspecified or design is unclear)
+  How:   Invoke Skill(brainstorming) IN THIS CONTEXT — this is a skill load,
+         NOT an agent spawn. It runs interactively in the main conversation.
+  Goal:  Clarify user intent, propose 2-3 approaches, get design approval,
+         write spec doc, then hand off to workflow-planner.
+  Skip if: request has a clear, unambiguous goal with no design decisions
+           (e.g. "audit for DRY violations" is clear; "build something cool" is not)
+  HARD RULE: brainstorming is NEVER spawned as a background Agent(). It is
+             always Skill(brainstorming) — a foreground skill that blocks
+             until the user approves the design.
 
-Step 2 — Plan
-  Spawn: coder-workflow:workflow-planner
-  Input: Explore agent findings + user goal
+Step 2 — Explore (parallel recon, always required for Tier 2)
+  How:   Spawn Explore agent (background, parallel with nothing else)
+  Goal:  Map codebase structure, identify modules, find duplications,
+         locate logging gaps, detect monolithic functions, trace call paths
+  Wait for: Explore agent output before proceeding
+
+Step 3 — Plan
+  How:   Spawn coder-workflow:workflow-planner (background agent)
+  Input: Explore findings + user goal + approved spec (if brainstorming ran)
   Goal:  Decompose into N atomic tasks with FILE_MANIFEST per task
   Wait for: workflow-planner output
 
-Step 3 — Brainstorm (only if approach is still ambiguous after Step 2)
-  Spawn: brainstorming skill
-  Skip if: workflow-planner already produced a clear task list
-
 Step 4 — Swarm Dispatch
-  Spawn: 1 subagent per task from workflow-planner output
-  Each agent gets: its task + FILE_MANIFEST boundaries
+  How:   Spawn 1 Agent() per task from workflow-planner output, all in parallel
+  Each agent gets: its single task + FILE_MANIFEST boundaries + no other tasks
 ```
 
 **Example T2 triggers:** `"refactor codebase to be atomic/DRY/logged"`, `"audit everything"`, `"cek semua kelemahan"`, `"add logging everywhere"`, `"make everything consistent"`
@@ -113,7 +120,7 @@ Step 4 — Swarm Dispatch
 | memory / store / recall | `coder-workflow:memory-librarian` |
 | rollback / bisect / timetravel / revert | `coder-workflow:rollback-engineer` |
 | multi-repo / cross-service / microservice | `coder-workflow:multi-repo-orchestrator` |
-| brainstorm / ideas / design / spec / unclear request | `brainstorming` skill |
+| brainstorm / ideas / design / spec / unclear request | `Skill(brainstorming)` — **foreground skill load, NOT an agent spawn** |
 | think / sequential / reason / plan complex | `coder-workflow:workflow-planner` |
 | todo / FIXME / HACK / tech debt | `coder-workflow:todo-checker` |
 | sprint / metrics / benchmark / ops | `coder-workflow:devops-engineer` |
@@ -163,17 +170,17 @@ Step 4 — Swarm Dispatch
 
 ## Workflow Sequence
 
-> **Tier 1 (scoped)** skips to step 5. **Tier 2 (broad)** must run steps 1–4 first.
+> **Tier 1 (scoped)** skips to step 4. **Tier 2 (broad)** must run steps 1–3 first.
 
-1. **Explore**: Spawn `Explore` agent(s) in parallel to map codebase domains, find duplications, trace call paths, detect gaps.
-2. **Plan**: Spawn `coder-workflow:workflow-planner` with Explore findings. Produces N atomic tasks with FILE_MANIFEST.
-3. **Brainstorm** *(skip if plan is clear)*: Spawn `brainstorming` skill only if requirements or approach remain ambiguous.
-4. **Memory check**: Spawn `coder-workflow:memory-librarian` for recurring/cross-session context.
+1. **Brainstorm** *(Tier 2, if underspecified)*: Invoke `Skill(brainstorming)` in the current context — **foreground, interactive, never backgrounded**. Blocks until user approves the design spec. Produces a spec doc + hands off to workflow-planner.
+2. **Explore** *(Tier 2, always)*: Spawn `Explore` agent (background) to map codebase, find duplications, trace call paths, detect gaps. Wait for output.
+3. **Plan** *(Tier 2)*: Spawn `coder-workflow:workflow-planner` with Explore findings + approved spec. Produces N atomic tasks with FILE_MANIFEST. Wait for output.
+4. **Memory check** *(if applicable)*: Invoke `coder-workflow:memory-librarian` for recurring/cross-session context.
 5. **Multi-Repo** *(if applicable)*: `coder-workflow:multi-repo-orchestrator` for cross-service scope.
-6. **Swarm Dispatch (CRITICAL)**: Spawn **1 subagent per task** from workflow-planner output, all in parallel. Each receives exactly 1 task + FILE_MANIFEST. No task batching.
-7. **Synthesis & Conflict Resolution**: Collect all subagent outputs. Detect file overlaps/conflicts. Merge cleanly.
+6. **Swarm Dispatch (CRITICAL)**: Spawn **1 `Agent()` per task** from workflow-planner output, all in parallel. Each receives exactly 1 task + FILE_MANIFEST. No batching.
+7. **Synthesis & Conflict Resolution**: Collect all outputs. Detect file overlaps/conflicts. Merge cleanly.
 8. **Review**: `coder-workflow:code-reviewer` or `coder-workflow:architecture-auditor`.
-9. **Bug Fix Phase**: Track every discovered bug as a low-priority task. Fix at session end via Impact Radius Protocol.
+9. **Bug Fix Phase**: Track bugs as low-priority tasks. Fix at session end via Impact Radius Protocol.
 
 ### Swarm Dispatch Rules
 
