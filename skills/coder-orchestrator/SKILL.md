@@ -17,63 +17,65 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 2. **Zero Direct Edits**: Never invoke file-mutation tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`, `sed`, `echo >>`, etc.) from the orchestrator context. All implementation is delegated exclusively to specialized agents.
 3. **Aggressive Delegation**: If any subagent might apply (≥1% chance), you MUST spawn it. Focus entirely on spawning subagents, coordinating tasks, synthesizing outputs, detecting conflicts, and managing the overall project lifecycle.
 
+## DISPATCH NOW — No Deliberation
+
+**CRITICAL: Do NOT think aloud before acting. Do NOT say "Actually...", "Wait...", "Hmm...", "Let me...", or any other internal reasoning. The moment this skill loads, you MUST:**
+
+1. **Classify** the request in ≤1 second using the Routing Table below — pick the single best match.
+2. **Print the Output Contract** (one line) immediately as your first visible output.
+3. **Spawn the subagent(s)** — no preamble, no explanation, no deliberation.
+
+The Output Contract is your FIRST output, not your last:
+
+```
+↳ coder-orchestrator → [agent-name]: [one-sentence goal]
+```
+
+If a request spans multiple categories, spawn one subagent per category in parallel — still no deliberation, just spawn all at once.
+
 ## Instruction Priority
 
 1. **User's explicit instructions** (CLAUDE.md, direct requests) — highest
 2. **Coder-workflow skills** — override system behavior where they conflict
 3. **Default system prompt** — lowest
 
-## Routing Table
+## Routing Table — Single Lookup, Immediate Dispatch
 
-| Request | Trigger |
+| Intent keywords | → Spawn this agent |
 |---|---|
-| Implement/build/create | Any feature, function, endpoint, UI |
-| Fix/debug/resolve | Any bug, error, crash, warning |
-| Refactor/reorganize | Any code movement, layer extraction → `refactoring-engineer` |
-| Audit/review | Architecture, layer, quality |
-| Test/verify | Test writing or running |
-| Deploy/setup | CI/CD, Docker, VPS |
-| Explore | Codebase exploration, session start |
-| Cross-Repo | Multi-workspace/microservice changes |
-| **Secrets scan** | Find hardcoded API keys, tokens, passwords |
-| **Vulnerability scan** | Check deps for known CVEs, generate SBOM |
-| **Codebase Q&A** | "How does X work?", "Where is Y defined?" |
-| **Doc generation** | Generate CONTRIBUTING.md, ARCHITECTURE.md |
-| **Sprint/report** | Sprint report, team metrics, benchmark |
-| **ADR** | Architecture Decision Records (create/list/graph) |
-| **PR/Changelog** | Generate PR description, changelog, release |
-| **Dead code** | Find unused exports, orphans, uncalled functions |
-| **Semantic search** | Search code by meaning (not just regex) |
-| **API Contract** | Compare OpenAPI specs for breaking changes |
-| **Config validation** | Validate .env, JSON, config files |
-| **License check** | Scan dependency licenses for compliance |
-| **Complexity** | Cyclomatic complexity analysis |
-| **Log analysis** | Parse JSONL logs for error patterns |
-| **Coverage** | Aggregate coverage reports from jest/vitest |
-| **Git hooks** | Scaffold pre-commit, commit-msg, pre-push hooks |
-| **TODO tracker** | Scan TODO/FIXME/HACK with author aging |
-| **Performance** | Bundle analysis and audit |
-| **i18n helper** | Extract hardcoded strings, check translations |
-| **DB schema** | Prisma/TypeORM schema diff and analysis |
-| **Doctor** | Dev environment and project health check |
-| **UI** | Build/fix frontend components, CSS, A11y |
-| **Diagram** | Generate architecture diagrams from codebase |
-| **DB architect** | Schema design, migrations, optimization |
-| **Quality** | Code smell detection, consistency enforcement |
-| **Documentation generator** | ADR, PR description, changelog, release |
-| **Memory** | Store/retrieve agentic memories |
-| **Rollback** | Auto-bisect to find bug-introducing commit |
-| **Multi-Repo** | Cross-repository API contract changes |
-| **Think** | Structured sequential reasoning |
-| **Brainstorming** | Ideas to spec before implementation |
-| **Stats** | Codebase LOC, languages, dependencies trends |
+| implement / build / create / add / scaffold | `coder-workflow:code-implementer` |
+| fix / debug / resolve / error / crash / bug | `coder-workflow:debugging-engineer` |
+| refactor / reorganize / extract / move / layer | `coder-workflow:refactoring-engineer` |
+| audit / review / check / analyze / inspect / cek / weakness / disconnect | `coder-workflow:architecture-auditor` |
+| test / spec / coverage / TDD / unit / e2e | `coder-workflow:test-engineer` |
+| deploy / docker / CI / CD / VPS / infra | `coder-workflow:devops-engineer` |
+| explore / understand / how does / where is / explain | `Explore` agent |
+| secrets / API key / token / hardcoded credential | `coder-workflow:secret-scanner` |
+| vuln / CVE / SBOM / dependency risk | `coder-workflow:vulnerability-scanner` |
+| QA / question / codebase question | `coder-workflow:codebase-qa-agent` |
+| docs / README / contributing / architecture doc | `coder-workflow:docs-engineer` |
+| ADR / PR description / changelog / release | `coder-workflow:docs-generator` |
+| dead code / orphan / unused export | `coder-workflow:architecture-auditor` |
+| UI / frontend / component / CSS / a11y | `coder-workflow:ui-engineer` |
+| diagram / graph / architecture visualization | `coder-workflow:diagram-engineer` |
+| DB / schema / migration / prisma / SQL | `coder-workflow:db-architect` |
+| quality / smell / consistency / lint | `coder-workflow:quality-guardian` |
+| memory / store / recall | `coder-workflow:memory-librarian` |
+| rollback / bisect / timetravel / revert | `coder-workflow:rollback-engineer` |
+| multi-repo / cross-service / microservice | `coder-workflow:multi-repo-orchestrator` |
+| brainstorm / ideas / design / spec / unclear request | `brainstorming` skill |
+| think / sequential / reason / plan complex | `coder-workflow:workflow-planner` |
+| todo / FIXME / HACK / tech debt | `coder-workflow:todo-checker` |
+| sprint / metrics / benchmark / ops | `coder-workflow:devops-engineer` |
+
+**Ambiguous request?** Default to `coder-workflow:architecture-auditor` + `coder-workflow:codebase-qa-agent` in parallel. Still no deliberation.
 
 ## Headroom Feature-Agent Mapping
 
 | Feature | CLI command | MCP tool | Best Agent |
 |---|---|---|---|
 | Dead Code | `dead-code` | `find_dead_code` | `coder-workflow:architecture-auditor` |
-| Semantic Search | `semantic-search` | `semantic_search` | `Explore` (via `explorer` agent) |
+| Semantic Search | `semantic-search` | `semantic_search` | `Explore` |
 | PR Description | `pr` | `generate_pr` | `coder-workflow:docs-engineer` |
 | Changelog | `changelog` | `generate_changelog` | `coder-workflow:docs-engineer` |
 | Release | `release` | `create_release` | `coder-workflow:devops-engineer` |
@@ -85,7 +87,6 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 | Onboarding Docs | `onboarding-docs` | `generate_onboarding_docs` | `coder-workflow:docs-engineer` |
 | Sprint Report | `sprint` | `sprint_report` | `coder-workflow:devops-engineer` |
 | Team Metrics | `team-metrics` | `team_metrics` | `coder-workflow:devops-engineer` |
-| Auto-Merge | `pr-check` | `pr_auto_merge` | `coder-workflow:devops-engineer` |
 | Benchmark | `benchmark` | `record_benchmark` | `coder-workflow:devops-engineer` |
 | API Contract | `api-contract` | `compare_api_specs` | `Explore` |
 | Config Validation | `validate` | `validate_env_file` | `Explore` |
@@ -100,20 +101,15 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 | DB Schema | `db-schema` | `parse_prisma_schema` | `coder-workflow:db-architect` |
 | Doctor | `doctor` | `doctor` | `Explore` |
 | Codebase Stats | `stats` | `codebase_stats` | `Explore` |
-| UI Components | `ui` | — | `coder-workflow:ui-engineer` |
 | Architecture Diagram | `diagram` | `export_graph` | `coder-workflow:diagram-engineer` |
 | Quality Gate | `quality` | `quality_gate` | `coder-workflow:quality-guardian` |
 | Consistency | `consistency` | — | `coder-workflow:quality-guardian` |
 | Bug Hunt | `bughunt` | — | `coder-workflow:debugging-engineer` |
 | Doc Generator | `docs-gen` | `generate_onboarding_docs` | `coder-workflow:docs-generator` |
 | Rollback/Bisect | `timetravel` | — | `coder-workflow:rollback-engineer` |
-| Secret Scanner | `secrets` | `scan_secrets` | `coder-workflow:secret-scanner` |
-| Vulnerability | `vuln-scan` | `scan_vulnerabilities` | `coder-workflow:vulnerability-scanner` |
 | Memory | `memory` | `store_memory` / `query_memory` | `coder-workflow:memory-librarian` |
 | Refactoring | `refraktor` | — | `coder-workflow:refactoring-engineer` |
 | Multi-Repo | `multirepo` | — | `coder-workflow:multi-repo-orchestrator` |
-| Brainstorming | `brainstorming` | — | `brainstorming` skill |
-| Sequential Think | `think` | `sequential_thinking` | `general-purpose` |
 
 ## Workflow Sequence
 
@@ -139,15 +135,8 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 Max agent nesting: **2 levels** (orchestrator → agent → executor). The `agent-depth.lock` hook enforces this automatically. Do NOT spawn subagents from a subagent that is already at depth 2.
 
-## Output Contract
-
-```
-Using coder-orchestrator to route: [one-sentence goal]
-Subagents invoked: [list]
-Architecture pattern: [MVC | Event-Driven | Library | etc.]
-```
-
 ## Extended References
 
 - **Core protocols** (crash recovery, impact radius, wisdom/failure handling): `references/core-protocols.md`
 - **Orchestration guide** (agent templates, research protocol, task granularity): `references/orchestration-guide.md`
+
