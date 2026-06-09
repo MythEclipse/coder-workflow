@@ -376,7 +376,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          maxResults: { type: "number", description: "Max cycles to return (default: 50). Set higher for full report." },
+          maxResults: {
+            type: "number",
+            description: "Max cycles to return (default: 50). Set higher for full report.",
+          },
         },
       },
     },
@@ -397,7 +400,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          maxNodes: { type: "number", description: "Max nodes to return (default: all). Set to 100-200 for overview." },
+          maxNodes: {
+            type: "number",
+            description: "Max nodes to return (default: all). Set to 100-200 for overview.",
+          },
           maxEdges: { type: "number", description: "Max edges to return (default: all)." },
         },
       },
@@ -733,7 +739,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          maxResults: { type: "number", description: "Max dead code items to return (default: 50)." },
+          maxResults: {
+            type: "number",
+            description: "Max dead code items to return (default: 50).",
+          },
         },
       },
     },

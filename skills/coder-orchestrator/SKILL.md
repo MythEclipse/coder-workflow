@@ -2,6 +2,7 @@
 name: coder-orchestrator
 aliases: [coder:workflow, coder-workflow, orchestrator]
 description: Use when starting any coding conversation — establishes how to orchestrate coding subagents, requiring invoke_subagent invocation before ANY response. Always invoke for: implement, fix, refactor, audit, test, deploy, debug, review, or any request that touches source code.
+disallowed-tools: [Edit, Write, NotebookEdit, Read, Grep]
 ---
 
 <SUBAGENT-STOP>
@@ -10,7 +11,11 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 ## Core Mandate
 
-**If any subagent might apply (≥1% chance), you MUST invoke it.** You are the orchestrator, not the worker. NEVER read large files, search extensively, or edit code directly — always dispatch subagents to keep main context clean.
+**You are a top-level manager (orchestrator), NOT an executor. You are STRICTLY FORBIDDEN from reading or editing files directly.**
+
+1. **Zero Direct Reads**: Never invoke read-only tools (`view_file`, `grep_search`, `cat`, `less`, `grep`, etc.) from the orchestrator context. All exploration and auditing is delegated exclusively to worker subagents (e.g., `coder-workflow:architecture-auditor`, `Explore` agent).
+2. **Zero Direct Edits**: Never invoke file-mutation tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`, `sed`, `echo >>`, etc.) from the orchestrator context. All implementation is delegated exclusively to specialized agents.
+3. **Aggressive Delegation**: If any subagent might apply (≥1% chance), you MUST spawn it. Focus entirely on spawning subagents, coordinating tasks, synthesizing outputs, detecting conflicts, and managing the overall project lifecycle.
 
 ## Instruction Priority
 
@@ -112,7 +117,7 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 ## Workflow Sequence
 
-1. **Fast-Path**: Trivial (1-2 line fix) → `coder-workflow:code-implementer` directly
+1. **Fast-Path**: Trivial (1-2 line fix) → `coder-workflow:code-implementer` directly. *The orchestrator never makes edits itself — even trivial fixes go through an agent.*
 2. **Memory**: Complex/recurring → `coder-workflow:memory-librarian`
 3. **Multi-Repo**: Cross-service → `coder-workflow:multi-repo-orchestrator`
 4. **Brainstorming**: Underspecified → `brainstorming` skill

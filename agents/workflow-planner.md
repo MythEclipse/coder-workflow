@@ -42,8 +42,8 @@ Break into N tasks where each is:
 
 ### Step 3: Wave Ordering
 
-- **Wave 1**: All parallel tasks (no interdependencies)
-- **Wave 2+**: Tasks depending on Wave 1 outputs
+- **Wave 1**: All parallel tasks (no interdependencies/dependency conflicts)
+- **Wave 2+**: Tasks depending on Wave 1 outputs (dependency ordering)
 
 ### Step 4: Verification Gates Per Task
 
