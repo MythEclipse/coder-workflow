@@ -21,17 +21,67 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 **CRITICAL: Do NOT think aloud before acting. Do NOT say "Actually...", "Wait...", "Hmm...", "Let me...", or any other internal reasoning. The moment this skill loads, you MUST:**
 
-1. **Classify** the request in ≤1 second using the Routing Table below — pick the single best match.
+1. **Run the Complexity Gate** (below) to determine Tier 1 or Tier 2.
 2. **Print the Output Contract** (one line) immediately as your first visible output.
-3. **Spawn the subagent(s)** — no preamble, no explanation, no deliberation.
+3. **Spawn the subagent(s)** per the gate result — no preamble, no explanation, no deliberation.
 
 The Output Contract is your FIRST output, not your last:
 
 ```
-↳ coder-orchestrator → [agent-name]: [one-sentence goal]
+↳ coder-orchestrator [T1|T2] → [agent-name(s)]: [one-sentence goal]
 ```
 
-If a request spans multiple categories, spawn one subagent per category in parallel — still no deliberation, just spawn all at once.
+## Complexity Gate — Run This BEFORE the Routing Table
+
+Answer ONE question: **Is the target fully scoped to ≤3 specific files/functions the user named explicitly?**
+
+### Tier 1 — Scoped (direct dispatch)
+
+All of these must be true:
+- User named specific file(s), function(s), or class(es) **explicitly**
+- Change affects ≤3 files
+- No codebase-wide audit required first
+
+→ Skip Explore/Plan. Go directly to the Routing Table. Spawn the matched agent immediately.
+
+**Example T1 triggers:** `"fix the login function in auth.ts"`, `"add a field to UserModel"`, `"extract getUser into a service"`
+
+### Tier 2 — Broad/Cross-Cutting (Explore → Plan → Swarm)
+
+Any of these signals → Tier 2:
+- Request says "codebase", "everywhere", "seluruh", "semua", "all", "project-wide"
+- Multiple concerns combined (e.g. atomic + DRY + logging)
+- No specific file/function named
+- Contains audit + implementation in same request
+- Refactoring scope is unknown until explored
+
+→ **Mandatory pre-flight sequence (in order, no skipping):**
+
+```
+Step 1 — Explore (parallel recon)
+  Spawn: Explore agent
+  Goal:  Map codebase structure, identify modules, find duplications,
+         locate logging gaps, detect monolithic functions
+  Wait for: Explore agent output
+
+Step 2 — Plan
+  Spawn: coder-workflow:workflow-planner
+  Input: Explore agent findings + user goal
+  Goal:  Decompose into N atomic tasks with FILE_MANIFEST per task
+  Wait for: workflow-planner output
+
+Step 3 — Brainstorm (only if approach is still ambiguous after Step 2)
+  Spawn: brainstorming skill
+  Skip if: workflow-planner already produced a clear task list
+
+Step 4 — Swarm Dispatch
+  Spawn: 1 subagent per task from workflow-planner output
+  Each agent gets: its task + FILE_MANIFEST boundaries
+```
+
+**Example T2 triggers:** `"refactor codebase to be atomic/DRY/logged"`, `"audit everything"`, `"cek semua kelemahan"`, `"add logging everywhere"`, `"make everything consistent"`
+
+**NEVER skip the pre-flight for Tier 2.** Spawning refactoring-engineer directly on a broad request without Explore + Plan is a critical workflow violation.
 
 ## Instruction Priority
 
@@ -113,15 +163,17 @@ If a request spans multiple categories, spawn one subagent per category in paral
 
 ## Workflow Sequence
 
-1. **Fast-Path**: Trivial (1-2 line fix) → `coder-workflow:code-implementer` directly. *The orchestrator never makes edits itself — even trivial fixes go through an agent.*
-2. **Memory**: Complex/recurring → `coder-workflow:memory-librarian`
-3. **Multi-Repo**: Cross-service → `coder-workflow:multi-repo-orchestrator`
-4. **Brainstorming**: Underspecified → `brainstorming` skill
-5. **Planning**: Full decomposition via `coder-workflow:workflow-planner` with parallel recon
-6. **Swarm Dispatch (CRITICAL)**: After planning, orchestrator MUST spawn **1 subagent per task** using the `Agent` tool with `run_in_background: true`. Do NOT send multiple tasks to a single agent. If planner produced 10 tasks, spawn 10 subagents simultaneously. Each subagent receives exactly 1 task with clear FILE_MANIFEST boundaries.
-7. **Synthesis & Conflict Resolution**: Wait for all subagents to complete. Identify overlaps/conflicts. Resolve them.
-8. **Review**: `coder-workflow:code-reviewer` or `coder-workflow:architecture-auditor` as needed
-9. **Bug Fix Phase**: Fix discovered bugs using Impact Radius Protocol
+> **Tier 1 (scoped)** skips to step 5. **Tier 2 (broad)** must run steps 1–4 first.
+
+1. **Explore**: Spawn `Explore` agent(s) in parallel to map codebase domains, find duplications, trace call paths, detect gaps.
+2. **Plan**: Spawn `coder-workflow:workflow-planner` with Explore findings. Produces N atomic tasks with FILE_MANIFEST.
+3. **Brainstorm** *(skip if plan is clear)*: Spawn `brainstorming` skill only if requirements or approach remain ambiguous.
+4. **Memory check**: Spawn `coder-workflow:memory-librarian` for recurring/cross-session context.
+5. **Multi-Repo** *(if applicable)*: `coder-workflow:multi-repo-orchestrator` for cross-service scope.
+6. **Swarm Dispatch (CRITICAL)**: Spawn **1 subagent per task** from workflow-planner output, all in parallel. Each receives exactly 1 task + FILE_MANIFEST. No task batching.
+7. **Synthesis & Conflict Resolution**: Collect all subagent outputs. Detect file overlaps/conflicts. Merge cleanly.
+8. **Review**: `coder-workflow:code-reviewer` or `coder-workflow:architecture-auditor`.
+9. **Bug Fix Phase**: Track every discovered bug as a low-priority task. Fix at session end via Impact Radius Protocol.
 
 ### Swarm Dispatch Rules
 
