@@ -83,7 +83,7 @@ export function searchCodebase(
   };
 
   for (const file of listSearchableFiles(root, settings)) {
-    const rel = relative(root, file);
+    const rel = relative(root, file).replace(/\\/g, "/");
     if (!matchesSearchScope(rel, normalized)) {
       stats.filesSkipped += 1;
       continue;

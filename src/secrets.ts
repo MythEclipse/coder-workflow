@@ -248,7 +248,7 @@ export function scanForSecrets(
     const files = absPath === root ? listFilesRecursive(root) : [absPath];
 
     for (const file of files) {
-      const rel = relative(root, file);
+      const rel = relative(root, file).replace(/\\/g, "/");
       if (isIgnored(rel)) continue;
       if (!statSync(file).isFile()) continue;
 

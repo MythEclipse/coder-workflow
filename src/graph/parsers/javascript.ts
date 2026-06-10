@@ -215,9 +215,9 @@ function createJsTsParser(language: "javascript" | "typescript"): LanguageParser
         ];
         for (const candidate of indexCandidates) {
           // Convert absolute path to relative for comparison with filePaths
-          const relativePath = candidate.startsWith(root)
+          const relativePath = (candidate.startsWith(root)
             ? candidate.slice(root.length + 1)
-            : candidate;
+            : candidate).replace(/\\/g, "/");
           if (filePaths.has(relativePath)) {
             return relativePath;
           }

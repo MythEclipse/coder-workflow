@@ -222,7 +222,7 @@ export function scanForTodos(root: string, options?: ScanOptions): TodoReport {
   const items: TodoItem[] = [];
 
   for (const file of files) {
-    const relFile = relative(resolvedRoot, file);
+    const relFile = relative(resolvedRoot, file).replace(/\\/g, "/");
     // Apply exclude checks on relative path.
     if (exclude && [...exclude].some((pat) => globMatch(relFile, pat))) continue;
 
@@ -272,7 +272,7 @@ export function scanForTodos(root: string, options?: ScanOptions): TodoReport {
 function filterByInclude(files: string[], includes: string[], root: string): string[] {
   const includePatterns = includes.map((p) => globToRegExp(p));
   return files.filter((f) => {
-    const rel = relative(root, f);
+    const rel = relative(root, f).replace(/\\/g, "/");
     return includePatterns.some((re) => re.test(rel));
   });
 }

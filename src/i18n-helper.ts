@@ -203,7 +203,7 @@ export function extractHardcodedStrings(
             seen.add(key);
             results.push({
               value: text.trim(),
-              file: relative(root, file),
+              file: relative(root, file).replace(/\\/g, "/"),
               line: lineNum,
               context: line.trim().slice(0, 120),
             });
@@ -223,7 +223,7 @@ export function extractHardcodedStrings(
           seen.add(key);
           results.push({
             value: text.trim(),
-            file: relative(root, file),
+            file: relative(root, file).replace(/\\/g, "/"),
             line: lineNum,
             context: line.trim().slice(0, 120),
           });
@@ -244,7 +244,7 @@ export function extractHardcodedStrings(
           seen.add(key);
           results.push({
             value: text.trim(),
-            file: relative(root, file),
+            file: relative(root, file).replace(/\\/g, "/"),
             line: lineNum,
             context: line.trim().slice(0, 120),
           });

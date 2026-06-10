@@ -188,7 +188,7 @@ export function buildEmbeddings(
   let totalFiles = 0;
 
   for (const file of files) {
-    const rel = relative(root, file);
+    const rel = relative(root, file).replace(/\\/g, "/");
     const lang = languageForPath(file);
     if (!lang) continue;
 
@@ -254,7 +254,7 @@ export function semanticSearch(
   let totalFiles = 0;
 
   for (const file of files) {
-    const rel = relative(root, file);
+    const rel = relative(root, file).replace(/\\/g, "/");
     if (!passesScopeFilter(rel, options)) continue;
 
     const cached = loadCachedEmbeddings(root, rel);

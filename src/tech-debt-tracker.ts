@@ -591,7 +591,7 @@ export function scanForDebt(root: string): DebtEntry[] {
   const now = new Date().toISOString();
 
   for (const file of allFiles) {
-    const relFile = relative(resolvedRoot, file);
+    const relFile = relative(resolvedRoot, file).replace(/\\/g, "/");
 
     let content: string;
     try {
