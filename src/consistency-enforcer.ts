@@ -1034,7 +1034,7 @@ function validateNamingConvention(
 }
 
 /**
- * Memvalidasi gaya import.
+ * Validates import style.
  */
 function validateImportStyle(
   content: string,
@@ -1079,7 +1079,7 @@ function validateImportStyle(
 }
 
 /**
- * Memvalidasi pola error handling.
+ * Validates error handling pattern.
  */
 function validateErrorHandling(
   content: string,
@@ -1125,7 +1125,7 @@ function validateErrorHandling(
 }
 
 /**
- * Memvalidasi preferensi library.
+ * Validates library preferences.
  */
 function validateLibPreference(
   content: string,
@@ -1135,7 +1135,7 @@ function validateLibPreference(
   const violations: ConsistencyViolation[] = [];
   const usedLibs = detectUsedLibraries(content);
 
-  // Daftar library populer yang mungkin jadi alternatif
+  // List of popular libraries that might be alternatives
   const alternatives: Record<string, string[]> = {
     lodash: ["lodash-es"],
     moment: ["date-fns", "dayjs"],
@@ -1152,9 +1152,9 @@ function validateLibPreference(
   };
 
   for (const lib of usedLibs) {
-    // Cek apakah library yang digunakan ada di preferensi
+    // Check if the used library is in preferences
     if (!preferredLibs.includes(lib)) {
-      // Cek apakah ada alternatif yang lebih disukai
+      // Check if there is a preferred alternative
       for (const [preferred, alts] of Object.entries(alternatives)) {
         if (alts.includes(lib) && preferredLibs.includes(preferred)) {
           violations.push({
@@ -1238,7 +1238,7 @@ function validateComponentStructure(
 }
 
 /**
- * Memvalidasi pola testing.
+ * Validates testing pattern.
  */
 function validateTestPattern(
   content: string,
@@ -2183,7 +2183,7 @@ export function getConsistencySummary(root: string): {
     const violations = readViolationLog();
     const files = collectSourceFiles(resolve(root));
 
-    // Cek kapan profile terakhir di-scan
+    // Check when the profile was last scanned
     const lastScan = profile?.updatedAt ?? null;
 
     return {
