@@ -164,6 +164,8 @@ import { formatTodoReport, getTodoHistory, scanForTodos } from "./todo-tracker.j
 import { getStats as getTradeoffStats, querySimilar } from "./trade-off-analyzer.js";
 import { openGraphUi } from "./ui.js";
 import { formatVulnReport, generateSBOM, scanVulnerabilities } from "./vuln-sbom.js";
+import { runDreamingCycle } from "./dreaming.js";
+import { pruneStaleSkills, scaffoldNewSkill } from "./skill-curator.js";
 
 const root = cwd();
 const settings = loadSettings(root);
@@ -549,6 +551,33 @@ async function main() {
     }
     case "memory-platforms": {
       console.log(JSON.stringify({ platforms: getSupportedPlatforms() }, null, 2));
+      break;
+    }
+
+    // ─── New Features: Self-Learning & Dreaming ───────────────────────
+    case "dream": {
+      console.log(JSON.stringify(runDreamingCycle(), null, 2));
+      break;
+    }
+    case "curate": {
+      const sub = args[0];
+      if (sub === "prune") {
+        const days = parseInt(readFlag(args, "--days") ?? "30", 10);
+        console.log(JSON.stringify(pruneStaleSkills(days), null, 2));
+      } else if (sub === "scaffold") {
+        const name = readFlag(args, "--name");
+        const desc = readFlag(args, "--desc");
+        const flow = readFlag(args, "--flow") || "TODO: Add workflow details";
+        if (!name || !desc) {
+          console.error("Usage: coder-workflow curate scaffold --name <name> --desc <desc> [--flow <flow>]");
+          process.exitCode = 1;
+          break;
+        }
+        console.log(JSON.stringify({ created: scaffoldNewSkill(name, desc, flow) }, null, 2));
+      } else {
+        console.error("Usage: coder-workflow curate <prune|scaffold>");
+        process.exitCode = 1;
+      }
       break;
     }
 

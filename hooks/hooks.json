@@ -459,6 +459,13 @@
             "type": "command",
             "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // \\\"unknown\\\"\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; echo \"Task complete. Verify: over-engineered? No dummy code? See _shared/OVERPOWERED.md.\"; exit 0'",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if command -v coder-workflow >/dev/null 2>&1; then coder-workflow dream >/dev/null 2>&1; coder-workflow curate prune >/dev/null 2>&1; fi; exit 0'",
+            "timeout": 15,
+            "async": true,
+            "statusMessage": "Dreaming and curating memory..."
           }
         ]
       }
@@ -498,6 +505,13 @@
               "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-metrics.sh"
             ],
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if command -v coder-workflow >/dev/null 2>&1; then coder-workflow dream >/dev/null 2>&1; fi; exit 0'",
+            "timeout": 15,
+            "async": true,
+            "statusMessage": "Final memory consolidation..."
           },
           {
             "type": "command",

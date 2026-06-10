@@ -7,8 +7,9 @@
  * using JSONL format (one JSON object per line).
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { runDreamingCycle } from "./dreaming.js";
 
 // ---------------------------------------------------------------------------
 // Data Types
@@ -61,6 +62,8 @@ export interface ExperienceEntry {
   decisions: DecisionRecord[];
   /** Tags for categorization. */
   tags: string[];
+  /** Timestamp when this entry was processed by the Dreaming phase. */
+  dreamedAt?: string;
 }
 
 /**
@@ -377,6 +380,44 @@ export function queryDecisions(context?: string): DecisionRecord[] {
   filtered.sort((a, b) => parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp));
 
   return filtered;
+}
+
+/**
+ * Gets memories that have not yet been processed by the Dreaming phase.
+ */
+export function getUnprocessedMemories(): ExperienceEntry[] {
+  const dir = ensureJournalDir();
+  const allEntries = readJsonl<ExperienceEntry>(join(dir, ENTRIES_FILE));
+  
+  return allEntries.filter((e) => !e.dreamedAt);
+}
+
+/**
+ * Marks specific memories as processed by the Dreaming phase.
+ */
+export function markAsDreamed(ids: string[]): boolean {
+  const dir = ensureJournalDir();
+  const logPath = join(dir, ENTRIES_FILE);
+  if (!existsSync(logPath)) return false;
+
+  const lines = readFileSync(logPath, "utf-8").split("\n").filter(Boolean);
+  let updatedCount = 0;
+
+  const updated = lines.map((line) => {
+    try {
+      const record = JSON.parse(line) as ExperienceEntry;
+      if (ids.includes(record.id) && !record.dreamedAt) {
+        record.dreamedAt = new Date().toISOString();
+        updatedCount++;
+      }
+      return JSON.stringify(record);
+    } catch {
+      return line;
+    }
+  });
+
+  writeFileSync(logPath, updated.join("\n") + "\n", "utf-8");
+  return updatedCount > 0;
 }
 
 // ---------------------------------------------------------------------------

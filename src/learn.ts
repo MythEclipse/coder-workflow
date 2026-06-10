@@ -15,6 +15,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { runDreamingCycle } from "./dreaming.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -28,6 +29,8 @@ export interface FailureRecord {
   resolved: boolean;
   resolution?: string;
   correctionWritten?: boolean;
+  /** Timestamp when this failure was processed by the Dreaming phase. */
+  dreamedAt?: string;
 }
 
 export interface CorrectionEntry {
@@ -81,6 +84,15 @@ export function logFailure(
 
   appendFileSync(join(dir, FAILURE_LOG), JSON.stringify(fullRecord) + "\n", "utf-8");
 
+  // Auto-trigger dreaming if backlog gets too large
+  try {
+    if (getUnprocessedFailures().length >= 5) {
+      runDreamingCycle();
+    }
+  } catch {
+    // Fail silently
+  }
+
   return fullRecord;
 }
 
@@ -115,6 +127,60 @@ export function getFailures(options?: {
   failures.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return options?.limit ? failures.slice(0, options.limit) : failures;
+}
+
+/**
+ * Gets failures that have not yet been processed by the Dreaming phase.
+ */
+export function getUnprocessedFailures(): FailureRecord[] {
+  const dir = ensureLearnDir();
+  const logPath = join(dir, FAILURE_LOG);
+  if (!existsSync(logPath)) return [];
+
+  const lines = readFileSync(logPath, "utf-8").split("\n").filter(Boolean);
+  const failures: FailureRecord[] = [];
+
+  for (const line of lines) {
+    try {
+      const record = JSON.parse(line) as FailureRecord;
+      if (!record.dreamedAt) {
+        failures.push(record);
+      }
+    } catch {
+      // skip corrupted lines
+    }
+  }
+
+  failures.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return failures;
+}
+
+/**
+ * Marks specific failures as processed by the Dreaming phase.
+ */
+export function markFailureAsDreamed(ids: string[]): boolean {
+  const dir = ensureLearnDir();
+  const logPath = join(dir, FAILURE_LOG);
+  if (!existsSync(logPath)) return false;
+
+  const lines = readFileSync(logPath, "utf-8").split("\n").filter(Boolean);
+  let updatedCount = 0;
+
+  const updated = lines.map((line) => {
+    try {
+      const record = JSON.parse(line) as FailureRecord;
+      if (ids.includes(record.id) && !record.dreamedAt) {
+        record.dreamedAt = new Date().toISOString();
+        updatedCount++;
+      }
+      return JSON.stringify(record);
+    } catch {
+      return line;
+    }
+  });
+
+  writeFileSync(logPath, updated.join("\n") + "\n", "utf-8");
+  return updatedCount > 0;
 }
 
 // ─── Correction Management ──────────────────────────────────────────────
