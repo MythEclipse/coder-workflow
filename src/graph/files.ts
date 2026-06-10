@@ -11,7 +11,7 @@ export function listSourceFiles(root: string, settings: CodeGraphSettings): stri
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const fullPath = join(dir, entry.name);
-      const rel = relative(root, fullPath);
+      const rel = relative(root, fullPath).replace(/\\/g, "/");
       if (isIgnored(rel, entry.isDirectory())) continue;
       if (entry.isDirectory()) walk(fullPath);
       const language = languageForPath(entry.name);
@@ -31,7 +31,7 @@ export function listSearchableFiles(root: string, settings: CodeGraphSettings): 
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const fullPath = join(dir, entry.name);
-      const rel = relative(root, fullPath);
+      const rel = relative(root, fullPath).replace(/\\/g, "/");
       if (isIgnored(rel, entry.isDirectory())) continue;
       if (entry.isDirectory()) walk(fullPath);
       else if (entry.isFile()) result.push(fullPath);

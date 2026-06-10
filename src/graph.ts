@@ -160,7 +160,7 @@ export async function scanCodebase(root: string, settings: CodeGraphSettings): P
   // Phase 1: Parallel I/O with bounded concurrency
   const maxWorkers = Math.min(16, availableParallelism());
   const results = await boundedMap(files, maxWorkers, async (file) => {
-    const rel = relative(root, file);
+    const rel = relative(root, file).replace(/\\/g, "/");
     const language = languageForPath(file) ?? "unknown";
 
     const fstat = await fsStat(file);

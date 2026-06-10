@@ -32,7 +32,7 @@ export function app() {
   });
 
   assert.equal(runCli(root, ["scan"]).status, 0);
-  const result = runCli(root, ["quality", "--fail-on", "high"]);
+  const result = runCli(root, ["quality", "graph", "--fail-on", "high"]);
 
   assert.equal(result.status, 1);
   const output = JSON.parse(result.stdout);
@@ -49,7 +49,7 @@ test("quality command exits with clean error for invalid fail-on threshold", () 
   });
 
   assert.equal(runCli(root, ["scan"]).status, 0);
-  const result = runCli(root, ["quality", "--fail-on", "severe"]);
+  const result = runCli(root, ["quality", "graph", "--fail-on", "severe"]);
 
   assert.equal(result.status, 1);
   assert.equal(result.stdout, "");
@@ -74,7 +74,7 @@ test("quality command exits zero when fail-on threshold is not met", () => {
   });
 
   assert.equal(runCli(root, ["scan"]).status, 0);
-  const result = runCli(root, ["quality", "--fail-on", "high"]);
+  const result = runCli(root, ["quality", "graph", "--fail-on", "high"]);
 
   assert.equal(result.status, 0);
   const output = JSON.parse(result.stdout);

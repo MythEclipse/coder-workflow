@@ -26,7 +26,7 @@
     "build": "node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
     "prepack": "npm run build",
-    "test": "npm run build && npm run typecheck && node --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test dist/test/**/*.test.js test/**/*.test.mjs",
+    "test": "npm run build && npm run typecheck && node --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test \"dist/test/**/*.test.js\" \"dist/test/*.test.js\" \"test/**/*.test.mjs\" \"test/*.test.mjs\"",
     "start:mcp": "node dist/mcp-server.js",
     "scan": "node dist/cli.js scan",
     "ui": "node dist/cli.js ui",

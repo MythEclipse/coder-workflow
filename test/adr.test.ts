@@ -382,7 +382,7 @@ test("initADR creates docs/adr directory with README", () => {
 
     const result = initADR();
     assert.ok(result);
-    assert.ok(result.dir.endsWith("docs/adr"));
+    assert.ok(result.dir.replace(/\\/g, "/").endsWith("docs/adr"));
 
     // README should exist
     const readmePath = join(root, "docs/adr/README.md");
