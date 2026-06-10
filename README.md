@@ -24,51 +24,37 @@ Designed for teams or solo developers who want Claude Code to behave like a stru
 
 ## Architecture at a Glance
 
-```text
-User request
-  ↓
-Claude Code plugin discovery
-  ↓
-coder-orchestrator skill  ← manager-only: no direct reads/writes
-  │
-  ├─ Complexity Gate
-  │   ├─ Tier 1 (scoped: ≤3 named files) → direct agent dispatch
-  │   └─ Tier 2 (broad / cross-cutting) → mandatory pre-flight:
-  │       ├─ Step 1: Skill(brainstorming)   ← foreground, interactive, blocks
-  │       │          until user approves design spec
-  │       ├─ Step 2: Explore agent          ← background recon
-  │       └─ Step 3: workflow-planner       ← decomposes into N atomic tasks
-  │
-  └─ Swarm Dispatch (1 Agent() per task, all parallel)
-      ├─ code-implementer
-      ├─ architecture-auditor
-      ├─ debugging-engineer
-      ├─ test-engineer
-      ├─ code-reviewer
-      ├─ refactoring-engineer
-      ├─ docs-engineer
-      ├─ ui-engineer
-      ├─ db-architect
-      ├─ devops-engineer
-      └─ ...
-  ↓
-CodeGraph MCP tools
-  ├─ scan_codebase / update_codebase
-  ├─ query_graph
-  ├─ analyze_impact
-  ├─ search_code
-  ├─ find_cycles / find_orphans
-  ├─ quality_gate
-  └─ ping
-  ↓
-.codegraph/graph.db
+```mermaid
+graph TD
+    User["User request"] --> Plugin["Claude Code plugin discovery"]
+    Plugin --> Orch["coder-orchestrator skill<br/><i>manager-only: no direct reads/writes</i>"]
+    
+    Orch --> Gate{"Complexity Gate"}
+    
+    Gate -->|"Tier 1 (scoped: ≤3 files)"| DirectDispatch["Direct agent dispatch"]
+    Gate -->|"Tier 2 (broad/cross-cutting)"| Preflight["Mandatory pre-flight"]
+    
+    Preflight --> Step1["1. Skill(brainstorming)<br/><i>foreground, interactive, blocks</i>"]
+    Step1 --> Step2["2. Explore agent<br/><i>background recon</i>"]
+    Step2 --> Step3["3. workflow-planner<br/><i>decomposes into N atomic tasks</i>"]
+    
+    DirectDispatch --> Swarm["Swarm Dispatch<br/><i>1 Agent per task (parallel)</i>"]
+    Step3 --> Swarm
+    
+    Swarm --> Agents["Specialized Agents<br/><i>code-implementer, architecture-auditor, etc.</i>"]
+    
+    Agents --> MCP["CodeGraph MCP tools<br/><i>scan, query, analyze_impact, etc.</i>"]
+    Orch -.-> MCP
+    
+    MCP --> DB[(".codegraph/graph.db")]
 
-─── Headroom Context Layers ───
-
-CCR Compression ─► Compress tool outputs 60-95%
-CacheAligner    ─► Prefix stabilization for KV cache hits
-Learn           ─► Auto-analyze failures, write corrections
-Cross-Agent Mem ─► Shared memory across Claude/Codex/Gemini/Cursor
+    subgraph Headroom ["Headroom Context Layers"]
+        direction TB
+        CCR["CCR Compression<br/>Compress tool outputs 60-95%"]
+        Cache["CacheAligner<br/>Prefix stabilization for KV cache hits"]
+        Learn["Learn<br/>Auto-analyze failures, write corrections"]
+        Mem["Cross-Agent Mem<br/>Shared memory across Claude/Codex/Gemini/Cursor"]
+    end
 ```
 
 ---
