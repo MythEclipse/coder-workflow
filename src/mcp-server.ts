@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { cwd } from "node:process";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -28,116 +28,40 @@ import type { CodeGraph } from "./types.js";
 import { openGraphUi } from "./ui.js";
 
 let _cachedGraph: CodeGraph | null = null;
+let _cachedGraphMtime = 0;
 
 // ─── Sequential Thinking Engine (session-level singleton) ─────────────────
 const _thinkingEngine = new SequentialThinkingEngine({
   stateDir: join(cwd(), ".claude", "sequential-thinking"),
 });
-let _cachedGraphMtime = 0;
-
-// ─── RW Lock (prevents cache serving while scan/update is in-flight) ───
-// Mutating tools (scan_codebase, update_codebase) acquire the write lock.
-// Reading tools wait for any active writer before accessing the cached graph.
-// This prevents concurrent async hook updates from racing with MCP reads.
-
-interface RWLock {
-  readers: number;
-  writer: boolean;
-  pending: Array<() => void>;
-}
-
-function createRWLock(): RWLock {
-  return { readers: 0, writer: false, pending: [] };
-}
-
-function acquireRead(lock: RWLock): Promise<void> {
-  return new Promise((resolve) => {
-    if (!lock.writer && lock.pending.length === 0) {
-      lock.readers++;
-      resolve();
-    } else {
-      lock.pending.push(() => {
-        lock.readers++;
-        resolve();
-      });
-    }
-  });
-}
-
-function releaseRead(lock: RWLock): void {
-  lock.readers--;
-  drainPending(lock);
-}
-
-function acquireWrite(lock: RWLock): Promise<void> {
-  return new Promise((resolve) => {
-    if (lock.readers === 0 && !lock.writer) {
-      lock.writer = true;
-      resolve();
-    } else {
-      lock.pending.push(() => {
-        lock.writer = true;
-        resolve();
-      });
-    }
-  });
-}
-
-function releaseWrite(lock: RWLock): void {
-  lock.writer = false;
-  drainPending(lock);
-}
-
-function drainPending(lock: RWLock): void {
-  while (lock.pending.length > 0) {
-    if (lock.writer || lock.readers > 0) break;
-    const next = lock.pending.shift()!;
-    next();
-    // if the first waiter was a writer it stops further draining until released
-    if (lock.writer) break;
-  }
-}
-
-const _graphLock = createRWLock();
 
 /**
- * Get max mtime across main DB and WAL sidecar files.
- * WAL mode writes to graph.db-wal before checkpointing into graph.db.
+ * Get mtime of the JSON graph file.
+ * Returns 0 if file does not exist.
  */
-function getDbMaxMtime(dbPath: string): number {
-  let maxMtime = 0;
-  const files = [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
-  for (const file of files) {
-    if (existsSync(file)) {
-      try {
-        const stat = statSync(file);
-        maxMtime = Math.max(maxMtime, stat.mtimeMs);
-      } catch {
-        // ignore stat errors
-      }
-    }
+function getGraphJsonMtime(root: string): number {
+  const jsonPath = join(root, ".codegraph", "graph.json");
+  try {
+    return statSync(jsonPath).mtimeMs;
+  } catch {
+    return 0;
   }
-  return maxMtime;
 }
 
+/**
+ * Get cached graph, reading from JSON only when the file has changed.
+ * No locks required — JSON reads are always safe concurrent with
+ * atomic write+rename.
+ */
 async function getCachedGraph(root: string): Promise<CodeGraph> {
-  await acquireRead(_graphLock);
-  try {
-    const dbPath = join(root, ".codegraph", "graph.db");
-    try {
-      const mtime = getDbMaxMtime(dbPath);
-      if (_cachedGraph && _cachedGraphMtime === mtime) {
-        return _cachedGraph;
-      }
-      _cachedGraph = await readGraph(root);
-      _cachedGraphMtime = mtime;
-      return _cachedGraph;
-    } catch {
-      return readGraph(root);
-    }
-  } finally {
-    releaseRead(_graphLock);
+  const mtime = getGraphJsonMtime(root);
+  if (_cachedGraph && _cachedGraphMtime === mtime) {
+    return _cachedGraph;
   }
+  // File changed (or first load) — re-read
+  _cachedGraph = await readGraph(root);
+  _cachedGraphMtime = mtime;
+  return _cachedGraph;
 }
 
 const server = new Server(
@@ -190,6 +114,7 @@ import {
   storeMemory,
   syncWithPlatform,
 } from "./cross-agent-memory.js";
+import { readSwarmMessages, sendSwarmMessage } from "./swarm-chat.js";
 import {
   compareSchemas,
   formatSchemaDiff,
@@ -622,6 +547,32 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           error: { type: "string", description: "Error message to match against known patterns" },
         },
         required: ["error"],
+      },
+    },
+
+    // ─── Swarm Chat (Inter-Agent Communication) ────────────────────────
+    {
+      name: "send_swarm_message",
+      description: "Swarm Chat — Send a message to another parallel subagent or broadcast to 'all'. Use this to coordinate, resolve file conflicts, or share discoveries.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sender: { type: "string", description: "Your agent name/role" },
+          recipient: { type: "string", description: "Target agent name/role, or 'all'" },
+          content: { type: "string", description: "The message content" },
+        },
+        required: ["sender", "recipient", "content"],
+      },
+    },
+    {
+      name: "read_swarm_messages",
+      description: "Swarm Chat — Read messages sent to you or broadcasted to 'all'.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          recipientFilter: { type: "string", description: "Your agent name/role to filter messages for you. Leave empty to see all." },
+          sinceTimestamp: { type: "string", description: "ISO 8601 timestamp to only get new messages since this time" },
+        },
       },
     },
 
@@ -1427,34 +1378,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           edges: _cachedGraph?.edges.length ?? 0,
           mtime: _cachedGraphMtime ? new Date(_cachedGraphMtime).toISOString() : null,
         },
-        lock: {
-          writer: _graphLock.writer,
-          readers: _graphLock.readers,
-          pending: _graphLock.pending.length,
-        },
       });
     case "scan_codebase":
     case "update_codebase": {
-      await acquireWrite(_graphLock);
-      try {
-        const graph = await withTimeout(
-          scanCodebase(root, settings),
-          SCAN_TIMEOUT_MS,
-          request.params.name,
-        );
-        await writeGraph(root, graph);
-        // Invalidate cache after write so next read gets fresh data
-        _cachedGraph = null;
-        _cachedGraphMtime = 0;
-        return text({
-          graph: ".codegraph/graph.db",
-          nodes: graph.nodes.length,
-          edges: graph.edges.length,
-          filesScanned: graph.metadata.filesScanned,
-        });
-      } finally {
-        releaseWrite(_graphLock);
-      }
+      const graph = await withTimeout(
+        scanCodebase(root, settings),
+        SCAN_TIMEOUT_MS,
+        request.params.name,
+      );
+      await writeGraph(root, graph);
+      // Invalidate cache after write so next read gets fresh data
+      _cachedGraph = null;
+      _cachedGraphMtime = 0;
+      return text({
+        graph: ".codegraph/graph.json",
+        nodes: graph.nodes.length,
+        edges: graph.edges.length,
+        filesScanned: graph.metadata.filesScanned,
+      });
     }
     case "query_graph": {
       const query = stringArg(args?.query, "query");
@@ -1647,6 +1588,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const err = stringArg(args?.error, "error");
       const match = matchCorrection(err);
       return text({ matched: match !== undefined, correction: match ?? null });
+    }
+
+    // ─── Swarm Chat Handlers ───────────────────────────────────────────
+    case "send_swarm_message": {
+      const msg = sendSwarmMessage(
+        root,
+        stringArg(args?.sender, "sender"),
+        stringArg(args?.recipient, "recipient"),
+        stringArg(args?.content, "content")
+      );
+      return text({ success: true, message: msg });
+    }
+
+    case "read_swarm_messages": {
+      const messages = readSwarmMessages(
+        root,
+        args?.recipientFilter ? String(args.recipientFilter) : undefined,
+        args?.sinceTimestamp ? String(args.sinceTimestamp) : undefined
+      );
+      return text({ messages });
     }
 
     // ─── Headroom: Cross-Agent Memory Handlers ─────────────────────────
@@ -2164,7 +2125,7 @@ interface GraphFreshness {
 }
 
 async function getGraphFreshness(root: string): Promise<GraphFreshness> {
-  const dbPath = join(root, ".codegraph", "graph.db");
+  const jsonPath = join(root, ".codegraph", "graph.json");
   if (!(await graphExists(root))) {
     return {
       exists: false,
@@ -2173,7 +2134,7 @@ async function getGraphFreshness(root: string): Promise<GraphFreshness> {
       recommendation: "No graph database found. Run scan_codebase before deep analysis.",
     };
   }
-  const mtimeMs = statSync(dbPath).mtimeMs;
+  const mtimeMs = statSync(jsonPath).mtimeMs;
   const ageMinutes = Math.round((Date.now() - mtimeMs) / 60_000);
   const isStale = ageMinutes > 120;
   return {

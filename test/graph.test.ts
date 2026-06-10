@@ -177,7 +177,7 @@ public class App {
   }
 });
 
-test("writes graph runtime data to database without runtime json files", async () => {
+test("writes graph runtime data to JSON file", async () => {
   const root = fixture({
     "src/app.ts": `export function realSymbol() { return "ok"; }`,
   });
@@ -186,8 +186,7 @@ test("writes graph runtime data to database without runtime json files", async (
   await writeGraph(root, graph);
 
   assert.equal(await graphExists(root), true);
-  assert.equal(existsSync(join(root, ".codegraph", "graph.db")), true);
-  assert.equal(existsSync(join(root, ".codegraph", "graph.json")), false);
+  assert.equal(existsSync(join(root, ".codegraph", "graph.json")), true);
   assert.equal(existsSync(join(root, ".codegraph", "index.json")), false);
   assert.equal(existsSync(join(root, ".codegraph", "cache", "scan-cache.json")), false);
   assertNode(await readGraph(root), "symbol:src/app.ts:realSymbol");

@@ -12,7 +12,7 @@ Trigger the coder-orchestrator skill. Every coding request flows through:
 1. **Trivial Task Fast-Path** → If the request is a trivial fix (e.g., typo, 1-2 line change), SKIP planning and execute directly.
 2. **Decompose** → For complex tasks, `coder-workflow:workflow-planner` agent breaks work into N independent tasks.
 3. **Pre-audit** → `coder-workflow:architecture-auditor` agent reviews current state (skip for simple tasks).
-4. **Swarm Dispatch (CRITICAL)** → Spawn **1 subagent per task** using `Agent` tool with `run_in_background: true`. If planner produced 10 tasks, spawn 10 subagents simultaneously. Each subagent receives exactly 1 task. Do NOT batch tasks into a single agent.
+4. **Swarm Dispatch (CRITICAL)** → Spawn **1 subagent per task** using `Agent` tool with `run_in_background: true`. If planner produced 10 tasks, spawn 10 subagents simultaneously. **CRITICAL**: You MUST issue ALL `Agent` tool calls concurrently in a SINGLE turn. Do NOT spawn them sequentially one-by-one. Each subagent receives exactly 1 task. Do NOT batch tasks into a single agent.
 5. **Synthesis** → After ALL subagents complete, collect results, detect conflicts, merge.
 6. **Post-verify** → `coder-workflow:architecture-auditor` confirms no new violations (complex tasks only).
 7. **Bug Fix Phase** → Fix discovered bugs; each bug = 1 subagent task.
@@ -23,6 +23,8 @@ Trigger the coder-orchestrator skill. Every coding request flows through:
 - Skills before guesses — always route to appropriate skill
 - Fix every discovered bug — no "not related to my changes"
 - Set `CW_AGENT_DEPTH=1` before spawning subagents to prevent recursive delegation
+- **No worktrees** — NEVER use `isolation: worktree` or branched workspaces when spawning agents. All agents must run in the same shared workspace.
+- **Swarm Chat** — Parallel subagents can communicate and coordinate using `mcp__codegraph__send_swarm_message` and `mcp__codegraph__read_swarm_messages`.
 
 If a specific task is provided, decompose it. If no task, ask what to work on and start the orchestrator flow.
 

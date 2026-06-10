@@ -14,6 +14,7 @@ This is the fundamental rule: **parallelism = multiple subagents, not multiple t
 ```
 ✅ CORRECT: 10 tasks → 10 subagents (each runs independently)
 ❌ WRONG:   10 tasks → 1 subagent with 10 steps (sequential bottleneck)
+❌ WRONG:   10 tasks → 10 subagents spawned one-by-one in separate turns (too slow)
 ❌ WRONG:   10 tasks → main agent does them all (defeats parallelism)
 ```
 
@@ -40,7 +41,10 @@ Agent 3: "Write tests for User module"          → coder-workflow:test-engineer
 Agent 4: "Update API docs for User endpoints"   → coder-workflow:docs-engineer (background)
 ```
 
-Start ALL simultaneously. Do not wait between spawns. Use `run_in_background: true` for each.
+**CRITICAL**: You MUST issue all `Agent` tool calls CONCURRENTLY in a SINGLE response. 
+Do NOT spawn them sequentially one-by-one across multiple turns. Use multiple concurrent tool calls at once.
+Use `run_in_background: true` for each.
+**NO WORKTREES**: Never use `isolation: worktree` or branched workspaces. All agents must run in the exact same workspace environment.
 
 ### Subagent-level (inside a worker)
 A subagent that needs help from another specialist uses `invoke_subagent` and **waits** for the result. This is for depth-2 delegation, NOT for spawning parallel work.
@@ -95,6 +99,12 @@ When in doubt → parallelize with FILE_MANIFEST pre-check first. Only serialize
   Swarm: one agent per bug — all in parallel
 - **"Research topic X"**
   Swarm: one agent per search angle
+
+## Inter-Agent Communication (Swarm Chat)
+
+When multiple agents are running in parallel, you can communicate with each other using the MCP Swarm Chat tools to share discoveries, coordinate changes, or resolve conflicts:
+- Use `mcp__codegraph__send_swarm_message` to broadcast to 'all' or a specific agent.
+- Use `mcp__codegraph__read_swarm_messages` to check if other agents have sent you coordination messages.
 
 ## Synthesis
 

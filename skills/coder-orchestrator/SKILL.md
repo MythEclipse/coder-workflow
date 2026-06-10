@@ -177,12 +177,14 @@ Step 4 — Swarm Dispatch
 3. **Plan** *(Tier 2)*: Spawn `coder-workflow:workflow-planner` with Explore findings + approved spec. Produces N atomic tasks with FILE_MANIFEST. Wait for output.
 4. **Memory check** *(if applicable)*: Invoke `coder-workflow:memory-librarian` for recurring/cross-session context.
 5. **Multi-Repo** *(if applicable)*: `coder-workflow:multi-repo-orchestrator` for cross-service scope.
-6. **Swarm Dispatch (CRITICAL)**: Spawn **1 `Agent()` per task** from workflow-planner output, all in parallel. Each receives exactly 1 task + FILE_MANIFEST. No batching.
+6. **Swarm Dispatch (CRITICAL)**: Spawn **1 `Agent()` per task** from workflow-planner output, all in parallel. **CRITICAL**: You MUST issue ALL `Agent` tool calls concurrently in a SINGLE turn. Do NOT spawn them sequentially one-by-one. Each receives exactly 1 task + FILE_MANIFEST. No batching.
 7. **Synthesis & Conflict Resolution**: Collect all outputs. Detect file overlaps/conflicts. Merge cleanly.
 8. **Review**: `coder-workflow:code-reviewer` or `coder-workflow:architecture-auditor`.
 9. **Bug Fix Phase**: Track bugs as low-priority tasks. Fix at session end via Impact Radius Protocol.
 
 ### Swarm Dispatch Rules
+
+- **No worktrees**. NEVER use `isolation: worktree` or branched workspaces when spawning agents. All subagents must run in the exact same workspace environment.
 
 - **1 task = 1 subagent**. Never batch tasks into one agent.
 - Isolated domains (different files/modules) → FULLY parallel, all spawned at once.
