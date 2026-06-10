@@ -83,6 +83,7 @@ import {
 } from "./db-schema.js";
 import { detectDeadCodeFromGraph } from "./deadcode.js";
 import { formatDoctorReport, generateDoctorReport } from "./doctor.js";
+import { runDreamingCycle } from "./dreaming.js";
 import {
   getStats as getExpStats,
   getInsights,
@@ -143,6 +144,7 @@ import { searchCodebase } from "./search.js";
 import { formatSecretsReport, scanForSecrets } from "./secrets.js";
 import { buildEmbeddings, getEmbeddingStats, semanticSearch } from "./semantic-search.js";
 import { loadSettings } from "./settings.js";
+import { pruneStaleSkills, scaffoldNewSkill } from "./skill-curator.js";
 import {
   formatDebtDashboard,
   formatDebtReport,
@@ -164,8 +166,6 @@ import { formatTodoReport, getTodoHistory, scanForTodos } from "./todo-tracker.j
 import { getStats as getTradeoffStats, querySimilar } from "./trade-off-analyzer.js";
 import { openGraphUi } from "./ui.js";
 import { formatVulnReport, generateSBOM, scanVulnerabilities } from "./vuln-sbom.js";
-import { runDreamingCycle } from "./dreaming.js";
-import { pruneStaleSkills, scaffoldNewSkill } from "./skill-curator.js";
 
 const root = cwd();
 const settings = loadSettings(root);
@@ -569,7 +569,9 @@ async function main() {
         const desc = readFlag(args, "--desc");
         const flow = readFlag(args, "--flow") || "TODO: Add workflow details";
         if (!name || !desc) {
-          console.error("Usage: coder-workflow curate scaffold --name <name> --desc <desc> [--flow <flow>]");
+          console.error(
+            "Usage: coder-workflow curate scaffold --name <name> --desc <desc> [--flow <flow>]",
+          );
           process.exitCode = 1;
           break;
         }

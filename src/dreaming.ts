@@ -7,7 +7,7 @@
  * candidates and promoting repeated observations to durable memory.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getUnprocessedMemories, markAsDreamed } from "./experience-journal.js";
 import { getUnprocessedFailures, markFailureAsDreamed } from "./learn.js";
@@ -64,7 +64,7 @@ function extractTopic(text: string): string {
 export function runLightSleep(): { extracted: number; candidates: MemoryCandidate[] } {
   const entries = getUnprocessedMemories();
   const failures = getUnprocessedFailures();
-  
+
   if (entries.length === 0 && failures.length === 0) {
     return { extracted: 0, candidates: loadCandidates() };
   }
@@ -78,7 +78,7 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
       const topic = extractTopic(lesson);
       if (!topic) continue;
 
-      let candidate = candidates.find(c => c.topic === topic);
+      let candidate = candidates.find((c) => c.topic === topic);
       if (candidate) {
         candidate.confidence += 1;
         candidate.lastSeen = new Date().toISOString();
@@ -89,7 +89,7 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
           context: lesson,
           confidence: 1,
           firstSeen: new Date().toISOString(),
-          lastSeen: new Date().toISOString()
+          lastSeen: new Date().toISOString(),
         };
         candidates.push(candidate);
       }
@@ -103,7 +103,7 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
     const topic = extractTopic(failure.error);
     if (!topic) continue;
 
-    let candidate = candidates.find(c => c.topic === topic);
+    let candidate = candidates.find((c) => c.topic === topic);
     if (candidate) {
       candidate.confidence += 1;
       candidate.lastSeen = new Date().toISOString();
@@ -114,7 +114,7 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
         context: `Failure observation: ${failure.error}`,
         confidence: 1,
         firstSeen: new Date().toISOString(),
-        lastSeen: new Date().toISOString()
+        lastSeen: new Date().toISOString(),
       };
       candidates.push(candidate);
     }
@@ -122,10 +122,10 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
   }
 
   saveCandidates(candidates);
-  
+
   // Mark as dreamed
-  markAsDreamed(entries.map(e => e.id));
-  markFailureAsDreamed(failures.map(f => f.id));
+  markAsDreamed(entries.map((e) => e.id));
+  markFailureAsDreamed(failures.map((f) => f.id));
 
   return { extracted: newSignals, candidates };
 }
@@ -137,12 +137,13 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
 export function runRemSleep(): { promoted: number } {
   let candidates = loadCandidates();
   const memoryFile = join(process.cwd(), DURABLE_MEMORY_FILE);
-  
+
   let currentMemory = "";
   if (existsSync(memoryFile)) {
     currentMemory = readFileSync(memoryFile, "utf-8");
   } else {
-    currentMemory = "# Durable Memory Wiki\n\nConsolidated knowledge and long-term facts.\n\n## Core Learnings\n";
+    currentMemory =
+      "# Durable Memory Wiki\n\nConsolidated knowledge and long-term facts.\n\n## Core Learnings\n";
   }
 
   let promotedCount = 0;
@@ -153,8 +154,8 @@ export function runRemSleep(): { promoted: number } {
       // Promote
       const newFact = `\n- **Topic:** ${candidate.topic}\n  **Context:** ${candidate.context}\n  *Promoted on:* ${new Date().toISOString()}\n`;
       if (!currentMemory.includes(candidate.context)) {
-         currentMemory += newFact;
-         promotedCount++;
+        currentMemory += newFact;
+        promotedCount++;
       }
     } else {
       // Keep in staging

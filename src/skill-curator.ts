@@ -6,7 +6,15 @@
  * and archive procedural memory skills based on their usage.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, renameSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 const SKILLS_DIR = "skills";
@@ -97,7 +105,7 @@ export function recordSkillUsage(skillName: string): void {
 export function pruneStaleSkills(maxIdleDays = 30): { archived: string[] } {
   const skillsDir = join(process.cwd(), SKILLS_DIR);
   const archiveDir = join(process.cwd(), ARCHIVE_DIR);
-  
+
   if (!existsSync(skillsDir)) return { archived: [] };
   if (!existsSync(archiveDir)) mkdirSync(archiveDir, { recursive: true });
 
@@ -108,7 +116,7 @@ export function pruneStaleSkills(maxIdleDays = 30): { archived: string[] } {
   const entries = readdirSync(skillsDir);
   for (const entry of entries) {
     if (entry === ".archive") continue;
-    
+
     const skillPath = join(skillsDir, entry);
     if (!statSync(skillPath).isDirectory()) continue;
 

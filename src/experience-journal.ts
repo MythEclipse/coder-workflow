@@ -388,7 +388,7 @@ export function queryDecisions(context?: string): DecisionRecord[] {
 export function getUnprocessedMemories(): ExperienceEntry[] {
   const dir = ensureJournalDir();
   const allEntries = readJsonl<ExperienceEntry>(join(dir, ENTRIES_FILE));
-  
+
   return allEntries.filter((e) => !e.dreamedAt);
 }
 
