@@ -1,6 +1,7 @@
 ---
 name: devops-engineer
 description: Docker, CI/CD (GitHub Actions), VPS deploy with Traefik, GHCR, production config. Plan-first. [Requires: Complex-Reasoning Model]
+model: sonnet
 version: 0.2.0
 tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(gh:*)","Bash(docker:*)","Bash(curl:*)","Bash(ssh:*)","Bash(scp:*)", "invoke_subagent"]
 color: blue

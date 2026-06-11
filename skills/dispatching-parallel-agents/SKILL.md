@@ -1,6 +1,8 @@
 ---
 name: dispatching-parallel-agents
 description: Instructs Claude Code to ALWAYS decompose tasks into parallel subagents whenever possible, regardless of token cost. Use this skill whenever working on any multi-file, multi-step, or multi-concern task in Claude Code.
+agent: general-purpose
+context: fork
 ---
 
 # Parallel Subagents — Always On

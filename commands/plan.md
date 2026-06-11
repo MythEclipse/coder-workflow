@@ -4,12 +4,53 @@ argument-hint: [task-description]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `coder-workflow:workflow-planner` agent (using the `Agent` or `Subagent` tool, DO NOT use the `Skill` tool) to aggressively decompose the given coding request.
+Always execute via the Workflow engine.
 
-The `coder-workflow:workflow-planner` agent is the single source of truth for decomposition rules, task thresholds, dependency ordering, skill assignment, and verification gates. Do not duplicate those rules here — invoke the agent and let it run its full process.
+```
+∴ coder-orchestrator [T2] → Workflow(task-decomposition): Decompose request into tracked atomic tasks
 
-Pass the user's task description directly to the agent. If no argument is provided, ask the user what they want to build or fix before invoking.
+∴ Workflow({
+  name: 'task-decomposition',
+  description: 'Aggressively decompose coding request into N atomic tasks with skill/agent routing',
+  phases: [
+    { title: 'Discover', detail: 'CodeGraph recon — understand current codebase state' },
+    { title: 'Plan',     detail: 'workflow-planner decomposes into atomic tasks with FILE_MANIFEST' },
+    { title: 'Register', detail: 'create TaskCreate entries for each decomposed task' },
+  ],
+})
 
+phase('Discover')
+const exploration = await agent(
+  `Explore codebase to understand the current state relevant to this request: $ARGUMENTS
+  Use CodeGraph to map affected modules, trace dependencies, identify integration points.`,
+  { label: 'pre-explore', phase: 'Discover', agent: 'coder-workflow:explore-codebase' }
+)
+
+phase('Plan')
+const decomposition = await agent(
+  `Aggressively decompose this request into atomic tasks. Each task must:
+  - Target ≤3 files (FILE_MANIFEST)
+  - Have a single, measurable output
+  - Be assignable to exactly one specialist agent from the routing table
+  - Have explicit dependencies declared (so parallel vs sequential is clear)
+
+  Request: $ARGUMENTS
+  Codebase context: ${exploration}
+
+  Output: ordered task list with FILE_MANIFEST, agent assignment, and dependency graph.`,
+  { label: 'decompose', phase: 'Plan', agent: 'coder-workflow:workflow-planner' }
+)
+
+phase('Register')
+const taskList = await agent(
+  `For each task in the decomposition, run TaskCreate to register it in the task tracker.
+  Then output a final summary table: task name | agent | files | depends-on.
+  Decomposition: ${decomposition}`,
+  { label: 'register-tasks', phase: 'Register' }
+)
+
+return { taskList, decomposition }
+```
 
 > [!IMPORTANT]
 > MCP TOOL UPDATES:

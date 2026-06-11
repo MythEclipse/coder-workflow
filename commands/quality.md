@@ -1,14 +1,74 @@
 ---
-description: Quality Guardian — check quality score, regression, trend
+description: Quality Guardian — detect code smell, best-practice violations, style inconsistencies, logic duplication, and architectural anomalies
 argument-hint: [optional-scope]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `coder-workflow:quality-guardian` subagent to enforce quality standards — detect code smell, best-practice violations, style inconsistencies, logic duplication, and architectural anomalies before code is merged.
+Always execute via the Workflow engine.
 
-The `coder-workflow:quality-guardian` agent is the single source of truth for quality rules, severity levels, audit process, and output contract. Do not duplicate those rules here — invoke the agent with the given scope and let it run its full process.
+```
+∴ coder-orchestrator [T2] → Workflow(quality-gate): Quality gate — smell detection, consistency, anomaly scan
 
-If a scope argument (file path, module name, or diff ref) is provided, pass it to the agent as the target boundary. If no argument, the agent will scan all recent changes against the full codebase.
+∴ Workflow({
+  name: 'quality-gate',
+  description: 'Enforce quality standards: smell, duplication, style, logic anomalies, gate evaluation',
+  phases: [
+    { title: 'Scan',      detail: 'parallel quality scans via CodeGraph + graph tools' },
+    { title: 'Evaluate',  detail: 'quality-guardian scores and ranks violations' },
+    { title: 'Report',    detail: 'severity-ranked findings + remediation priorities' },
+  ],
+})
+
+phase('Scan')
+const [qualityMetrics, cycles, deadCode, smells] = await parallel([
+  () => agent(
+    `Run mcp__codegraph__analyze_quality on scope: ${$ARGUMENTS || 'full project'}.
+    Run mcp__codegraph__quality_gate to get gate pass/fail status.
+    Return raw metrics: complexity, coupling, cohesion, duplication.`,
+    { label: 'quality-metrics', phase: 'Scan', agent: 'coder-workflow:explore-codebase' }
+  ),
+  () => agent(
+    `Run mcp__codegraph__find_cycles on scope: ${$ARGUMENTS || 'full project'}.
+    Return all circular dependency chains with file paths.`,
+    { label: 'cycles', phase: 'Scan', agent: 'coder-workflow:explore-codebase' }
+  ),
+  () => agent(
+    `Run mcp__codegraph__find_dead_code on scope: ${$ARGUMENTS || 'full project'}.
+    Return all unreachable exports, unused functions, orphaned modules.`,
+    { label: 'dead-code', phase: 'Scan', agent: 'coder-workflow:explore-codebase' }
+  ),
+  () => agent(
+    `Scan for code smells: god objects, long parameter lists, primitive obsession,
+    shotgun surgery patterns, feature envy, duplicated logic blocks.
+    Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'smell-scan', phase: 'Scan', agent: 'coder-workflow:quality-guardian' }
+  ),
+])
+
+phase('Evaluate')
+const evaluation = await agent(
+  `Evaluate all quality findings and produce severity-ranked report.
+  Apply quality gate: PASS if no CRITICAL/HIGH issues, WARN if MEDIUM, FAIL if CRITICAL.
+  Metrics: ${qualityMetrics}
+  Cycles: ${cycles}
+  Dead code: ${deadCode}
+  Smells: ${smells}`,
+  { label: 'evaluate', phase: 'Evaluate', agent: 'coder-workflow:quality-guardian' }
+)
+
+phase('Report')
+const report = await agent(
+  `Produce final quality report:
+  1. Gate status: PASS / WARN / FAIL
+  2. Top violations ranked by severity
+  3. Quick wins (easy fixes first)
+  4. Estimated effort to reach PASS
+  Evaluation: ${evaluation}`,
+  { label: 'quality-report', phase: 'Report' }
+)
+
+return { report, gateStatus: evaluation.gateStatus }
+```
 
 CLI invocation: `coder-workflow quality [scope]`.
 

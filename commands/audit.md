@@ -4,12 +4,54 @@ argument-hint: [scope-optional]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `coder-workflow:architecture-auditor` agent to perform a comprehensive read-only architecture audit.
+Always execute via the Workflow engine.
 
-The `coder-workflow:architecture-auditor` agent is the single source of truth for violation definitions, severity levels, audit process, and output format. Do not duplicate those rules here — invoke the agent with the given scope and let it run its full process.
+```
+∴ coder-orchestrator [T2] → Workflow(architecture-audit): Comprehensive read-only architecture audit
 
-If a scope argument is provided, pass it to the agent as the audit boundary. If no argument, the agent will scan the full project.
+∴ Workflow({
+  name: 'architecture-audit',
+  description: 'Read-only audit: layer violations, circular deps, fat controllers, orphaned code',
+  phases: [
+    { title: 'Discover',  detail: 'CodeGraph scan — map module boundaries and call graph' },
+    { title: 'Analyze',   detail: 'architecture-auditor runs full violation scan' },
+    { title: 'Synthesize', detail: 'compile severity-ranked audit report' },
+  ],
+})
 
+phase('Discover')
+const [graphScan, deadCode] = await parallel([
+  () => agent(
+    `Scan codebase structure via CodeGraph. Map all module boundaries, identify entry points, trace major data flows. Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'graph-scan', phase: 'Discover', agent: 'coder-workflow:explore-codebase' }
+  ),
+  () => agent(
+    `Run mcp__codegraph__find_dead_code and mcp__codegraph__find_cycles. Return raw findings.`,
+    { label: 'dead-cycles', phase: 'Discover', agent: 'coder-workflow:explore-codebase' }
+  ),
+])
+
+phase('Analyze')
+const auditReport = await agent(
+  `Perform comprehensive architecture audit on scope: ${$ARGUMENTS || 'full project'}.
+  Check: fat controllers, missing repositories, schema-less boundaries, layer leakage,
+  cross-module coupling, circular dependencies, missing abstractions.
+  Graph findings: ${graphScan}
+  Dead code / cycles: ${deadCode}
+  Output: severity-ranked violations with file:line references.`,
+  { label: 'architecture-audit', phase: 'Analyze', agent: 'coder-workflow:architecture-auditor' }
+)
+
+phase('Synthesize')
+const report = await agent(
+  `Compile final audit report from findings. Group by severity (CRITICAL/HIGH/MEDIUM/LOW).
+  Add recommended remediation steps per violation type.
+  Input: ${auditReport}`,
+  { label: 'synthesize-audit', phase: 'Synthesize' }
+)
+
+return { report, scope: $ARGUMENTS || 'full project' }
+```
 
 > [!IMPORTANT]
 > MCP TOOL UPDATES:

@@ -1,6 +1,7 @@
 ---
 name: todo-checker
 description: Scan for TODO/FIXME/HACK/dummy code — quality gate before finalizing. [Requires: Fast-Exploration Model]
+model: haiku
 color: yellow
 tools: ["Read", "Grep", "Glob", "Bash", "invoke_subagent"]
 ---

@@ -1,8 +1,9 @@
 ---
 name: test-engineer
 description: TDD-first test generation, coverage gap detection, exhaustive test suites. [Requires: Complex-Reasoning Model]
+model: sonnet
 color: purple
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>

@@ -1,21 +1,77 @@
 ---
-description: Proactive Bug Hunter — scan code for common bug patterns
+description: Proactive Bug Hunter — scan code for common bug patterns across the codebase
 argument-hint: [optional-scope]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `coder-workflow:debugging-engineer` subagent to hunt, reproduce, classify, and document bugs across the codebase. (Bug hunting has been merged into debugging-engineer — use Phase 0 for discovery.)
+Always execute via the Workflow engine.
 
-Use this command when you want to:
-- Find new bugs in the codebase systematically
-- Verify reported bugs with reproduction steps
-- Classify bug severity and type
-- Track the bug lifecycle from open to verified-fixed
-- Get structured bug reports before release
+```
+∴ coder-orchestrator [T2] → Workflow(bug-hunt): Proactive bug scan — detect, classify, document
 
-The Bug Hunter Agent runs 5 phases: exploration & detection, verification & reproduction, classification & severity, documentation & reporting, and lifecycle tracking. CRITICAL and HIGH bugs are delegated to `debugging-engineer` for root-cause analysis.
+∴ Workflow({
+  name: 'bug-hunt',
+  description: 'Scan codebase for bug patterns: null-deref, race conditions, logic errors, type mismatches',
+  phases: [
+    { title: 'Scan',      detail: 'parallel multi-angle bug pattern detection' },
+    { title: 'Triage',    detail: 'classify by severity, verify reproduction paths' },
+    { title: 'Report',    detail: 'structured bug report + TaskCreate for each CRITICAL/HIGH' },
+  ],
+})
 
-If a scope argument is given (e.g., module path or feature), the agent will limit the search to that area. If no argument is given, the agent will scan the entire codebase.
+phase('Scan')
+const [nullRisks, asyncRisks, typeRisks, logicRisks] = await parallel([
+  () => agent(
+    `Scan for null/undefined dereference risks: optional chaining missing, unchecked API responses,
+    unguarded array access. Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'null-scan', phase: 'Scan', agent: 'coder-workflow:debugging-engineer' }
+  ),
+  () => agent(
+    `Scan for async/concurrency bugs: missing await, unhandled promise rejections,
+    race conditions, improper error propagation in async chains.
+    Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'async-scan', phase: 'Scan', agent: 'coder-workflow:debugging-engineer' }
+  ),
+  () => agent(
+    `Scan for type safety violations: implicit any, unsafe casts, runtime type mismatches,
+    missing type guards. Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'type-scan', phase: 'Scan', agent: 'coder-workflow:debugging-engineer' }
+  ),
+  () => agent(
+    `Scan for logic bugs: off-by-one errors, incorrect boundary conditions, wrong operator usage,
+    missing edge case handling. Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'logic-scan', phase: 'Scan', agent: 'coder-workflow:debugging-engineer' }
+  ),
+])
+
+phase('Triage')
+const triage = await agent(
+  `Classify all discovered bugs by:
+  - Severity: CRITICAL (data loss/security) / HIGH (crash) / MEDIUM (wrong behavior) / LOW (minor)
+  - Type: null-deref / async / type / logic / edge-case
+  - Reproducibility: confirmed / likely / suspected
+  Produce reproduction steps for CRITICAL + HIGH bugs.
+  Bugs found:
+  Null risks: ${nullRisks}
+  Async risks: ${asyncRisks}
+  Type risks: ${typeRisks}
+  Logic risks: ${logicRisks}`,
+  { label: 'triage', phase: 'Triage', agent: 'coder-workflow:debugging-engineer' }
+)
+
+phase('Report')
+const report = await agent(
+  `Produce final bug report:
+  1. Summary: total bugs by severity
+  2. CRITICAL/HIGH detail: file:line, reproduction, impact
+  3. Create TaskCreate for each CRITICAL and HIGH bug
+  4. MEDIUM/LOW list for future tracking
+  Triage: ${triage}`,
+  { label: 'bug-report', phase: 'Report' }
+)
+
+return { report, criticalCount: triage.critical, highCount: triage.high }
+```
 
 > [!IMPORTANT]
 > MCP TOOL UPDATES:

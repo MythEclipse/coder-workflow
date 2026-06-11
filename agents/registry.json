@@ -11,10 +11,9 @@
         "Grep",
         "Glob",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "architecture-auditor": {
       "file": "agents/architecture-auditor.md",
@@ -25,10 +24,9 @@
         "Grep",
         "Glob",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "code-implementer": {
       "file": "agents/code-implementer.md",
@@ -42,10 +40,9 @@
         "Glob",
         "Bash",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "code-reviewer": {
       "file": "agents/code-reviewer.md",
@@ -59,10 +56,9 @@
         "Glob",
         "Bash",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "debugging-engineer": {
       "file": "agents/debugging-engineer.md",
@@ -77,7 +73,7 @@
         "Bash",
         "invoke_subagent"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "test-engineer": {
       "file": "agents/test-engineer.md",
@@ -91,10 +87,9 @@
         "Glob",
         "Bash",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "refactoring-engineer": {
       "file": "agents/refactoring-engineer.md",
@@ -109,10 +104,9 @@
         "Bash(git:*)",
         "Bash(*)",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "devops-engineer": {
       "file": "agents/devops-engineer.md",
@@ -132,7 +126,7 @@
         "Bash(scp:*)",
         "invoke_subagent"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "docs-engineer": {
       "file": "agents/docs-engineer.md",
@@ -146,10 +140,9 @@
         "Glob",
         "Bash",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "ui-engineer": {
       "file": "agents/ui-engineer.md",
@@ -163,10 +156,9 @@
         "Glob",
         "Bash",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "db-architect": {
       "file": "agents/db-architect.md",
@@ -180,10 +172,9 @@
         "Glob",
         "Bash",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "quality-guardian": {
       "file": "agents/quality-guardian.md",
@@ -197,10 +188,9 @@
         "Glob",
         "Bash",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "todo-checker": {
       "file": "agents/todo-checker.md",
@@ -213,7 +203,7 @@
         "Bash",
         "invoke_subagent"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "diagram-engineer": {
       "file": "agents/diagram-engineer.md",
@@ -230,7 +220,7 @@
         "mcp__codegraph__*",
         "mcp__code-review-graph__*"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "rollback-engineer": {
       "file": "agents/rollback-engineer.md",
@@ -247,7 +237,7 @@
         "mcp__codegraph__*",
         "mcp__code-review-graph__*"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "memory-librarian": {
       "file": "agents/memory-librarian.md",
@@ -264,7 +254,7 @@
         "mcp__codegraph__*",
         "mcp__code-review-graph__*"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "multi-repo-orchestrator": {
       "file": "agents/multi-repo-orchestrator.md",
@@ -278,7 +268,7 @@
         "Bash",
         "invoke_subagent"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "codebase-qa-agent": {
       "file": "agents/codebase-qa-agent.md",
@@ -290,7 +280,7 @@
         "Glob",
         "Bash"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "secret-scanner": {
       "file": "agents/secret-scanner.md",
@@ -302,7 +292,7 @@
         "Glob",
         "Bash"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "vulnerability-scanner": {
       "file": "agents/vulnerability-scanner.md",
@@ -314,7 +304,7 @@
         "Glob",
         "Bash"
       ],
-      "model": "fast"
+      "model": "haiku"
     },
     "docs-generator": {
       "file": "agents/docs-generator.md",
@@ -328,7 +318,7 @@
         "Glob",
         "Bash"
       ],
-      "model": "complex"
+      "model": "sonnet"
     },
     "explore-codebase": {
       "file": "agents/explore-codebase.md",
@@ -339,10 +329,9 @@
         "Grep",
         "Glob",
         "mcp__codegraph__*",
-        "mcp__code-review-graph__*",
         "invoke_subagent"
       ],
-      "model": "fast"
+      "model": "haiku"
     }
   }
 }

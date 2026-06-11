@@ -1,8 +1,9 @@
 ---
 name: docs-engineer
 description: README, API docs, inline docs, PR descriptions — accuracy-first, why-not-just-what. [Requires: Complex-Reasoning Model]
+model: sonnet
 color: cyan
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>

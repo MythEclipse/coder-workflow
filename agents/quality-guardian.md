@@ -1,8 +1,9 @@
 ---
 name: quality-guardian
 description: Code smell detection, best practice enforcement, consistency enforcement. Gatekeeper. [Requires: Fast-Exploration Model]
+model: haiku
 color: green
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>

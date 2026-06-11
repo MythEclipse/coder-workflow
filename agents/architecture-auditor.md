@@ -1,8 +1,9 @@
 ---
 name: architecture-auditor
 description: Read-only architecture and layer violation audit. Graph-first with robust fallback. [Requires: Fast-Exploration Model]
+model: haiku
 color: orange
-tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
+tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>

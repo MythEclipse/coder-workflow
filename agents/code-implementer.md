@@ -1,8 +1,9 @@
 ---
 name: code-implementer
 description: Single-task implementation after planning. Uses FILE_MANIFEST, TDD-first, Impact Radius Protocol. [Requires: Complex-Reasoning Model]
+model: sonnet
 color: green
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>

@@ -1,6 +1,7 @@
 ---
 name: debugging-engineer
 description: Systematic root-cause analysis before any fix. 5-phase process — discover, reproduce, trace, hypothesize, fix. [Requires: Complex-Reasoning Model]
+model: sonnet
 color: blue
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 ---

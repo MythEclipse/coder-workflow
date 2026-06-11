@@ -1,21 +1,83 @@
 ---
-description: Consistency Enforcer — validate code consistency against project patterns
-argument-hint: [optional-scope]
+description: Enforce code and style consistency across the codebase — naming, patterns, conventions
+argument-hint: [scope-optional]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Invoke the `coder-workflow:quality-guardian` subagent to validate and enforce code consistency against the codebase's dominant patterns. (Consistency enforcement has been merged into quality-guardian.)
+Always execute via the Workflow engine.
 
-Use this command when:
-- Checking naming consistency for files/folders/variables/functions/classes
-- Ensuring new code follows existing codebase standards
-- Before merging a PR for quality gate
-- After a major refactor to verify uniformity
-- Finding mixed conventions that need alignment
+```
+∴ coder-orchestrator [T2] → Workflow(consistency-enforce): Detect and fix consistency violations
 
-If an optional scope argument is given, limit the check to a specific scope (directory, module, or file pattern). Without an argument, the agent will scan the entire codebase.
+∴ Workflow({
+  name: 'consistency-enforce',
+  description: 'Enforce naming conventions, patterns, and style consistency across codebase',
+  phases: [
+    { title: 'Discover',  detail: 'scan for inconsistencies: naming, patterns, imports, style' },
+    { title: 'Fix',       detail: '1 fixer agent per inconsistency category — all parallel' },
+    { title: 'Verify',    detail: 'confirm violations resolved, no regressions' },
+  ],
+})
 
-> [!IMPORTANT]
-> MCP TOOL UPDATES:
-> - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it.
-> - New tools: `mcp__codegraph__update_codebase`, `mcp__codegraph__diff_graphs`.
+phase('Discover')
+const [namingIssues, patternIssues, importIssues, styleIssues] = await parallel([
+  () => agent(
+    `Find naming inconsistencies: camelCase vs snake_case, PascalCase violations,
+    inconsistent abbreviations, plural/singular confusion.
+    Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'naming-scan', phase: 'Discover', agent: 'coder-workflow:quality-guardian' }
+  ),
+  () => agent(
+    `Find structural pattern inconsistencies: modules using different architectural patterns,
+    services without interfaces, repositories without base class.
+    Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'pattern-scan', phase: 'Discover', agent: 'coder-workflow:quality-guardian' }
+  ),
+  () => agent(
+    `Find import inconsistencies: mixed default/named exports, circular imports,
+    barrel index files missing, path alias not used.
+    Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'import-scan', phase: 'Discover', agent: 'coder-workflow:quality-guardian' }
+  ),
+  () => agent(
+    `Find style inconsistencies: mixed quote styles, inconsistent semicolons,
+    trailing commas, line length violations, indent width.
+    Scope: ${$ARGUMENTS || 'full project'}`,
+    { label: 'style-scan', phase: 'Discover', agent: 'coder-workflow:quality-guardian' }
+  ),
+])
+
+phase('Fix')
+const [namingFix, patternFix, importFix, styleFix] = await parallel([
+  () => agent(
+    `Fix all naming inconsistencies. Apply project-wide rename safely.
+    Issues: ${namingIssues}`,
+    { label: 'naming-fix', phase: 'Fix', agent: 'coder-workflow:refactoring-engineer' }
+  ),
+  () => agent(
+    `Fix all structural pattern inconsistencies. Add missing interfaces/base classes.
+    Issues: ${patternIssues}`,
+    { label: 'pattern-fix', phase: 'Fix', agent: 'coder-workflow:refactoring-engineer' }
+  ),
+  () => agent(
+    `Fix import inconsistencies. Update barrel files, fix path aliases, resolve circular imports.
+    Issues: ${importIssues}`,
+    { label: 'import-fix', phase: 'Fix', agent: 'coder-workflow:refactoring-engineer' }
+  ),
+  () => agent(
+    `Auto-fix style inconsistencies via biome/eslint --fix. Do not manually rewrite files for style.
+    Issues: ${styleIssues}`,
+    { label: 'style-fix', phase: 'Fix', agent: 'coder-workflow:quality-guardian' }
+  ),
+])
+
+phase('Verify')
+const verify = await agent(
+  `Re-run consistency scan to confirm all violations resolved.
+  Also run: typecheck + lint to confirm no regressions introduced.
+  Fixes applied: ${[namingFix, patternFix, importFix, styleFix].map(r => r.label).join(', ')}`,
+  { label: 'consistency-verify', phase: 'Verify', agent: 'coder-workflow:quality-guardian' }
+)
+
+return { verify, categoriesFixed: 4 }
+```

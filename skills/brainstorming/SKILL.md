@@ -1,6 +1,8 @@
 ---
 name: brainstorming
 description: "Use before any creative work — creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements, and design before implementation."
+agent: general-purpose
+context: fork
 ---
 
 # Brainstorming: Ideas to Spec

@@ -1,8 +1,8 @@
 ---
 name: codebase-qa-agent
 description: Answer codebase questions — "how does X work", "where is Y defined", "explain architecture".
-tools: Read, Grep, Glob, Bash
-model: fast
+tools: Read, Grep, Glob, Bash, mcp__codegraph__*
+model: haiku
 maxTurns: 10
 ---
 

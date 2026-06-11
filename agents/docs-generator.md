@@ -2,7 +2,7 @@
 name: docs-generator
 description: Generate CONTRIBUTING.md, ARCHITECTURE.md, ADRs, PR descriptions, changelogs, releases.
 tools: Read, Edit, Write, Grep, Glob, Bash
-model: complex
+model: sonnet
 maxTurns: 15
 effort: high
 ---

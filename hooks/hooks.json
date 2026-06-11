@@ -292,15 +292,48 @@
     ],
     "StopFailure": [
       {
+        "matcher": "rate_limit",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'API error. New session or subagent to resume when ready.'",
+            "command": "echo 'Rate limit hit. Implement exponential backoff or reduce request rate. Resume with shorter prompts.'",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash -c 'command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --error \"session\" 2>/dev/null || true; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); ERR=$(jq -r \".reason // .error // \\\"rate_limit\\\"\" <<< \"$INPUT\" 2>/dev/null | head -c 200); command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --tool rate_limit --error \"$ERR\" 2>/dev/null || true; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "max_output_tokens",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Token limit reached. Shorten response scope or increase max_tokens. Continue with targeted follow-up.'",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); ERR=$(jq -r \".reason // .error // \\\"max_output_tokens\\\"\" <<< \"$INPUT\" 2>/dev/null | head -c 200); command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --tool max_output_tokens --error \"$ERR\" 2>/dev/null || true; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "server_error|unknown|overloaded",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'API server error. New session or subagent to resume when service recovers.'",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); ERR=$(jq -r \".reason // .error // \\\"server_error\\\"\" <<< \"$INPUT\" 2>/dev/null | head -c 200); command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --tool server --error \"$ERR\" 2>/dev/null || true; exit 0'",
             "timeout": 5,
             "async": true
           }

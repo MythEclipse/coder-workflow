@@ -1,8 +1,9 @@
 ---
 name: workflow-planner
 description: Decompose coding requests into Atomic Committable Units ready for swarm dispatch. [Requires: Fast-Exploration Model]
+model: haiku
 color: blue
-tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
+tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>

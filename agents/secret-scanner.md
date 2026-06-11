@@ -1,8 +1,8 @@
 ---
 name: secret-scanner
 description: Scan for hardcoded API keys, tokens, passwords, private keys. Use before commit/PR.
-tools: Read, Grep, Glob, Bash
-model: fast
+tools: Read, Grep, Glob, Bash, mcp__codegraph__*
+model: haiku
 maxTurns: 8
 ---
 

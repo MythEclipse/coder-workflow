@@ -1,8 +1,9 @@
 ---
 name: ui-engineer
 description: UI components, state management, CSS/Tailwind, A11y — pixel-perfect, accessible, performant. [Requires: Complex-Reasoning Model]
+model: sonnet
 color: magenta
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>

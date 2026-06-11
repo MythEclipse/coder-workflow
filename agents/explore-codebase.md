@@ -4,7 +4,7 @@ description: Codebase exploration agent using CodeGraph MCP. Graph-first code ex
 color: cyan
 tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "invoke_subagent"]
 disallowedTools: ["Edit", "Write", "Bash"]
-model: fast
+model: haiku
 maxTurns: 30
 ---
 

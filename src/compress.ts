@@ -490,10 +490,32 @@ export function decompress(ccrId: string): DecompressResult | null {
 
 export function getStats(): CompressionStats {
   const ccrStats = getCCRStats();
+  // Calculate total compressed bytes and average ratio from stored CCR files
+  const dir = getCCRDir();
+  let totalCompressedBytes = 0;
+  let avgRatio = 0;
+
+  if (existsSync(dir)) {
+    const files = readdirSync(dir).filter((f) => f.endsWith(".ccr"));
+    let sumRatio = 0;
+    for (const file of files) {
+      try {
+        const data = JSON.parse(readFileSync(join(dir, file), "utf-8"));
+        const original = new TextEncoder().encode(data.content).length;
+        const stored = new TextEncoder().encode(JSON.stringify(data)).length;
+        totalCompressedBytes += stored;
+        if (original > 0) sumRatio += 1 - stored / original;
+      } catch {
+        // skip corrupted files
+      }
+    }
+    avgRatio = files.length > 0 ? sumRatio / files.length : 0;
+  }
+
   return {
     totalOriginalBytes: ccrStats.totalBytes,
-    totalCompressedBytes: 0, // can't easily pre-compute
-    averageRatio: 0,
+    totalCompressedBytes,
+    averageRatio: Math.round(avgRatio * 100) / 100,
     contentTypes: ccrStats.contentTypeBreakdown,
     ccrCount: ccrStats.total,
   };

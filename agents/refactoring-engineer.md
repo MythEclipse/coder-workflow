@@ -1,6 +1,7 @@
 ---
 name: refactoring-engineer
 description: Transform codebases to layered modular architecture. Language-agnostic, graph-first. Plan-mandatory. [Requires: Complex-Reasoning Model]
+model: sonnet
 version: 0.4.0
 argument-hint: "[scope-optional]"
 tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(*)","mcp__codegraph__*","mcp__code-review-graph__*", "invoke_subagent"]

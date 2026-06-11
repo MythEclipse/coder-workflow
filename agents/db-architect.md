@@ -1,8 +1,9 @@
 ---
 name: db-architect
 description: Schema design, migration planning, query optimization, indexing strategy. [Requires: Complex-Reasoning Model]
+model: sonnet
 color: blue
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "mcp__code-review-graph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 ---
 
 <SUBAGENT-STOP>
