@@ -45,7 +45,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'DB=.codegraph/graph.db; if [ ! -f \"$DB\" ]; then touch .codegraph/scan.lock 2>/dev/null || true; (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || true); rm -f .codegraph/scan.lock 2>/dev/null || true; fi; exit 0'",
+            "command": "bash -c 'DB=.codegraph/graph.json; if [ ! -f \"$DB\" ]; then touch .codegraph/scan.lock 2>/dev/null || true; (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || true); rm -f .codegraph/scan.lock 2>/dev/null || true; fi; exit 0'",
             "timeout": 180,
             "async": true,
             "statusMessage": "Auto-scanning codebase graph..."
@@ -201,7 +201,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'DEBOUNCE_FILE=.codegraph/.update-debounce; LOCK_FILE=.codegraph/.update-debounce.lock; (flock -x 200; NOW=$(date +%s); LAST=0; [ -f \"$DEBOUNCE_FILE\" ] && LAST=$(cat \"$DEBOUNCE_FILE\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); ELAPSED=$((NOW - LAST)); if [ \"$ELAPSED\" -ge 5 ]; then mkdir -p .codegraph 2>/dev/null || true; printf \"%s\" \"$NOW\" > \"$DEBOUNCE_FILE\"; test -f .codegraph/graph.db && command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; fi) 200>\"$LOCK_FILE\"; exit 0'",
+            "command": "bash -c 'DEBOUNCE_FILE=.codegraph/.update-debounce; LOCK_FILE=.codegraph/.update-debounce.lock; (flock -x 200; NOW=$(date +%s); LAST=0; [ -f \"$DEBOUNCE_FILE\" ] && LAST=$(cat \"$DEBOUNCE_FILE\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); ELAPSED=$((NOW - LAST)); if [ \"$ELAPSED\" -ge 5 ]; then mkdir -p .codegraph 2>/dev/null || true; printf \"%s\" \"$NOW\" > \"$DEBOUNCE_FILE\"; test -f .codegraph/graph.json && command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; fi) 200>\"$LOCK_FILE\"; exit 0'",
             "timeout": 30,
             "async": true,
             "statusMessage": "Updating CodeGraph (debounced)..."
@@ -220,7 +220,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'test -f .codegraph/graph.db && command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; exit 0'",
+            "command": "bash -c 'test -f .codegraph/graph.json && command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; exit 0'",
             "if": "Bash(git checkout *)|Bash(git switch *)|Bash(git merge *)|Bash(git pull)|Bash(git rebase *)",
             "timeout": 30,
             "async": true,
@@ -432,7 +432,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'DIR=$(pwd); printf \"[%s] CWD: %s\\n\" \"$(date -u +%T)\" \"$DIR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; test -f .codegraph/graph.db && echo \"CodeGraph available: $(stat -c%s .codegraph/graph.db 2>/dev/null || echo 0) bytes\" || echo \"No CodeGraph DB in this directory.\"; exit 0'",
+            "command": "bash -c 'DIR=$(pwd); printf \"[%s] CWD: %s\\n\" \"$(date -u +%T)\" \"$DIR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; test -f .codegraph/graph.json && echo \"CodeGraph available: $(stat -c%s .codegraph/graph.json 2>/dev/null || echo 0) bytes\" || echo \"No CodeGraph graph file in this directory.\"; exit 0'",
             "timeout": 5
           }
         ]

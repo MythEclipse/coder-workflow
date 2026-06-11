@@ -395,7 +395,7 @@ function renderUi(): string {
         .then(data => initNetwork(data))
         .catch(err => {
           console.error("Error loading graph:", err);
-          document.getElementById('network-container').innerHTML = '<div style="padding:40px; text-align:center; color:#ef4444;"><h3>Error Loading Graph</h3><p>Verify that scan has been run and .codegraph/graph.db exists.</p></div>';
+          document.getElementById('network-container').innerHTML = '<div style="padding:40px; text-align:center; color:#ef4444;"><h3>Error Loading Graph</h3><p>Verify that scan has been run and .codegraph/graph.json exists.</p></div>';
         });
     }
 

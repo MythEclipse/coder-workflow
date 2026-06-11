@@ -25,7 +25,7 @@ printf "${DIM}Graph setup ${R}  /coder-workflow:setup-codegraph\n"
 printf "${B}${C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${R}\n"
 
 # CodeGraph DB status
-DB=".codegraph/graph.db"
+DB=".codegraph/graph.json"
 if [ -f "$DB" ]; then
   SIZE=$(du -sh "$DB" 2>/dev/null | cut -f1)
   # Get age in minutes — handle macOS vs Linux stat differences
@@ -45,7 +45,7 @@ if [ -f "$DB" ]; then
     printf "${G}Graph  ✔  DB ${SIZE} — ${AGE_MINS}m old${R}\n"
   fi
 else
-  printf "${RED}Graph  ✘  No .codegraph/graph.db found${R}\n"
+  printf "${RED}Graph  ✘  No .codegraph/graph.json found${R}\n"
   printf "${Y}       →  Run /coder-workflow:setup-codegraph to build it${R}\n"
 fi
 

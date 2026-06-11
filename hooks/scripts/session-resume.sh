@@ -16,7 +16,7 @@ RED='\033[31m'
 
 printf "${B}${C}↩  Session resumed — coder-workflow is active${R}\n"
 
-DB=".codegraph/graph.db"
+DB=".codegraph/graph.json"
 if [ -f "$DB" ]; then
   if stat --version >/dev/null 2>&1; then
     MTIME=$(stat -c %Y "$DB" 2>/dev/null || echo 0)
@@ -33,7 +33,7 @@ if [ -f "$DB" ]; then
     printf "${G}  ✔  CodeGraph DB is ${AGE_MINS}m old — recent${R}\n"
   fi
 else
-  printf "${Y}  ✘  No .codegraph/graph.db. Graph tools unavailable until you run:${R}\n"
+  printf "${Y}  ✘  No .codegraph/graph.json. Graph tools unavailable until you run:${R}\n"
   printf "${Y}     /coder-workflow:setup-codegraph${R}\n"
 fi
 

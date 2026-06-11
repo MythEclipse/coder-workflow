@@ -194,7 +194,7 @@ async function main() {
             JSON.stringify(
               {
                 dryRun: true,
-                wouldWrite: ".codegraph/graph.db",
+                wouldWrite: ".codegraph/graph.json",
                 nodes: graph.nodes.length,
                 edges: graph.edges.length,
                 filesScanned: graph.metadata.filesScanned,
@@ -209,7 +209,7 @@ async function main() {
           console.log(
             JSON.stringify(
               {
-                graph: ".codegraph/graph.db",
+                graph: ".codegraph/graph.json",
                 nodes: graph.nodes.length,
                 edges: graph.edges.length,
                 filesScanned: graph.metadata.filesScanned,
@@ -1572,7 +1572,7 @@ main().catch((err) => {
 
 async function ensureGraph(): Promise<void> {
   if (!(await graphExists(root))) {
-    throw new Error("Missing .codegraph/graph.db. Run scan first.");
+    throw new Error("Missing .codegraph/graph.json. Run scan first.");
   }
 }
 

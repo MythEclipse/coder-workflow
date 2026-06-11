@@ -17,7 +17,7 @@ Designed for teams or solo developers who want Claude Code to behave like a stru
 - **Specialized engineering agents** — planner, implementer, reviewer, debugger, tester, docs, UI, DB, DevOps, refactorer, auditor, and more.
 - **Lifecycle hooks** — session startup, safety guards, graph refresh, task reminders, git operation warnings, and session summaries.
 - **CLI + MCP server** — `coder-workflow` provides local commands and a stdio MCP server for Claude Code.
-- **Persistent graph cache** — `.codegraph/graph.db` stores file/symbol/edge relationships using libSQL.
+- **Persistent graph cache** — `.codegraph/graph.json` stores file/symbol/edge relationships using JSON.
 - **Safety and verification** — dry-run CLI support, MCP health check, build checksums, CI matrix, and test coverage integration.
 
 ---
@@ -46,7 +46,7 @@ graph TD
     Agents --> MCP["CodeGraph MCP tools<br/><i>scan, query, analyze_impact, etc.</i>"]
     Orch -.-> MCP
     
-    MCP --> DB[(".codegraph/graph.db")]
+    MCP --> FILE[(".codegraph/graph.json")]
 
     subgraph Headroom ["Headroom Context Layers"]
         direction TB
@@ -142,7 +142,7 @@ Common commands:
 # Build or refresh graph database
 coder-workflow scan
 
-# Preview scan output without writing .codegraph/graph.db
+# Preview scan output without writing .codegraph/graph.json
 coder-workflow scan --dry-run
 
 # Incremental update

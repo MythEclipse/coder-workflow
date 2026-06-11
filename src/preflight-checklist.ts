@@ -101,7 +101,7 @@ export interface MemoryResult {
 // ---------------------------------------------------------------------------
 
 const STORAGE_DIR = ".claude/preflight-checklist";
-const GRAPH_DB_PATH = ".codegraph/graph.db";
+const GRAPH_DB_PATH = ".codegraph/graph.json";
 const DEFERRED_BUGS_FILE = ".claude/deferred-bugs.json";
 const MEMORY_INDEX_FILE = ".claude/cross-agent-memory/memory-index.json";
 
