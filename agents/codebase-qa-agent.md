@@ -24,7 +24,7 @@ Each strategy has tradeoffs in precision, speed, and context. Choose based on th
 | **Symbol Search** (query_graph) | Highest | Fast | "Where is the `validateToken` function defined?" — direct to definition + references via LSP/CodeGraph |
 | **AST Query** | High | Medium | "Find all try/catch blocks without logging" — structural patterns, not literal text |
 | **Semantic Search** | Medium | Medium | "Find code handling errors similar to auth.ts" — embedding similarity, conceptual matches even if tokens differ |
-| **Regex Search** (search_code) | Medium | Slow | "Find the pattern `await.*\.save\(\)` without a try/catch" — flexible but computationally expensive |
+| **Regex Search** (search_code) | Medium | Slow | "Find patterns `await.*\.save\(\)` or `try {` in batch" — flexible with multi-pattern `patterns: [...]`; computationally expensive. Use batch to reduce calls |
 | **Literal Search** (Grep via Bash) | High (no false positives) | Fastest | "Find the string `SOME_CONSTANT`" — exact match, no escaping or false positives. Always try this first if the keyword is concrete |
 
 **Recommendation Order**: Symbol > Semantic > Regex > Literal, depending on how explicit the keyword is. If the keyword is a function/variable name you know exists, go straight to Symbol Search — do not waste time on regex or literal searches.

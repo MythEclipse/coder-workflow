@@ -35,7 +35,7 @@ graph TD
     Gate -->|"Tier 2 (broad/cross-cutting)"| Preflight["Mandatory pre-flight"]
     
     Preflight --> Step1["1. Skill(brainstorming)<br/><i>foreground, interactive, blocks</i>"]
-    Step1 --> Step2["2. Explore agent<br/><i>background recon</i>"]
+    Step1 --> Step2["2. explore-codebase agent<br/><i>background CodeGraph recon</i>"]
     Step2 --> Step3["3. workflow-planner<br/><i>decomposes into N atomic tasks</i>"]
     
     DirectDispatch --> Swarm["Swarm Dispatch<br/><i>1 Agent per task (parallel)</i>"]
@@ -438,7 +438,7 @@ Before dispatching any agent, the orchestrator classifies the request:
 **Tier 2 Pre-flight (always in this order):**
 
 1. `Skill(brainstorming)` — foreground, interactive, blocks the conversation. Asks one question at a time, proposes 2-3 approaches, gets user approval, writes a spec doc. **Never spawned as a background agent.**
-2. `Explore agent` — background recon: maps structure, finds duplications, traces call paths.
+2. `explore-codebase agent` — background CodeGraph recon: maps structure, finds duplications, traces call paths.
 3. `coder-workflow:workflow-planner` — decomposes findings into N atomic tasks with `FILE_MANIFEST` per task.
 4. Swarm dispatch — 1 `Agent()` per task, all in parallel.
 

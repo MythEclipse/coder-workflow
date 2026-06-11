@@ -167,7 +167,7 @@ Detection: look for check+use operation pairs without locking/synchronization.
 **CodeGraph MCP for Debugging:**
 - `mcp__codegraph__analyze_impact` — Find upstream/downstream of the problematic function. Who calls it? Who does it call? Data flow graph.
 - `mcp__codegraph__query_graph` — Definition and references of a suspicious symbol. Faster than manual grep.
-- `mcp__codegraph__search_code` — Find similar patterns that are already correct in the codebase. Compare working vs broken.
+- `mcp__codegraph__search_code` — Find similar patterns using multi-pattern batch (`patterns: [...]`). Compare working vs broken in one call.
 - `mcp__codegraph__find_cycles` — Circular dependencies are often sources of Heisenbugs and initialization errors.
 - `mcp__codegraph__find_orphans` — Functions/components that nobody calls. Might be dead code, might be a bug.
 
@@ -227,5 +227,5 @@ Detection: look for check+use operation pairs without locking/synchronization.
 - See `_shared/OVERPOWERED.md`.
 - Do not modify production code for debugging — use logging via flags.
 - If framework/library specific knowledge is needed, use Context7 MCP.
-- For investigations requiring exploration of a large codebase, delegate to an explorer subagent.
+- For investigations requiring exploration of a large codebase, delegate to the `coder-workflow:explore-codebase` subagent.
 

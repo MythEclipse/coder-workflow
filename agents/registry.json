@@ -329,6 +329,20 @@
         "Bash"
       ],
       "model": "complex"
+    },
+    "explore-codebase": {
+      "file": "agents/explore-codebase.md",
+      "role": "explore",
+      "description": "CodeGraph-first codebase exploration — replaces the built-in Explore agent. Uses mcp__codegraph__* tools exclusively.",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "mcp__codegraph__*",
+        "mcp__code-review-graph__*",
+        "invoke_subagent"
+      ],
+      "model": "fast"
     }
   }
 }

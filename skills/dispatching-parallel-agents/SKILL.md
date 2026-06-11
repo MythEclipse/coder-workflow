@@ -52,7 +52,7 @@ A subagent that needs help from another specialist uses `invoke_subagent` and **
 ### Predefined Agent Roles
 
 Use these specialist roles when relevant — each role handles **exactly 1 task**:
-- **explorer** — reads and maps codebase structure, finds relevant files
+- **explorer** — use `coder-workflow:explore-codebase` agent for CodeGraph-first codebase exploration (replaces built-in Explore agent)
 - **implementer** — writes or edits code (1 task per implementer)
 - **test-writer** — writes unit/integration tests for changed code
 - **docs-updater** — updates README, inline docs, or API docs

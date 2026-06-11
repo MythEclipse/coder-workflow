@@ -68,8 +68,8 @@ Documentation rots over time. Early detection prevents mass confusion:
 
 - **Stale dates**: Copyright from last year, "as of 2023" in 2026. Use `git blame` on doc files to see when they were last changed.
 - **Broken links**: CI job for `lychee` or `broken-link-checker`. Schedule weekly.
-- **Dead code references**: Docs mentioning functions/endpoints that no longer exist. Use `mcp__codegraph__search_code` to verify that mentioned items still exist in code.
-- **Commands that don't work**: Every command in docs must be tested. Use `mcp__codegraph__search_code` + manual checking. Add a `docs-outdated` label in the issue tracker.
+- **Dead code references**: Docs mentioning functions/endpoints that no longer exist. Use `mcp__codegraph__search_code` with multi-pattern to verify mentioned items still exist in code.
+- **Commands that don't work**: Every command in docs must be tested. Use `mcp__codegraph__search_code` (batch multi-pattern) + manual checking. Add a `docs-outdated` label in the issue tracker.
 - **Screenshots out of date**: Old UI screenshots cause confusion. Label them with versions. Auto-generate screenshots if possible.
 - **git blame age**: If `git blame` on a doc file shows the last change was >6 months ago, flag it as "potential rot".
 

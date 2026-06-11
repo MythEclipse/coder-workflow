@@ -13,6 +13,7 @@ const BINARY_SAMPLE_BYTES = 512;
 
 export interface SearchOptions {
   pattern: string;
+  patterns?: string[];
   regex?: boolean;
   caseSensitive?: boolean;
   contextLines?: number;
@@ -69,7 +70,7 @@ export function searchCodebase(
   options: SearchOptions,
 ): SearchOutput {
   const normalized = normalizeSearchOptions(options);
-  const matcher = createMatcher(normalized);
+  const matchers = normalized.patterns.map((p) => createMatcher({ ...normalized, pattern: p }));
   const results: SearchResult[] = [];
   const stats: SearchStats = {
     filesConsidered: 0,
@@ -81,6 +82,8 @@ export function searchCodebase(
     totalMatches: 0,
     truncated: false,
   };
+
+  const seenKeys = new Set<string>();
 
   for (const file of listSearchableFiles(root, settings)) {
     const rel = relative(root, file).replace(/\\/g, "/");
@@ -97,24 +100,30 @@ export function searchCodebase(
     const lines = fileData.text.split(/\r?\n/);
 
     for (let index = 0; index < lines.length; index += 1) {
-      for (const match of matcher(lines[index])) {
-        stats.totalMatches += 1;
-        results.push({
-          file: rel,
-          line: index + 1,
-          column: match.column,
-          text: lines[index],
-          contextBefore: lines.slice(Math.max(0, index - normalized.contextLines), index),
-          contextAfter: lines.slice(index + 1, index + 1 + normalized.contextLines),
-          fileSizeBytes: fileData.size,
-          matchLength: match.length,
-          lexicalScore: 1.0,
-          graphScore: 0,
-        });
+      for (const matcher of matchers) {
+        for (const match of matcher(lines[index])) {
+          const key = `${rel}:${index + 1}:${match.column}`;
+          if (seenKeys.has(key)) continue;
+          seenKeys.add(key);
+          stats.totalMatches += 1;
 
-        if (results.length >= normalized.maxResults) {
-          stats.truncated = true;
-          return applyHybridRanking({ results, stats });
+          results.push({
+            file: rel,
+            line: index + 1,
+            column: match.column,
+            text: lines[index],
+            contextBefore: lines.slice(Math.max(0, index - normalized.contextLines), index),
+            contextAfter: lines.slice(index + 1, index + 1 + normalized.contextLines),
+            fileSizeBytes: fileData.size,
+            matchLength: match.length,
+            lexicalScore: 1.0,
+            graphScore: 0,
+          });
+
+          if (results.length >= normalized.maxResults) {
+            stats.truncated = true;
+            return applyHybridRanking({ results, stats });
+          }
         }
       }
     }
@@ -141,12 +150,13 @@ function applyHybridRanking(output: SearchOutput): SearchOutput {
 }
 
 export function normalizeSearchOptions(options: SearchOptions): NormalizedSearchOptions {
-  const pattern = options.pattern;
-  if (!pattern) throw new Error("Search pattern is required.");
+  const patterns = buildPatternList(options);
+  if (patterns.length === 0) throw new Error("Search pattern is required.");
 
   return {
-    pattern,
-    regex: options.regex === true,
+    pattern: patterns[0]!,
+    patterns,
+    regex: options.regex !== false,
     caseSensitive: options.caseSensitive === true,
     contextLines: boundedInteger(options.contextLines ?? 0, "contextLines", 0, MAX_CONTEXT_LINES),
     maxResults: boundedInteger(
@@ -164,6 +174,13 @@ export function normalizeSearchOptions(options: SearchOptions): NormalizedSearch
     include: options.include ?? [],
     exclude: options.exclude ?? [],
   };
+}
+
+function buildPatternList(options: SearchOptions): string[] {
+  const patterns: string[] = [];
+  if (options.pattern) patterns.push(options.pattern);
+  if (options.patterns) patterns.push(...options.patterns);
+  return [...new Set(patterns)];
 }
 
 function readSearchableFile(

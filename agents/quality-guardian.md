@@ -184,18 +184,19 @@ MI = 171 - 5.2 * ln(Halstead Vol) - 0.23 * (Cyclomatic Complexity) - 16.2 * ln(L
 
 **CodeGraph MCP — strategic queries for quality analysis**
 ```
-query_graph: "class/method/file name"         → find definitions and relations
-search_code: "console.log|debugger|TODO|FIXME" → scan production context
-analyze_impact: "file.ts"                      → view dependents
-find_cycles: ""                                → detect circular dependencies
-find_orphans: ""                               → unused exports/code
-summarize_architecture: {maxNodes: 100}        → hotspots for large classes
-analyze_complexity: {glob: "src/**/*.ts"}      → bulk cyclomatic checks
+query_graph: "class/method/file name"                                   → find definitions and relations
+search_code: { pattern: "console\\.log|debugger|TODO|FIXME" }           → scan production context
+search_code: { pattern: "catch", patterns: ["empty catch", "catch \\s*\\{"] }  → find empty catch blocks
+analyze_impact: "file.ts"                                                → view dependents
+find_cycles: ""                                                          → detect circular dependencies
+find_orphans: ""                                                         → unused exports/code
+summarize_architecture: {maxNodes: 100}                                  → hotspots for large classes
+analyze_complexity: {glob: "src/**/*.ts"}                                → bulk cyclomatic checks
 ```
 
 **Effective query patterns:**
 - Find highly complex methods: use `analyze_complexity` with threshold >10
-- Find duplication: `search_code` with block patterns >6 lines, then diff the results
+- Find duplication: `search_code` with multi-pattern (block patterns >6 lines), then diff the results
 - Find dead code: `find_orphans` + `query_graph` to verify it is truly unreferenced
 - Find God Classes: `query_graph` with class name then count methods and dependencies
 - Find circular dependencies: `find_cycles` — circular dependencies are an indicator of tight coupling
@@ -234,7 +235,7 @@ grep -rn "?.*?.*:" src/ --include="*.ts"
 ### Mode B: Consistency Enforcement — run for stable codebases
 
 1. Read project configuration (`biome.json`, `.eslintrc`, `tsconfig.json`) to understand official rules.
-2. Use `mcp__codegraph__search_code` to sample file names, variables, import styles — determine dominant patterns (80%+ consensus).
+2. Use `mcp__codegraph__search_code` with multi-pattern to sample file names, variables, import styles — determine dominant patterns (80%+ consensus).
 3. Compare every new/edited file against dominant patterns. Flag deviations.
 4. Process one category per batch. After each batch: `npx tsc --noEmit --pretty` + tests to ensure nothing breaks.
 

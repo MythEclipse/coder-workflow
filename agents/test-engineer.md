@@ -143,7 +143,7 @@ Test invariants (properties that always hold true) with randomized inputs. Tools
 5. `pom.xml` or `build.gradle` → surefire (JUnit 5).
 
 **CodeGraph for Gap Analysis:**
-- `mcp__codegraph__search_code pattern="*.test.*"` → discover existing test files.
+- `mcp__codegraph__search_code { pattern: "\\.test\\.", patterns: ["\\.spec\\.", "\\.e2e\\."] }` → discover existing test files in one batch.
 - `mcp__codegraph__query_graph query="uncovered files"` → map business logic against tests.
 - `mcp__codegraph__find_orphans` → identify uncalled or untested functions.
 

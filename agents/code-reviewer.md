@@ -137,7 +137,7 @@ Four complementary frameworks for classifying and identifying vulnerabilities:
 
 **Code Exploration:**
 - Use `query_graph` for resolving module relationship types
-- Use `search_code` to find unsafe patterns (eval, execSync, innerHTML, dangerouslySetInnerHTML)
+- Use `search_code { pattern: "eval", patterns: ["execSync", "innerHTML", "dangerouslySetInnerHTML"] }` to find unsafe patterns in a single batch
 - Use `find_orphans` for dead code — unused functions might be backdoors
 
 ## Process

@@ -68,7 +68,7 @@ Audit this scope for layer violations:
 
 When encountering unfamiliar territory:
 1. Stop implementation.
-2. Use context7 MCP to query docs or `mcp__codegraph__search_code` to find internal patterns.
+2. Use context7 MCP to query docs or `mcp__codegraph__search_code` (multi-pattern batch `patterns: [...]`) to find internal patterns.
 3. Read docs, understand pattern.
 4. Implement based on evidence, not memory.
 
@@ -88,6 +88,6 @@ When encountering unfamiliar territory:
 
 > [!IMPORTANT]
 > MCP TOOL UPDATES:
-> - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it. Use standard `view_file` or `Read` via explorer subagents instead.
+> - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it. Use standard `view_file` or `Read` via `coder-workflow:explore-codebase` instead.
 > - `mcp__codegraph__analyze_impact` and `list_directory_tree` now have UNLIMITED depth.
 > - New tools added: `mcp__codegraph__update_codebase` (partial scan) and `mcp__codegraph__diff_graphs` (compare json states).

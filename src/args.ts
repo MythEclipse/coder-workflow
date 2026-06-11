@@ -46,13 +46,14 @@ export function readSearchOptions(args: string[]) {
   if (!pattern) throw new Error("Search pattern is required.");
 
   const knownFlags = new Set([
-    "--regex",
+    "--literal",
     "--case-sensitive",
     "--context",
     "--max-results",
     "--max-file-size",
     "--include",
     "--exclude",
+    "--pattern",
   ]);
   for (const arg of args) {
     if (arg.startsWith("--") && !knownFlags.has(arg))
@@ -61,7 +62,8 @@ export function readSearchOptions(args: string[]) {
 
   return {
     pattern,
-    regex: args.includes("--regex"),
+    patterns: readRepeatedStringArg(args, "--pattern"),
+    regex: !args.includes("--literal"),
     caseSensitive: args.includes("--case-sensitive"),
     contextLines: readNumberArg(args, "--context"),
     maxResults: readNumberArg(args, "--max-results"),

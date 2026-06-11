@@ -238,18 +238,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "search_code",
       description:
-        "Search source text across project files. IMPORTANT: By default, this is a literal string search. If your pattern uses regex syntax (e.g. 'a|b'), you MUST set 'regex': true.",
+        "Search source text across project files. IMPORTANT: By default, this is a regex search. For literal strings, set 'regex': false.",
       inputSchema: {
         type: "object",
         properties: {
           pattern: {
             type: "string",
-            description: "The literal string or regex pattern to search for.",
+            description: "The regex pattern or literal string to search for (primary).",
+          },
+          patterns: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Additional patterns to search for (OR'd with pattern). Results are deduplicated.",
           },
           regex: {
             type: "boolean",
             description:
-              "Set to true if pattern is a regular expression. Default is false (literal).",
+              "Set to false for literal string search. Default is true (regex).",
           },
           caseSensitive: { type: "boolean", description: "Default is false (case-insensitive)." },
           contextLines: {
@@ -1403,7 +1409,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "search_code": {
       const pattern = stringArg(args?.pattern, "pattern");
-      const isExplicitlyRegex = args?.regex === true;
+      const patterns = stringArrayArg(args?.patterns, "patterns");
+      // Default: regex=true. Only set regex:false for literal search.
+      const regex = args?.regex !== false;
       const caseSensitive = args?.caseSensitive === true;
       const contextLines = numberArg(args?.contextLines);
       const maxResults = numberArg(args?.maxResults);
@@ -1411,9 +1419,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const include = stringArrayArg(args?.include, "include");
       const exclude = stringArrayArg(args?.exclude, "exclude");
 
-      let result = searchCodebase(root, settings, {
+      const result = searchCodebase(root, settings, {
         pattern,
-        regex: isExplicitlyRegex,
+        patterns,
+        regex,
         caseSensitive,
         contextLines,
         maxResults,
@@ -1421,27 +1430,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         include,
         exclude,
       });
-
-      // Auto-fallback: if literal search yields 0 results and pattern contains regex syntax, try regex
-      if (!isExplicitlyRegex && result.stats.totalMatches === 0 && /[|()[\]*+?^$]/.test(pattern)) {
-        try {
-          const regexResult = searchCodebase(root, settings, {
-            pattern,
-            regex: true,
-            caseSensitive,
-            contextLines,
-            maxResults,
-            maxFileSizeBytes,
-            include,
-            exclude,
-          });
-          if (regexResult.stats.totalMatches > 0) {
-            result = regexResult;
-          }
-        } catch (e) {
-          // If the pattern was an invalid regex, ignore fallback and return the 0-result literal search
-        }
-      }
 
       return text(result);
     }

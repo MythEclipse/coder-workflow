@@ -203,6 +203,7 @@ async function getInventoryForOrder(order: Order): Promise<Inventory[]> {
   - Useful queries: `"function createUser"`, `"interface UserRepository"`, `"import { Router } from 'express'"`.
   - Use to verify whether the function/method to be called actually exists.
 - `mcp__codegraph__search_code` — look for similar patterns in the codebase for consistency. Example: "find how other modules handle errors" before writing a new error handler.
+  - Use multi-pattern: `patterns: ["error", "try {", "catch"]` for batch discovery.
   - Use `maxResults: 20` for an overview, then narrow down.
   - `contextLines: 3` to view the context of the pattern.
 - `mcp__codegraph__analyze_impact` — BEFORE refactoring, check who depends on the code being changed. This prevents broken contracts in unexpected places.
@@ -241,7 +242,7 @@ Why TDD? Because CQS and pure functions are easier to verify with test-first, no
 ### 3. Read + Implement
 Read files in the FILE_MANIFEST using `Read`, then implement referring to the Domain Knowledge above. During implementation:
 - Use `mcp__codegraph__query_graph` for type and dependency lookups
-- Use `mcp__codegraph__search_code` for pattern consistency with the existing codebase
+- Use `mcp__codegraph__search_code` (multi-pattern `patterns: [...]`) for batch pattern consistency with the existing codebase
 - Consciously apply SOLID, SLAP, and CQS — ask "does this function violate CQS?" or "does this class have >1 reason to change?"
 
 ### 4. Targeted Verification

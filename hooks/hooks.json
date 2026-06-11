@@ -179,11 +179,11 @@
         ]
       },
       {
-        "matcher": "Explore|explore",
+        "matcher": "Explore|explore|explore-codebase",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"MANDATORY: Use Graph MCP tools (query_graph, search_code, analyze_impact) for codebase exploration. Do NOT use bash find/grep.\\\"}\"'",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"MANDATORY: Use ONLY the explore-codebase custom agent (coder-workflow:explore-codebase) for codebase exploration, powered by CodeGraph MCP tools (query_graph, search_code, analyze_impact). Do NOT use the built-in Explore agent. Use batch multi-pattern search_code with patterns:[...] for efficiency. Do NOT use bash find/grep.\\\"}\"'",
             "timeout": 5
           }
         ]

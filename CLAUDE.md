@@ -11,7 +11,7 @@ Coder Workflow is a the AI CLI plugin that orchestrates all coding work through 
 **`coder-orchestrator`** is the single entry point for ALL coding work — workflow routing (plan, implement, verify, fix bugs, run agents). Invoke it for every coding request.
 **CRITICAL FOR CHEAP MODELS**: If the user says "trigger coder:workflow" or similar, you MUST immediately invoke the `coder-orchestrator` skill/agent or call the corresponding tool. Do NOT just acknowledge the request.
 
-Codebase exploration and MCP tool usage rules (graph-first, Explore codegraph-first, Context7-first, etc.) are enforced by **hooks** (`PreToolUse`/`PostToolUse`) — no need to repeat in skills or commands.
+Codebase exploration and MCP tool usage rules (graph-first, CodeGraph-first via `explore-codebase`, Context7-first, etc.) are enforced by **hooks** (`PreToolUse`/`PostToolUse`) — no need to repeat in skills or commands.
 
 ## Plugin Discovery
 
@@ -50,19 +50,19 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | `/vuln` | `vulnerability-scanner` | CVE scan & SBOM generation |
 | `/qa` | `codebase-qa-agent` | Ask anything about the codebase |
 | `/ops` | `devops-engineer` | Sprint, metrics, benchmark, auto-merge |
-| `/semantic-search` | `Explore` | Search code by meaning |
-| `/licenses` | `Explore` | Scan dependency licenses for compliance |
-| `/complexity` | `Explore` | Cyclomatic complexity analysis |
-| `/logs` | `Explore` | Parse and analyze JSONL log files |
+| `/semantic-search` | `coder-workflow:explore-codebase` | Search code by meaning |
+| `/licenses` | `coder-workflow:explore-codebase` | Scan dependency licenses for compliance |
+| `/complexity` | `coder-workflow:explore-codebase` | Cyclomatic complexity analysis |
+| `/logs` | `coder-workflow:debugging-engineer` | Parse and analyze JSONL log files |
 | `/coverage` | `test-engineer` | Aggregate coverage reports (jest, vitest) |
-| `/hooks` | `Explore` | Scaffold git hooks with validation |
+| `/hooks` | `coder-workflow:explore-codebase` | Scaffold git hooks with validation |
 | `/todos` | `todo-checker` | TODO/FIXME tracking with author aging |
-| `/perf` | `Explore` | Bundle size analysis and performance audit |
-| `/i18n` | `Explore` | Extract i18n strings and check translations |
+| `/perf` | `coder-workflow:explore-codebase` | Bundle size analysis and performance audit |
+| `/i18n` | `coder-workflow:explore-codebase` | Extract i18n strings and check translations |
 | `/db-schema` | `db-architect` | Prisma/TypeORM schema diff and analysis |
-| `/doctor` | `Explore` | Dev environment and project health check |
-| `/stats` | `Explore` | Codebase statistics (LOC, languages, trends) |
-| `/api-contract` | `Explore` | Compare OpenAPI specs for breaking changes |
+| `/doctor` | `coder-workflow:explore-codebase` | Dev environment and project health check |
+| `/stats` | `coder-workflow:explore-codebase` | Codebase statistics (LOC, languages, trends) |
+| `/api-contract` | `coder-workflow:explore-codebase` | Compare OpenAPI specs for breaking changes |
 | `/think` | Custom MCP | Structured sequential reasoning with branching & revision |
 
 ## Agent Coordination
@@ -85,6 +85,7 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | `secret-scanner` 🆕 | Detect hardcoded secrets, API keys, tokens |
 | `vulnerability-scanner` 🆕 | CVE scan & SBOM generation |
 | `docs-generator` 🆕 | Generate CONTRIBUTING, ADR, PR, changelog |
+| **`explore-codebase`** 🆕 | **CodeGraph-first codebase exploration (replaces built-in `Explore`)** |
 
 ## Hooks (Auto-Loaded)
 
@@ -132,7 +133,7 @@ Hooks are defined in `hooks/hooks.json` and companion scripts in `hooks/scripts/
 ## Orchestrator Usage (Required)
 
 - **Always trigger `coder-orchestrator`** at session start for any coding task. It handles both workflow routing and codebase exploration (prioritize graph over grep, query over read).
-- **Context Token Efficiency**: The main orchestrator must NEVER read large files, perform extensive searches, or edit code directly. ALWAYS dispatch subagents (`explorer`, `code-implementer`) to perform these actions to prevent massive token bloat in the main session context.
+- **Context Token Efficiency**: The main orchestrator must NEVER read large files, perform extensive searches, or edit code directly. ALWAYS dispatch subagents (`coder-workflow:explore-codebase`, `code-implementer`) to perform these actions to prevent massive token bloat in the main session context.
 - **Tasks tracking is recommended**: While it is good practice to run `TaskCreate` early, initial codebase exploration using read-only tools is permitted before task creation.
 - The coding orchestrator routes work through an agent sequence: the `workflow-planner` agent breaks the task into units.
 - **Prefer sequential execution when modifying shared state** (e.g., config files, core modules) to avoid merge conflicts and race conditions. Use parallel subagents only for strictly independent tasks.
@@ -415,10 +416,10 @@ hooks:                            # Scoped hooks (see Hooks section)
 
 Source: https://code.claude.com/docs/en/sub-agents
 
-**Built-in Agents:**
+**Built-in Agents (DO NOT USE — use `coder-workflow:explore-codebase` instead):**
 | Agent | Model | Tools | Purpose |
 |---|---|---|---|
-| Explore | Haiku | Read-only | File discovery, code search |
+| ~~Explore~~ | ~~Haiku~~ | ~~Read-only~~ | ~~DO NOT USE — use `coder-workflow:explore-codebase`~~ |
 | Plan | Inherits | Read-only | Codebase research for planning |
 | General-purpose | Inherits | All tools | Complex multi-step tasks |
 

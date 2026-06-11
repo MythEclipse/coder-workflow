@@ -12,6 +12,6 @@ If a scope argument is provided, pass it to the agent as the refactoring boundar
 
 > [!IMPORTANT]
 > MCP TOOL UPDATES:
-> - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it. Use standard `view_file` or `Read` via explorer subagents instead.
+> - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it. Use standard `view_file` or `Read` via `coder-workflow:explore-codebase` instead.
 > - `mcp__codegraph__analyze_impact` and `list_directory_tree` now have UNLIMITED depth.
 > - New tools added: `mcp__codegraph__update_codebase` (partial scan) and `mcp__codegraph__diff_graphs` (compare json states).

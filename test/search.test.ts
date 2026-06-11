@@ -89,7 +89,6 @@ export function secondThing() { return 2; }
 
   const output = searchCodebase(root, settings, {
     pattern: "function\\s+\\w+Thing",
-    regex: true,
     maxResults: 1,
   });
 
@@ -105,7 +104,7 @@ test("searchCodebase validates invalid regex and numeric bounds", () => {
   });
 
   assert.throws(
-    () => searchCodebase(root, settings, { pattern: "[invalid", regex: true }),
+    () => searchCodebase(root, settings, { pattern: "[invalid" }),
     /Invalid regex pattern:/,
   );
   assert.throws(
@@ -304,9 +303,12 @@ test("search CLI validates missing pattern, invalid regex, numbers, and unknown 
   assert.equal(missing.status, 1);
   assert.match(missing.stderr, /Search pattern is required\./);
 
-  const invalidRegex = runCli(root, ["search", "[invalid", "--regex"]);
+  const invalidRegex = runCli(root, ["search", "[invalid"]);
   assert.equal(invalidRegex.status, 1);
   assert.match(invalidRegex.stderr, /Invalid regex pattern:/);
+
+  const literal = runCli(root, ["search", "needle", "--literal"]);
+  assert.equal(literal.status, 0);
 
   const invalidNumber = runCli(root, ["search", "needle", "--max-results", "nope"]);
   assert.equal(invalidNumber.status, 1);
@@ -380,6 +382,79 @@ test("MCP rejects invalid search_code input", async () => {
       }),
       /Search numeric options must be finite numbers\./,
     );
+  } finally {
+    await client.close();
+  }
+});
+
+test("searchCodebase supports multi-pattern OR'd search with dedup", () => {
+  const root = fixture({
+    "src/app.ts": `const alpha = 1;
+const beta = 2;
+const gamma = 3;
+`,
+  });
+
+  const output = searchCodebase(root, settings, {
+    pattern: "alpha",
+    patterns: ["beta", "gamma"],
+    regex: false,
+  });
+
+  assert.equal(output.results.length, 3);
+  const files = output.results.map((r) => r.file);
+  assert.equal(new Set(files).size, 1); // all same file
+  assert.equal(output.stats.totalMatches, 3);
+});
+
+test("searchCodebase regex default with literal word works", () => {
+  const root = fixture({
+    "src/app.ts": `const value = "Needle";`,
+  });
+
+  // plain word is a valid regex, should match
+  const output = searchCodebase(root, settings, { pattern: "Needle" });
+  assert.equal(output.results.length, 1);
+});
+
+test("searchCodebase defaults to regex with metacharacters", () => {
+  const root = fixture({
+    "src/app.ts": `function getData(): string { return "ok"; }`,
+  });
+
+  // regex metacharacters enabled by default
+  const output = searchCodebase(root, settings, {
+    pattern: "function\\s+\\w+\\(\\):\\s+string",
+  });
+  assert.equal(output.results.length, 1);
+});
+
+test("MCP search_code accepts multi-pattern patterns array", async () => {
+  const root = fixture({
+    "src/app.ts": `export function alpha() { return 1; }
+export function beta() { return 2; }
+export function gamma() { return 3; }
+`,
+  });
+  const client = new Client({ name: "codegraph-search-test", version: "0.1.0" });
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [join(process.cwd(), "dist", "mcp-server.js")],
+    cwd: root,
+  });
+
+  await client.connect(transport);
+  try {
+    const result = await client.callTool({
+      name: "search_code",
+      arguments: {
+        pattern: "alpha",
+        patterns: ["beta", "gamma"],
+        regex: false,
+      },
+    });
+    const output = parseToolJson(result) as { results: Array<{ file: string }> };
+    assert.equal(output.results.length, 3);
   } finally {
     await client.close();
   }

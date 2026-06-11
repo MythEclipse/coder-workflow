@@ -1514,12 +1514,18 @@ USAGE:
   coder-workflow help              Show this help
 
 SEARCH OPTIONS:
-  --regex           Pattern is a regular expression
+  --literal         Force literal string search (default: regex)
   --case-sensitive  Case-sensitive matching
+  --pattern <pat>   Additional pattern (repeatable for batch/multi-pattern search)
   --context <n>     Lines of context around matches
   --max-results <n> Maximum results to return
   --include <pat>   File glob to include (repeatable)
   --exclude <pat>   File glob to exclude (repeatable)
+
+  Examples:
+    coder-workflow search "function\\s+\\w+"              # regex search (default)
+    coder-workflow search "needle" --literal               # literal string
+    coder-workflow search "TODO" --pattern "FIXME" --pattern "HACK"  # batch multi-pattern
 
 MCP INTEGRATION:
   Add to .mcp.json:
@@ -1534,7 +1540,8 @@ EXAMPLES:
   coder-workflow scan
   coder-workflow query "src/graph/db.ts:GraphDatabase.open"
   coder-workflow impact "src/types.ts:CodeGraph"
-  coder-workflow search "TODO|FIXME" --regex --context 2
+  coder-workflow search "TODO|FIXME" --context 2                                       # regex search with context
+  coder-workflow search "TODO" --pattern "FIXME" --pattern "HACK" --literal --context 2  # batch multi-pattern
   coder-workflow quality --fail-on high
   coder-workflow export json mermaid html
   coder-workflow api-contract diff --before <a> --after <b>  # API Contract

@@ -3,6 +3,6 @@ description: Validate .env, JSON, YAML configs against schema; detect missing en
 argument-hint: [env|json|missing-env]
 allowed-tools: Read, Bash
 ---
-Agent: `Explore`
+Agent: `coder-workflow:explore-codebase`
 Invoke via CLI: `coder-workflow validate env --schema <file> [--env .env]` or `coder-workflow validate json --file <file> --schema <file>` or `coder-workflow validate missing-env --required KEY1,KEY2`.
 Or via MCP: `validate_env_file`, `validate_json_file`, `detect_missing_env_vars`.

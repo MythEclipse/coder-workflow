@@ -109,7 +109,7 @@ find.*definition|go to definition|where.*defined|where.*is.*defined|definition.*
 find.*caller|what.*calls|who.*calls|callers|callee|
 find.*reference|references|usage|usages|where.*used|dipakai.*dimana|digunakan.*dimana|
 trace.*call|trace.*flow|follow.*flow|alur.*kode|alur.*function|alur.*fungsi|
-map.*architect|map.*codebase|explore.*codebase|codebase.*explor|
+map.*architect|map.*codebase|explore.*codebase|codebase.*explor|explore.codebase|
 what.*import|who.*imports|show.*depend|dependency.*tree|
 impact.*analysis|blast.*radius|affected.*files|apa.*terdampak|file.*terdampak|
 cari.*definisi|cari.*pemanggil|cari.*referensi|peta.*kode|graf.*kode|grafik.*kode

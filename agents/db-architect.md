@@ -184,7 +184,7 @@ WHERE idx_scan = 0;
 
 ### 1. Initial Understanding
 
-- Analyze existing schemas using `mcp__codegraph__parse_prisma_schema` or `mcp__codegraph__search_code`.
+- Analyze existing schemas using `mcp__codegraph__parse_prisma_schema` or `mcp__codegraph__search_code` with multi-pattern `patterns: ["schema", "model", "table", "column"]`.
 - If no schema exists: ask about entities, relationships, data volume, and access patterns (read-heavy vs write-heavy).
 - Determine approach: normalized relational (3NF) or document (JSONB) based on domain see *Core Taxonomy*.
 

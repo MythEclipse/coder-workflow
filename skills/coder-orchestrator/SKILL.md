@@ -13,7 +13,7 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 **You are a top-level manager (orchestrator), NOT an executor. You are STRICTLY FORBIDDEN from reading or editing files directly.**
 
-1. **Zero Direct Reads**: Never invoke read-only tools (`view_file`, `grep_search`, `cat`, `less`, `grep`, etc.) from the orchestrator context. All exploration and auditing is delegated exclusively to worker subagents (e.g., `coder-workflow:architecture-auditor`, `Explore` agent).
+1. **Zero Direct Reads**: Never invoke read-only tools (`view_file`, `grep_search`, `cat`, `less`, `grep`, etc.) from the orchestrator context. All exploration and auditing is delegated exclusively to worker subagents (e.g., `coder-workflow:architecture-auditor`, `coder-workflow:explore-codebase`).
 2. **Zero Direct Edits**: Never invoke file-mutation tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`, `sed`, `echo >>`, etc.) from the orchestrator context. All implementation is delegated exclusively to specialized agents.
 3. **Aggressive Delegation**: If any subagent might apply (≥1% chance), you MUST spawn it. Focus entirely on spawning subagents, coordinating tasks, synthesizing outputs, detecting conflicts, and managing the overall project lifecycle.
 
@@ -70,10 +70,10 @@ Step 1 — Brainstorm (only if request is underspecified or design is unclear)
              until the user approves the design.
 
 Step 2 — Explore (parallel recon, always required for Tier 2)
-  How:   Spawn Explore agent (background, parallel with nothing else)
-  Goal:  Map codebase structure, identify modules, find duplications,
+  How:   Spawn `coder-workflow:explore-codebase` agent (background, parallel with nothing else)
+  Goal:  Map codebase structure via CodeGraph, identify modules, find duplications,
          locate logging gaps, detect monolithic functions, trace call paths
-  Wait for: Explore agent output before proceeding
+  Wait for: explore-codebase agent output before proceeding
 
 Step 3 — Plan
   How:   Spawn coder-workflow:workflow-planner (background agent)
@@ -106,7 +106,7 @@ Step 4 — Swarm Dispatch
 | audit / review / check / analyze / inspect / cek / weakness / disconnect | `coder-workflow:architecture-auditor` |
 | test / spec / coverage / TDD / unit / e2e | `coder-workflow:test-engineer` |
 | deploy / docker / CI / CD / VPS / infra | `coder-workflow:devops-engineer` |
-| explore / understand / how does / where is / explain | `Explore` agent |
+| explore / understand / how does / where is / explain | `coder-workflow:explore-codebase` agent |
 | secrets / API key / token / hardcoded credential | `coder-workflow:secret-scanner` |
 | vuln / CVE / SBOM / dependency risk | `coder-workflow:vulnerability-scanner` |
 | QA / question / codebase question | `coder-workflow:codebase-qa-agent` |
@@ -132,7 +132,7 @@ Step 4 — Swarm Dispatch
 | Feature | CLI command | MCP tool | Best Agent |
 |---|---|---|---|
 | Dead Code | `dead-code` | `find_dead_code` | `coder-workflow:architecture-auditor` |
-| Semantic Search | `semantic-search` | `semantic_search` | `Explore` |
+| Semantic Search | `semantic-search` | `semantic_search` | `coder-workflow:explore-codebase` |
 | PR Description | `pr` | `generate_pr` | `coder-workflow:docs-engineer` |
 | Changelog | `changelog` | `generate_changelog` | `coder-workflow:docs-engineer` |
 | Release | `release` | `create_release` | `coder-workflow:devops-engineer` |
@@ -145,19 +145,19 @@ Step 4 — Swarm Dispatch
 | Sprint Report | `sprint` | `sprint_report` | `coder-workflow:devops-engineer` |
 | Team Metrics | `team-metrics` | `team_metrics` | `coder-workflow:devops-engineer` |
 | Benchmark | `benchmark` | `record_benchmark` | `coder-workflow:devops-engineer` |
-| API Contract | `api-contract` | `compare_api_specs` | `Explore` |
-| Config Validation | `validate` | `validate_env_file` | `Explore` |
-| License Check | `licenses` | `check_licenses` | `Explore` |
-| Code Complexity | `complexity` | `analyze_complexity` | `Explore` |
+| API Contract | `api-contract` | `compare_api_specs` | `coder-workflow:explore-codebase` |
+| Config Validation | `validate` | `validate_env_file` | `coder-workflow:explore-codebase` |
+| License Check | `licenses` | `check_licenses` | `coder-workflow:explore-codebase` |
+| Code Complexity | `complexity` | `analyze_complexity` | `coder-workflow:explore-codebase` |
 | Log Analysis | `logs` | `analyze_logs` | `coder-workflow:debugging-engineer` |
 | Coverage | `coverage` | `aggregate_coverage` | `coder-workflow:test-engineer` |
-| Git Hooks | `hooks` | `scaffold_git_hooks` | `Explore` |
+| Git Hooks | `hooks` | `scaffold_git_hooks` | `coder-workflow:explore-codebase` |
 | TODO Tracker | `todos` | `scan_todos` | `coder-workflow:todo-checker` |
-| Performance | `perf` | `analyze_bundle` | `Explore` |
-| i18n Helper | `i18n` | `extract_i18n_strings` | `Explore` |
+| Performance | `perf` | `analyze_bundle` | `coder-workflow:explore-codebase` |
+| i18n Helper | `i18n` | `extract_i18n_strings` | `coder-workflow:explore-codebase` |
 | DB Schema | `db-schema` | `parse_prisma_schema` | `coder-workflow:db-architect` |
-| Doctor | `doctor` | `doctor` | `Explore` |
-| Codebase Stats | `stats` | `codebase_stats` | `Explore` |
+| Doctor | `doctor` | `doctor` | `coder-workflow:explore-codebase` |
+| Codebase Stats | `stats` | `codebase_stats` | `coder-workflow:explore-codebase` |
 | Architecture Diagram | `diagram` | `export_graph` | `coder-workflow:diagram-engineer` |
 | Quality Gate | `quality` | `quality_gate` | `coder-workflow:quality-guardian` |
 | Consistency | `consistency` | — | `coder-workflow:quality-guardian` |
@@ -172,8 +172,10 @@ Step 4 — Swarm Dispatch
 
 > **Tier 1 (scoped)** skips to step 4. **Tier 2 (broad)** must run steps 1–3 first.
 
+> **⚠️ HARD BAN**: Never spawn the built-in `Explore` agent. Use ONLY `coder-workflow:explore-codebase` for all codebase exploration tasks.
+
 1. **Brainstorm** *(Tier 2, if underspecified)*: Invoke `Skill(brainstorming)` in the current context — **foreground, interactive, never backgrounded**. Blocks until user approves the design spec. Produces a spec doc + hands off to workflow-planner.
-2. **Explore** *(Tier 2, always)*: Spawn `Explore` agent (background) to map codebase, find duplications, trace call paths, detect gaps. Wait for output.
+2. **Explore** *(Tier 2, always)*: Spawn `coder-workflow:explore-codebase` agent (background) to map codebase via CodeGraph, find duplications, trace call paths, detect gaps. Wait for output.
 3. **Plan** *(Tier 2)*: Spawn `coder-workflow:workflow-planner` with Explore findings + approved spec. Produces N atomic tasks with FILE_MANIFEST. Wait for output.
 4. **Memory check** *(if applicable)*: Invoke `coder-workflow:memory-librarian` for recurring/cross-session context.
 5. **Multi-Repo** *(if applicable)*: `coder-workflow:multi-repo-orchestrator` for cross-service scope.

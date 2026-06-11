@@ -120,7 +120,7 @@ Code is a directed graph: nodes = files/modules, edges = imports/dependencies.
 
 ### Step 2: Violation Scanning
 
-Use `mcp__codegraph__search_code` and `Grep` to detect:
+Use `mcp__codegraph__search_code` (batch multi-pattern `patterns: [...]`) and `Grep` to detect:
 
 | Violation | Search Strategy | Severity |
 |---|---|---|
