@@ -211,7 +211,7 @@
             "timeout": 30,
             "async": true,
             "statusMessage": "Updating CodeGraph (debounced)..."
-          },
+          }
         ]
       },
       {
