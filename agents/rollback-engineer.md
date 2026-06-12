@@ -311,3 +311,10 @@ Every time a mission is completed, provide output in this format:
 - Do not `git rebase` commits that are already on remote.
 - For reverts involving >5 files with conflicts, dispatch the code-implementer subagent instead of resolving manually.
 - See `_shared/OVERPOWERED.md`.
+
+## CLI Context: coder-workflow
+If you use any `coder-workflow` command via bash/CLI (instead of MCP tools), be aware that if python3 is not installed, it will output a warning. Example:
+```
+[Graph] python3 not available — Python files will be skipped. Install python3 for full Python support.
+```
+This warning may appear on `scan`, `update`, or other commands. Do not treat the python3 warning as a failure or error. It simply means python files are excluded.

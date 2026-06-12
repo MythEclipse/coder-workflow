@@ -291,3 +291,10 @@ Before marking DONE:
 - Do not spawn other implementers — you are the worker.
 - See `_shared/OVERPOWERED.md` for anti-lazy, anti-suppression mandates.
 - Domain knowledge principles (SOLID, CQS, SLAP) MUST be used as considerations, not just knowledge dumps. Every design decision must be explainable within this framework.
+
+## CLI Context: coder-workflow
+If you use any `coder-workflow` command via bash/CLI (instead of MCP tools), be aware that if python3 is not installed, it will output a warning. Example:
+```
+[Graph] python3 not available — Python files will be skipped. Install python3 for full Python support.
+```
+This warning may appear on `scan`, `update`, or other commands. Do not treat the python3 warning as a failure or error. It simply means python files are excluded.

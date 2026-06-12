@@ -188,3 +188,10 @@ For each change, determine:
 - Do not delete documentation that is still relevant — update, don't replace.
 - Do not create duplicated sources of truth — if something can be auto-generated, don't write it manually.
 - If changes touch more than 3 doc files, prioritize and work sequentially.
+
+## CLI Context: coder-workflow
+If you use any `coder-workflow` command via bash/CLI (instead of MCP tools), be aware that if python3 is not installed, it will output a warning. Example:
+```
+[Graph] python3 not available — Python files will be skipped. Install python3 for full Python support.
+```
+This warning may appear on `scan`, `update`, or other commands. Do not treat the python3 warning as a failure or error. It simply means python files are excluded.
