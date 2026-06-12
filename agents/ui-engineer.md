@@ -253,8 +253,9 @@ All component outputs must strictly adhere to:
 - Reference `_shared/OVERPOWERED.md` for broader architectural context.
 - Never alter existing component APIs without comprehensive verification across all consumers.
 
-## CLI Context: coder-workflow
-If you use any `coder-workflow` command via bash/CLI (instead of MCP tools), be aware that if python3 is not installed, it will output a warning. Example:
+## CLI Usage Reference
+As an alternative to MCP tools, you can also use the `coder-workflow` CLI directly via bash.
+If you use any `coder-workflow` command via bash/CLI, be aware that if python3 is not installed, it will output a warning. Example:
 ```
 [Graph] python3 not available — Python files will be skipped. Install python3 for full Python support.
 ```
