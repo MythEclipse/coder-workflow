@@ -46,6 +46,22 @@ function checkPythonAvailable(): boolean {
   return _pythonAvailable;
 }
 
+function refWorker() {
+  if (pythonWorker) {
+    pythonWorker.ref();
+    (pythonWorker.stdout as unknown as NodeJS.RefCounted)?.ref();
+    (pythonWorker.stdin as unknown as NodeJS.RefCounted)?.ref();
+  }
+}
+
+function unrefWorker() {
+  if (pythonWorker) {
+    pythonWorker.unref();
+    (pythonWorker.stdout as unknown as NodeJS.RefCounted)?.unref();
+    (pythonWorker.stdin as unknown as NodeJS.RefCounted)?.unref();
+  }
+}
+
 function getPythonWorker(): ChildProcess | null {
   if (!checkPythonAvailable()) return null;
   if (!pythonWorker) {
@@ -70,6 +86,9 @@ function getPythonWorker(): ChildProcess | null {
           const pending = pendingRequests.get(msg.id);
           if (pending) {
             pendingRequests.delete(msg.id);
+            if (pendingRequests.size === 0) {
+              unrefWorker();
+            }
             if (msg.error) pending.reject(new Error(msg.error));
             else pending.resolve(msg.result);
           }
@@ -82,11 +101,13 @@ function getPythonWorker(): ChildProcess | null {
       console.error("[Graph] Python worker error:", err);
       for (const pending of pendingRequests.values()) pending.reject(err);
       pendingRequests.clear();
+      unrefWorker();
       pythonWorker = null;
     });
     pythonWorker.on("exit", () => {
       for (const pending of pendingRequests.values()) pending.reject(new Error("Worker exited"));
       pendingRequests.clear();
+      unrefWorker();
       pythonWorker = null;
     });
   }
@@ -99,6 +120,9 @@ async function parsePythonAST(source: string, path: string): Promise<any> {
   return new Promise((resolve, reject) => {
     const id = ++msgIdCounter;
     pendingRequests.set(id, { resolve, reject });
+    if (pendingRequests.size === 1) {
+      refWorker();
+    }
     const payload = JSON.stringify({ id, action: "parse", source, path }) + "\n";
     worker.stdin?.write(payload);
   });
