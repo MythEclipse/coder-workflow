@@ -21,7 +21,7 @@ Write a native Dynamic Workflow script that implements the following phases. Ens
 Phases:
 1. Brainstorm: clarify intent if underspecified (ask the user first before finalizing the script if needed).
 2. Discover: Spawn discovery subagents to map codebase (trace data flows, module boundaries, gaps) and query cross-agent memory for prior context.
-3. Plan: Decompose task into atomic units with FILE_MANIFEST per task (target ≤3 files).
+3. Plan: Decompose task via workflow-planner into atomic units with FILE_MANIFEST per task (target ≤3 files).
 4. Swarm: Spawn 1 subagent per task from the plan output concurrently to leverage native swarming capabilities.
 5. Verify: Spawn an architecture-auditor subagent to run a post-execution audit (confirm no layer violations, no circular deps, no dead imports).
 6. Synthesize: Collect outputs, resolve conflicts, produce a final report.

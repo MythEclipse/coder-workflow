@@ -6,7 +6,7 @@
  * Supports npm (package-lock.json / node_modules) and pip (requirements.txt).
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readJsonSafe } from "./utils/index.js";
 
@@ -284,7 +284,6 @@ function scanNpmNodeModules(root: string): LicenseInfo[] {
 }
 
 function readFileSystemDirs(dir: string): string[] {
-  const { readdirSync } = require("node:fs") as typeof import("node:fs");
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((d) => d.isDirectory())
@@ -407,7 +406,6 @@ export function scanPipLicenses(root?: string): LicenseReport {
   const reqDir = join(resolvedRoot, "requirements");
   if (existsSync(reqDir)) {
     try {
-      const { readdirSync } = require("node:fs") as typeof import("node:fs");
       const files = readdirSync(reqDir).filter((f) => f.endsWith(".txt"));
       for (const file of files) {
         const pkgNames = parseRequirementsTxt(join(reqDir, file));

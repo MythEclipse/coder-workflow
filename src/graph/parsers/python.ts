@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,20 @@ import type { LanguageParser } from "./LanguageParser.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const WORKER_PATH = join(__dirname, "python-worker.py");
+
+function findWorkerPath(): string | null {
+  const candidates = [
+    join(__dirname, "python-worker.py"),
+    join(__dirname, "..", "python-worker.py"),
+    join(__dirname, "..", "..", "python-worker.py"),
+    join(process.cwd(), "dist", "python-worker.py"),
+    join(process.cwd(), "src", "graph", "parsers", "python-worker.py"),
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return null;
+}
 
 let pythonWorker: ChildProcess | null = null;
 let msgIdCounter = 0;
@@ -19,7 +32,6 @@ const pendingRequests = new Map<number, { resolve: (val: any) => void; reject: (
 function checkPythonAvailable(): boolean {
   if (_pythonAvailable !== null) return _pythonAvailable;
   try {
-    const { execSync } = require("node:child_process") as typeof import("node:child_process");
     execSync("python3 --version", { stdio: "ignore", timeout: 3_000 });
     _pythonAvailable = true;
   } catch {
@@ -32,11 +44,12 @@ function checkPythonAvailable(): boolean {
 function getPythonWorker(): ChildProcess | null {
   if (!checkPythonAvailable()) return null;
   if (!pythonWorker) {
-    if (!existsSync(WORKER_PATH)) {
-      console.warn("[Graph] python-worker.py not found at", WORKER_PATH);
+    const workerPath = findWorkerPath();
+    if (!workerPath) {
+      console.warn("[Graph] python-worker.py not found in any candidate path");
       return null;
     }
-    pythonWorker = spawn("python3", [WORKER_PATH], { stdio: ["pipe", "pipe", "inherit"] });
+    pythonWorker = spawn("python3", [workerPath], { stdio: ["pipe", "pipe", "inherit"] });
     pythonWorker.unref();
     (pythonWorker.stdout as unknown as NodeJS.RefCounted)?.unref();
     (pythonWorker.stdin as unknown as NodeJS.RefCounted)?.unref();

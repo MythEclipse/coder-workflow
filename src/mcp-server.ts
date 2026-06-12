@@ -35,9 +35,9 @@ import type { ToolHandlerContext } from "./mcp-router.js";
  * Returns 0 if file does not exist.
  */
 function getGraphJsonMtime(root: string): number {
-  const jsonPath = join(root, ".codegraph", "graph.json");
+  const dbPath = join(root, ".codegraph", "graph.json");
   try {
-    return statSync(jsonPath).mtimeMs;
+    return statSync(dbPath).mtimeMs;
   } catch {
     return 0;
   }
@@ -2236,7 +2236,7 @@ interface GraphFreshness {
 }
 
 async function getGraphFreshness(root: string): Promise<GraphFreshness> {
-  const jsonPath = join(root, ".codegraph", "graph.json");
+  const dbPath = join(root, ".codegraph", "graph.json");
   if (!(await graphExists(root))) {
     return {
       exists: false,
@@ -2245,7 +2245,7 @@ async function getGraphFreshness(root: string): Promise<GraphFreshness> {
       recommendation: "No graph database found. Run scan_codebase before deep analysis.",
     };
   }
-  const mtimeMs = statSync(jsonPath).mtimeMs;
+  const mtimeMs = statSync(dbPath).mtimeMs;
   const ageMinutes = Math.round((Date.now() - mtimeMs) / 60_000);
   const isStale = ageMinutes > 120;
   return {

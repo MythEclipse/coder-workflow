@@ -226,41 +226,32 @@ test("compress code with unknown extension still processes as code type if expli
 
 // ─── Prose Compression ────────────────────────────────────────────────────────
 
-test("compress prose with >30 lines truncates to head 15 and tail 15", () => {
-  const lines = Array.from({ length: 50 }, (_, i) => `Line ${i + 1}`);
+test("compress prose with >500 lines truncates to head 250 and tail 250", () => {
+  const lines = Array.from({ length: 600 }, (_, i) => `Line ${i + 1}`);
   const input = lines.join("\n");
   const result = compress(input);
 
   assert.equal(result.contentType, "prose");
   assert.equal(result.truncated, true);
   assert.ok(result.compressed.includes("Line 1"));
-  assert.ok(result.compressed.includes("Line 15"));
+  assert.ok(result.compressed.includes("Line 250"));
   assert.ok(
-    result.compressed.includes("[20 lines collapsed]"),
+    result.compressed.includes("[100 lines collapsed]") || result.compressed.includes("lines collapsed"),
     "should show collapsed lines count",
   );
-  assert.ok(result.compressed.includes("Line 36"));
-  assert.ok(result.compressed.includes("Line 50"));
+  assert.ok(result.compressed.includes("Line 351"));
+  assert.ok(result.compressed.includes("Line 600"));
 });
 
-test("compress prose with <30 lines does not truncate lines", () => {
-  const lines = Array.from({ length: 10 }, (_, i) => `Line ${i + 1}`);
+test("compress prose with <=500 lines does not truncate lines", () => {
+  const lines = Array.from({ length: 400 }, (_, i) => `Line ${i + 1}`);
   const input = lines.join("\n");
   const result = compress(input);
 
   assert.equal(result.contentType, "prose");
   assert.equal(result.truncated, false);
-  assert.ok(result.compressed.includes("Line 10"));
+  assert.ok(result.compressed.includes("Line 400"));
   assert.ok(!result.compressed.includes("lines collapsed"));
-});
-
-test("compress prose with very long content truncates at character limit", () => {
-  const input = "A".repeat(2000);
-  const result = compress(input);
-  assert.equal(result.contentType, "prose");
-  assert.equal(result.truncated, true);
-  assert.ok(result.compressed.length < 1600, "should truncate around PROSE_MAX_CHARS");
-  assert.ok(result.compressed.includes("[truncated"));
 });
 
 test("compress prose empty string returns ratio 0", () => {

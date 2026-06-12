@@ -1,9 +1,11 @@
 import sys
 import json
 import ast
+import textwrap
 
 def process_file(source, path):
     try:
+        source = textwrap.dedent(source)
         tree = ast.parse(source)
     except SyntaxError:
         return {"nodes": [], "imports": [], "routes": [], "importMap": [], "edges": []}

@@ -177,7 +177,7 @@ public class App {
   }
 });
 
-test("writes graph runtime data to SQLite database", async () => {
+test("writes graph runtime data to JSON file", async () => {
   const root = fixture({
     "src/app.ts": `export function realSymbol() { return "ok"; }`,
   });
@@ -186,7 +186,7 @@ test("writes graph runtime data to SQLite database", async () => {
   await writeGraph(root, graph);
 
   assert.equal(await graphExists(root), true);
-  assert.equal(existsSync(join(root, ".codegraph", "graph.db")), true);
+  assert.equal(existsSync(join(root, ".codegraph", "graph.json")), true);
   assert.equal(existsSync(join(root, ".codegraph", "index.json")), false);
   assert.equal(existsSync(join(root, ".codegraph", "cache", "scan-cache.json")), false);
   assertNode(await readGraph(root), "symbol:src/app.ts:realSymbol");
@@ -881,10 +881,13 @@ test("hooks scan missing graph and update after file changes and stop events", a
 
 test("MCP server command resolves from PATH", async () => {
   const config = JSON.parse(readFileSync(join(process.cwd(), ".mcp.json"), "utf8"));
-  // CLI binary name (coder-workflow) or fallback (codegraph-mapper) both accepted
+  // CLI binary name (coder-workflow) or fallback (codegraph-mapper) both accepted, including absolute paths
   const cmd = config.mcpServers.codegraph.command;
   assert.ok(
-    cmd === "coder-workflow" || cmd === "codegraph-mapper",
+    cmd === "coder-workflow" || 
+    cmd === "codegraph-mapper" || 
+    cmd.endsWith("/coder-workflow") || 
+    cmd.endsWith("/codegraph-mapper"),
     `Unexpected MCP command: ${cmd}`,
   );
   assert.equal(config.mcpServers.codegraph.args[0], "mcp");
