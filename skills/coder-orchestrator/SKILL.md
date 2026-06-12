@@ -268,7 +268,6 @@ return { report, ... }
 ## Swarm Dispatch Rules
 
 - **No worktrees**. NEVER use `isolation: worktree` or branched workspaces. All agents run in the exact same workspace.
-- **1 task = 1 agent() call**. Never batch tasks into one agent.
 - Isolated domains (different files/modules) → `parallel([...])` — all at once.
 - Shared state (same file/config) → still `parallel([...])`, but agents MUST declare FILE_MANIFEST upfront.
 - Use `Agent` tool (not `invoke_subagent`) for top-level swarm dispatch inside Workflow phases.
