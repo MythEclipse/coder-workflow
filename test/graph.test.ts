@@ -884,10 +884,10 @@ test("MCP server command resolves from PATH", async () => {
   // CLI binary name (coder-workflow) or fallback (codegraph-mapper) both accepted, including absolute paths
   const cmd = config.mcpServers.codegraph.command;
   assert.ok(
-    cmd === "coder-workflow" || 
-    cmd === "codegraph-mapper" || 
-    cmd.endsWith("/coder-workflow") || 
-    cmd.endsWith("/codegraph-mapper"),
+    cmd === "coder-workflow" ||
+      cmd === "codegraph-mapper" ||
+      cmd.endsWith("/coder-workflow") ||
+      cmd.endsWith("/codegraph-mapper"),
     `Unexpected MCP command: ${cmd}`,
   );
   assert.equal(config.mcpServers.codegraph.args[0], "mcp");

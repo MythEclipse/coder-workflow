@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 
 // ─── Text ───────────────────────────────────────────────────────────────────
@@ -174,18 +174,35 @@ export function daysSince(isoDate: string): number {
  */
 export function walkFiles(root: string): string[] {
   const result: string[] = [];
-  const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.md', '.css', '.html']);
+  const EXTENSIONS = new Set([
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".json",
+    ".md",
+    ".css",
+    ".html",
+  ]);
   function walk(dir: string) {
     let entries: string[];
-    try { entries = readdirSync(dir); } catch { return; }
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
     for (const entry of entries) {
       const full = join(dir, entry);
       try {
-        if (entry.startsWith('.')) continue;
+        if (entry.startsWith(".")) continue;
         const s = statSync(full);
         if (s.isDirectory()) walk(full);
         else if (s.isFile() && EXTENSIONS.has(extname(full))) result.push(full);
-      } catch { continue; }
+      } catch {
+        continue;
+      }
     }
   }
   walk(root);
@@ -210,26 +227,30 @@ export function generateId(prefix: string): string {
 /**
  * Format a Stats object or stats-like record as a Markdown report block.
  */
-export function formatReport(stats: { total: number; byOutcome?: Record<string, number>; [key: string]: unknown }): string {
-  const lines: string[] = ['## Report', ''];
+export function formatReport(stats: {
+  total: number;
+  byOutcome?: Record<string, number>;
+  [key: string]: unknown;
+}): string {
+  const lines: string[] = ["## Report", ""];
   lines.push(`**Total:** ${stats.total}`);
   if (stats.byOutcome) {
-    lines.push('', '### Breakdown', '| Outcome | Count |', '|---------|-------|');
+    lines.push("", "### Breakdown", "| Outcome | Count |", "|---------|-------|");
     for (const [k, v] of Object.entries(stats.byOutcome)) {
-      const pct = stats.total > 0 ? ((v as number / stats.total) * 100).toFixed(1) : '0.0';
+      const pct = stats.total > 0 ? (((v as number) / stats.total) * 100).toFixed(1) : "0.0";
       lines.push(`| ${k} | ${v} (${pct}%) |`);
     }
   }
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
  * Format bytes as a human-readable string.
  */
 export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const val = bytes / (1024 ** i);
+  const val = bytes / 1024 ** i;
   return `${val.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }

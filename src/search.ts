@@ -3,7 +3,7 @@ import { relative } from "node:path";
 import { listSearchableFiles, listSourceFiles } from "./graph/files.js";
 import { rankHybridSearchResults } from "./search/semantic.js";
 import type { CodeGraphSettings } from "./types.js";
-import { escapeRegex, globToRegExp, globMatch } from "./utils/index.js";
+import { escapeRegex, globMatch, globToRegExp } from "./utils/index.js";
 
 const DEFAULT_MAX_RESULTS = 100;
 const MAX_RESULTS_LIMIT = 10_000;

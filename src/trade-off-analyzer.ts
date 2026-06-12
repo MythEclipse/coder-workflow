@@ -101,7 +101,6 @@ const ENTRIES_FILE = "entries.jsonl";
 // Storage helpers
 // ---------------------------------------------------------------------------
 
-
 /**
  * Load all entries from the JSONL file. Corrupt lines are silently skipped.
  * Returns an empty array if the file does not exist or cannot be read.
@@ -164,7 +163,6 @@ function writeAllEntries(entries: TradeoffEntry[]): void {
 // ---------------------------------------------------------------------------
 // Utility
 // ---------------------------------------------------------------------------
-
 
 /**
  * Compute a numeric score for an approach.

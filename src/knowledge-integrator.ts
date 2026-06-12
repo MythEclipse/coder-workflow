@@ -15,9 +15,21 @@
  * The directory and file are created automatically on first use.
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
-import { KNOWLEDGE_DIR, ENTRIES_FILE, MAX_QUERY_RESULTS, MIN_RELEVANCE_THRESHOLD } from "./knowledge-config.js";
+import {
+  ENTRIES_FILE,
+  KNOWLEDGE_DIR,
+  MAX_QUERY_RESULTS,
+  MIN_RELEVANCE_THRESHOLD,
+} from "./knowledge-config.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -109,15 +121,11 @@ export interface ContextTip {
 
 /** Directory for storing knowledge entries */
 
-
 /** JSONL file name for storing entries */
-
 
 /** Maximum entries returned by queryProjectKnowledge */
 
-
 /** Minimum relevance score to be considered a match in queries */
-
 
 // ─── Storage Helpers ────────────────────────────────────────────────────
 

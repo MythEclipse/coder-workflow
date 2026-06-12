@@ -22,7 +22,10 @@ export function exportFromEngine(engine: SequentialThinkingEngine, format: strin
   if (format === "ascii") return engine.exportBranchTree().ascii;
   if (format === "mermaid") return engine.exportBranchTree().mermaid;
   if (format === "json") {
-    const session = SequentialThinkingEngine.loadSession(engine.getSessionId(), join(cwd(), ".claude", "sequential-thinking"));
+    const session = SequentialThinkingEngine.loadSession(
+      engine.getSessionId(),
+      join(cwd(), ".claude", "sequential-thinking"),
+    );
     return JSON.stringify(session, null, 2);
   }
   return engine.exportMarkdown();

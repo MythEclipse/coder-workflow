@@ -25,7 +25,14 @@ import {
   writeFileSync,
 } from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
-import { blameAuthor, blameDate, daysSince, escapeMarkdown, ensureStorageDir, walkFiles } from "./utils/index.js";
+import {
+  blameAuthor,
+  blameDate,
+  daysSince,
+  ensureStorageDir,
+  escapeMarkdown,
+  walkFiles,
+} from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 

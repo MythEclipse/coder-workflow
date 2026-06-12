@@ -10,9 +10,9 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type {
-  ExperienceOutcome,
-  ExperienceEntry,
   DecisionRecord,
+  ExperienceEntry,
+  ExperienceOutcome,
   Stats,
 } from "./experience-types.js";
 import { ensureDir, generateId } from "./utils/index.js";
@@ -470,7 +470,9 @@ export function formatReport(stats: Stats): string {
   lines.push("");
   lines.push("Top patterns:");
   for (const p of stats.topPatterns) {
-    lines.push(`  ${p.pattern} — freq: ${p.frequency}, success: ${(p.avgSuccessRate * 100).toFixed(0)}%`);
+    lines.push(
+      `  ${p.pattern} — freq: ${p.frequency}, success: ${(p.avgSuccessRate * 100).toFixed(0)}%`,
+    );
   }
   lines.push("");
   lines.push("Recent decisions:");
@@ -479,4 +481,3 @@ export function formatReport(stats: Stats): string {
   }
   return lines.join("\n");
 }
-

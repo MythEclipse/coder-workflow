@@ -22,13 +22,13 @@ import { diffGraphs, formatGraphDiff } from "./git-diff.js";
 import { summarizeGraphForBudget } from "./graph/summarize.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import { getThinkingEngine } from "./mcp-handlers/sequential-thinking.js";
+import type { ToolHandlerContext } from "./mcp-router.js";
+import { McpDelegationRouter, router } from "./mcp-router.js";
 import { searchCodebase } from "./search.js";
 import { SequentialThinkingEngine } from "./sequential-thinking.js";
 import { loadSettings } from "./settings.js";
 import type { CodeGraph } from "./types.js";
 import { openGraphUi } from "./ui.js";
-import { router, McpDelegationRouter } from "./mcp-router.js";
-import type { ToolHandlerContext } from "./mcp-router.js";
 
 /**
  * Get mtime of the JSON graph file.

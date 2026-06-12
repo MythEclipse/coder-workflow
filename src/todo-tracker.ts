@@ -9,7 +9,16 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
-import { blameAuthor, blameDate, daysSince, escapeMarkdown, escapeRegExp, globMatch, globToRegExp, walkFiles } from "./utils/index.js";
+import {
+  blameAuthor,
+  blameDate,
+  daysSince,
+  escapeMarkdown,
+  escapeRegExp,
+  globMatch,
+  globToRegExp,
+  walkFiles,
+} from "./utils/index.js";
 
 // ---------------------------------------------------------------------------
 // Types

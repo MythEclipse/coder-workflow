@@ -34,7 +34,9 @@ export function sendSwarmMessage(
   }
   // Broadcast safeguard
   if (recipient === "all" && content.length > 10000) {
-    content = "[BROADCAST WARNING] Large broadcasts degrade performance. Please target specific agents if possible.\n\n" + content;
+    content =
+      "[BROADCAST WARNING] Large broadcasts degrade performance. Please target specific agents if possible.\n\n" +
+      content;
   }
 
   let messages: SwarmMessage[] = [];

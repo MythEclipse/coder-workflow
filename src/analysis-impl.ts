@@ -1,7 +1,13 @@
 // Consolidated analysis functions — merged from src/analysis/*.ts
 // These were spread across 6 files but had zero external importers except cli.ts and mcp-server.ts
 
-import type { CodeGraph, CodeGraphNode, CodeGraphEdge, CodeGraphNodeType, CodeGraphEdgeType } from "./types.js";
+import type {
+  CodeGraph,
+  CodeGraphEdge,
+  CodeGraphEdgeType,
+  CodeGraphNode,
+  CodeGraphNodeType,
+} from "./types.js";
 
 export function pathFromNodeId(id: string, nodes: CodeGraphNode[]): string | undefined {
   if (id.startsWith("file:")) return id.slice("file:".length);
@@ -406,7 +412,6 @@ export function summarizeArchitecture(graph: CodeGraph): ArchitectureSummary {
 
   return { metadata: graph.metadata, nodes, edges };
 }
-
 
 // --- src/analysis/quality.ts ---
 import { existsSync, statSync } from "node:fs";

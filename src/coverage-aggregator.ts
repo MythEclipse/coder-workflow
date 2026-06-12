@@ -104,7 +104,6 @@ function emptyReport(error?: string): CoverageReport {
   return buildReport([], error);
 }
 
-
 // ─── Istanbul JSON Parser ──────────────────────────────────────────────────
 // Shared by parseJestCoverage, parseVitestCoverage, parsePlaywrightCoverage
 

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
+import { copyFileSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { chmod } from "node:fs/promises";
-import { extname, join, dirname } from "node:path";
+import { dirname, extname, join } from "node:path";
 import { build } from "esbuild";
 
 const shared = {

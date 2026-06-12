@@ -9,8 +9,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { MemoryCandidate } from "./experience-types.js";
 import { getUnprocessedMemories, markAsDreamed } from "./experience-journal.js";
+import type { MemoryCandidate } from "./experience-types.js";
 import { getUnprocessedFailures, markFailureAsDreamed } from "./learn.js";
 
 const MEMORY_DIR = ".claude/memory-core";
@@ -43,15 +43,126 @@ function saveCandidates(candidates: MemoryCandidate[]): void {
 }
 
 const STOP_WORDS = new Set([
-  "error", "failed", "failure", "while", "trying", "cannot", "could", "not", "during", "the", "a", "an", "is", "are",
-  "was", "were", "to", "from", "in", "on", "at", "by", "for", "with", "about", "against", "between", "into", "through",
-  "after", "before", "of", "and", "or", "but", "if", "then", "else", "when", "where", "why", "how", "all", "any",
-  "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "only", "own", "same", "so", "than",
-  "too", "very", "can", "will", "just", "should", "now", "it", "this", "that", "these", "those", "we", "you", "they",
-  "has", "have", "had", "do", "does", "did", "be", "been", "being", "am", "as", "their", "there", "here",
-  "occurred", "happened", "found", "unexpected", "invalid", "undefined", "null", "missing", "provided", "expected",
-  "received", "returned", "called", "execution", "execute", "run", "running", "start", "starting", "stop", "stopping",
-  "fail", "fails", "crashing", "crashed", "issue", "problem", "bug", "fix", "fixed", "resolving", "resolved"
+  "error",
+  "failed",
+  "failure",
+  "while",
+  "trying",
+  "cannot",
+  "could",
+  "not",
+  "during",
+  "the",
+  "a",
+  "an",
+  "is",
+  "are",
+  "was",
+  "were",
+  "to",
+  "from",
+  "in",
+  "on",
+  "at",
+  "by",
+  "for",
+  "with",
+  "about",
+  "against",
+  "between",
+  "into",
+  "through",
+  "after",
+  "before",
+  "of",
+  "and",
+  "or",
+  "but",
+  "if",
+  "then",
+  "else",
+  "when",
+  "where",
+  "why",
+  "how",
+  "all",
+  "any",
+  "both",
+  "each",
+  "few",
+  "more",
+  "most",
+  "other",
+  "some",
+  "such",
+  "no",
+  "nor",
+  "only",
+  "own",
+  "same",
+  "so",
+  "than",
+  "too",
+  "very",
+  "can",
+  "will",
+  "just",
+  "should",
+  "now",
+  "it",
+  "this",
+  "that",
+  "these",
+  "those",
+  "we",
+  "you",
+  "they",
+  "has",
+  "have",
+  "had",
+  "do",
+  "does",
+  "did",
+  "be",
+  "been",
+  "being",
+  "am",
+  "as",
+  "their",
+  "there",
+  "here",
+  "occurred",
+  "happened",
+  "found",
+  "unexpected",
+  "invalid",
+  "undefined",
+  "null",
+  "missing",
+  "provided",
+  "expected",
+  "received",
+  "returned",
+  "called",
+  "execution",
+  "execute",
+  "run",
+  "running",
+  "start",
+  "starting",
+  "stop",
+  "stopping",
+  "fail",
+  "fails",
+  "crashing",
+  "crashed",
+  "issue",
+  "problem",
+  "bug",
+  "fix",
+  "fixed",
+  "resolving",
+  "resolved",
 ]);
 
 function extractTopic(text: string): string {
@@ -60,23 +171,29 @@ function extractTopic(text: string): string {
   cleanText = cleanText.replace(/(?:\/[a-zA-Z0-9_.-]+)+/g, " "); // Remove absolute/relative file paths
   cleanText = cleanText.replace(/at\s+.*:\d+:\d+/g, " "); // Remove stack traces
   cleanText = cleanText.replace(/[a-fA-F0-9-]{16,}/g, " "); // Remove UUIDs and long hashes
-  
+
   // 2. Tokenize and filter out non-alphanumeric noise, very short words, and stop words
   const normalized = cleanText.toLowerCase().replace(/[^a-z0-9\s]/g, " ");
-  const words = normalized.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
-  
+  const words = normalized
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
+
   // 3. Deduplicate to get distinct key terms
   const distinctWords = [...new Set(words)];
-  
+
   if (distinctWords.length === 0) {
     return "general_operations";
   }
-  
+
   // Return the top 3-4 distinct words combined to form a technical topic identifier
   return distinctWords.slice(0, 4).join("_");
 }
 
-function updateDurableMemory(candidate: MemoryCandidate, currentMemory: string, seenHashes: Set<string>): string {
+function updateDurableMemory(
+  candidate: MemoryCandidate,
+  currentMemory: string,
+  seenHashes: Set<string>,
+): string {
   const sectionHeader = `## Topic: ${candidate.topic}`;
   const cleanContext = candidate.context.replace(/\n/g, " ").trim();
   const ctxHash = createHash("sha256").update(cleanContext).digest("hex").slice(0, 16);
@@ -87,7 +204,7 @@ function updateDurableMemory(candidate: MemoryCandidate, currentMemory: string, 
   seenHashes.add(ctxHash);
 
   const newFact = `- **Context:** ${cleanContext}\n  *First Seen:* ${candidate.firstSeen} | *Promoted:* ${new Date().toISOString()}`;
-  
+
   if (currentMemory.includes(sectionHeader)) {
     // Inject right after the section header
     const parts = currentMemory.split(sectionHeader);

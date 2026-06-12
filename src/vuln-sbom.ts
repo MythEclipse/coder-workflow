@@ -456,8 +456,15 @@ export function scanVulnerabilities(root: string): VulnScanReport {
             packageName: pkg,
             severity: sevMap[info.severity] ?? "MEDIUM",
             title: info.title ?? info.name ?? "npm audit advisory",
-            description: (info.range ?? "") + (info.fixAvailable ? ` → fix: ${typeof info.fixAvailable === "string" ? info.fixAvailable : info.fixAvailable.version ?? "upgrade"}` : ""),
-            fixedIn: typeof info.fixAvailable === "string" ? info.fixAvailable : info.fixAvailable?.version ?? "unknown",
+            description:
+              (info.range ?? "") +
+              (info.fixAvailable
+                ? ` → fix: ${typeof info.fixAvailable === "string" ? info.fixAvailable : (info.fixAvailable.version ?? "upgrade")}`
+                : ""),
+            fixedIn:
+              typeof info.fixAvailable === "string"
+                ? info.fixAvailable
+                : (info.fixAvailable?.version ?? "unknown"),
           };
           vulnerabilities.push(vuln);
           bySeverity[vuln.severity] = (bySeverity[vuln.severity] ?? 0) + 1;
@@ -488,8 +495,15 @@ export function scanVulnerabilities(root: string): VulnScanReport {
               packageName: pkg,
               severity: sevMap[info.severity] ?? "MEDIUM",
               title: info.title ?? info.name ?? "npm audit advisory",
-              description: (info.range ?? "") + (info.fixAvailable ? ` → fix: ${typeof info.fixAvailable === "string" ? info.fixAvailable : info.fixAvailable.version ?? "upgrade"}` : ""),
-              fixedIn: typeof info.fixAvailable === "string" ? info.fixAvailable : info.fixAvailable?.version ?? "unknown",
+              description:
+                (info.range ?? "") +
+                (info.fixAvailable
+                  ? ` → fix: ${typeof info.fixAvailable === "string" ? info.fixAvailable : (info.fixAvailable.version ?? "upgrade")}`
+                  : ""),
+              fixedIn:
+                typeof info.fixAvailable === "string"
+                  ? info.fixAvailable
+                  : (info.fixAvailable?.version ?? "unknown"),
             };
             vulnerabilities.push(vuln);
             bySeverity[vuln.severity] = (bySeverity[vuln.severity] ?? 0) + 1;

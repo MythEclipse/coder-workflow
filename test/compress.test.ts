@@ -236,7 +236,8 @@ test("compress prose with >500 lines truncates to head 250 and tail 250", () => 
   assert.ok(result.compressed.includes("Line 1"));
   assert.ok(result.compressed.includes("Line 250"));
   assert.ok(
-    result.compressed.includes("[100 lines collapsed]") || result.compressed.includes("lines collapsed"),
+    result.compressed.includes("[100 lines collapsed]") ||
+      result.compressed.includes("lines collapsed"),
     "should show collapsed lines count",
   );
   assert.ok(result.compressed.includes("Line 351"));

@@ -38,7 +38,7 @@ export async function graphDbExists(root: string): Promise<boolean> {
 
 export async function writeGraphToDb(root: string, graph: CodeGraph): Promise<void> {
   validateGraphIntegrity(graph);
-  
+
   const dir = join(root, ".codegraph");
   mkdirSync(dir, { recursive: true });
 
@@ -115,8 +115,8 @@ export async function replaceGraphPathsInDb(
   const pathsSet = new Set(paths);
 
   // Filter out nodes and edges from old paths
-  const keepNodes = graph.nodes.filter(n => !pathsSet.has(n.path));
-  const keepNodesIds = new Set(keepNodes.map(n => n.id));
+  const keepNodes = graph.nodes.filter((n) => !pathsSet.has(n.path));
+  const keepNodesIds = new Set(keepNodes.map((n) => n.id));
 
   // Add the replacement nodes
   for (const n of replacementNodes) {
@@ -124,7 +124,7 @@ export async function replaceGraphPathsInDb(
   }
 
   // Filter out edges where source or target is being removed (and not replaced)
-  const keepEdges = graph.edges.filter(e => {
+  const keepEdges = graph.edges.filter((e) => {
     return keepNodesIds.has(e.source) && keepNodesIds.has(e.target);
   });
 
@@ -153,4 +153,3 @@ function validateGraphIntegrity(graph: CodeGraph): void {
     }
   }
 }
-

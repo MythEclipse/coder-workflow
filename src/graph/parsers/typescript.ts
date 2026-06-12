@@ -135,5 +135,3 @@ function extractFromAST(source: string, path: string): CodeGraphNode[] {
   visit(sourceFile);
   return symbols;
 }
-
-

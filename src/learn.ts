@@ -15,7 +15,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { FailureRecord, CorrectionEntry, LearnReport } from "./experience-types.js";
+import type { CorrectionEntry, FailureRecord, LearnReport } from "./experience-types.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 

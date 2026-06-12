@@ -805,4 +805,3 @@ function formatMetricValue(value: number | undefined, metric: keyof QualitySnaps
   if (metric === "testCoverage") return `${value.toFixed(1)}%`;
   return value.toString();
 }
-

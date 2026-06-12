@@ -153,9 +153,9 @@ async function parseFile(
 }
 
 export async function scanCodebase(
-  root: string, 
+  root: string,
   settings: CodeGraphSettings,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<CodeGraph> {
   const files = listSourceFiles(root, settings);
   if (signal?.aborted) throw new Error("Aborted");
@@ -166,30 +166,35 @@ export async function scanCodebase(
 
   // Phase 1: Parallel I/O with bounded concurrency
   const maxWorkers = Math.min(16, availableParallelism());
-  const results = await boundedMap(files, maxWorkers, async (file) => {
-    if (signal?.aborted) throw new Error("Aborted");
-    const rel = relative(root, file).replace(/\\/g, "/");
-    const language = languageForPath(file) ?? "unknown";
+  const results = await boundedMap(
+    files,
+    maxWorkers,
+    async (file) => {
+      if (signal?.aborted) throw new Error("Aborted");
+      const rel = relative(root, file).replace(/\\/g, "/");
+      const language = languageForPath(file) ?? "unknown";
 
-    const fstat = await fsStat(file);
-    const mtime = fstat.mtimeMs;
-    const size = fstat.size;
+      const fstat = await fsStat(file);
+      const mtime = fstat.mtimeMs;
+      const size = fstat.size;
 
-    const cached = cache.files[rel];
+      const cached = cache.files[rel];
 
-    // Read file
-    const source = await readFile(file, "utf8");
-    const hash = getFileHash(source);
+      // Read file
+      const source = await readFile(file, "utf8");
+      const hash = getFileHash(source);
 
-    // Hash-based reuse
-    if (isReusableCacheEntry(cached, hash, mtime, size, language)) {
-      return { rel, language, source, cached };
-    }
+      // Hash-based reuse
+      if (isReusableCacheEntry(cached, hash, mtime, size, language)) {
+        return { rel, language, source, cached };
+      }
 
-    // Cache miss — parse
-    const parsed = await parseFile(rel, file, language, source, mtime, size, settings);
-    return { rel, language, source, cached: parsed.entry, parsed };
-  }, signal);
+      // Cache miss — parse
+      const parsed = await parseFile(rel, file, language, source, mtime, size, settings);
+      return { rel, language, source, cached: parsed.entry, parsed };
+    },
+    signal,
+  );
 
   // Phase 2: Sequential collect into shared structures (no races)
   const nodes: CodeGraphNode[] = [];
@@ -263,7 +268,9 @@ export async function scanCodebase(
       ...extractCallEdges(item.source, item.symbols, symbolByName, item.importMap, item.path),
     );
     if (parser) {
-      edges.push(...(await parser.extractRelationshipEdges(item.sanitized, item.symbols, symbolByName)));
+      edges.push(
+        ...(await parser.extractRelationshipEdges(item.sanitized, item.symbols, symbolByName)),
+      );
     }
     edges.push(...extractRouteHandlerEdges(item.source, item.path, symbolByName));
     edges.push(...extractComponentUsageEdges(item.sanitized, item.symbols, symbolByName));
@@ -285,7 +292,7 @@ async function boundedMap<T, R>(
   items: T[],
   concurrency: number,
   fn: (item: T) => Promise<R>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<R[]> {
   const results: (R | undefined)[] = new Array(items.length);
   let idx = 0;

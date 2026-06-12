@@ -6,7 +6,7 @@
  * Supports npm (package-lock.json / node_modules) and pip (requirements.txt).
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readJsonSafe } from "./utils/index.js";
 

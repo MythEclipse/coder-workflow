@@ -1,8 +1,8 @@
-import { spawn, execSync, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { CodeGraphEdge, CodeGraphNode } from "../../types.js";
 import { dedupeById, edge, nodeId } from "../ids.js";
 import type { LanguageParser } from "./LanguageParser.js";
@@ -27,7 +27,10 @@ function findWorkerPath(): string | null {
 let pythonWorker: ChildProcess | null = null;
 let msgIdCounter = 0;
 let _pythonAvailable: boolean | null = null;
-const pendingRequests = new Map<number, { resolve: (val: any) => void; reject: (err: any) => void }>();
+const pendingRequests = new Map<
+  number,
+  { resolve: (val: any) => void; reject: (err: any) => void }
+>();
 
 function checkPythonAvailable(): boolean {
   if (_pythonAvailable !== null) return _pythonAvailable;
@@ -35,7 +38,9 @@ function checkPythonAvailable(): boolean {
     execSync("python3 --version", { stdio: "ignore", timeout: 3_000 });
     _pythonAvailable = true;
   } catch {
-    console.warn("[Graph] python3 not available — Python files will be skipped. Install python3 for full Python support.");
+    console.warn(
+      "[Graph] python3 not available — Python files will be skipped. Install python3 for full Python support.",
+    );
     _pythonAvailable = false;
   }
   return _pythonAvailable;
@@ -104,7 +109,7 @@ const astCache = new Map<string, Promise<any>>();
 async function getAST(source: string, path: string): Promise<any> {
   const key = createHash("sha256").update(source).digest("hex");
   if (astCache.has(key)) return astCache.get(key);
-  
+
   const promise = parsePythonAST(source, path);
   astCache.set(key, promise);
   if (astCache.size > 200) {

@@ -78,9 +78,17 @@ test("javascriptParser extracts component usage", async () => {
 test("javascriptParser resolves relative imports", async () => {
   const filePaths = new Set(["src/utils/helper.ts", "src/utils/index.ts"]);
 
-  const resolved = await typescriptParser.resolveImportTarget("./helper", "src/utils/main.ts", filePaths);
+  const resolved = await typescriptParser.resolveImportTarget(
+    "./helper",
+    "src/utils/main.ts",
+    filePaths,
+  );
   assert.equal(resolved, "src/utils/helper.ts");
 
-  const resolvedDir = await typescriptParser.resolveImportTarget(".", "src/utils/main.ts", filePaths);
+  const resolvedDir = await typescriptParser.resolveImportTarget(
+    ".",
+    "src/utils/main.ts",
+    filePaths,
+  );
   assert.equal(resolvedDir, "src/utils/index.ts");
 });

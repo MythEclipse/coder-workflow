@@ -1,4 +1,16 @@
 // Analysis barrel — re-exports from consolidated analysis-impl.ts
+
+export type {
+  ArchitectureSummary,
+  GraphQualityCategory,
+  GraphQualityIssue,
+  GraphQualityReport,
+  GraphQualitySeverity,
+  ImpactAnalysisResult,
+  QualityGateResult,
+  QualityGateThreshold,
+  QueryGraphResult,
+} from "./analysis-impl.js";
 export {
   analyzeGraphQuality,
   analyzeImpact,
@@ -8,14 +20,3 @@ export {
   queryGraph,
   summarizeArchitecture,
 } from "./analysis-impl.js";
-export type {
-  GraphQualityIssue,
-  GraphQualityReport,
-  GraphQualitySeverity,
-  GraphQualityCategory,
-  QualityGateResult,
-  QualityGateThreshold,
-} from "./analysis-impl.js";
-export type { ImpactAnalysisResult } from "./analysis-impl.js";
-export type { QueryGraphResult } from "./analysis-impl.js";
-export type { ArchitectureSummary } from "./analysis-impl.js";

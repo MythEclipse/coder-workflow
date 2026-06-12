@@ -14,16 +14,10 @@
  * - .claude/consistency-enforcer/violations.log — violation history
  */
 
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
 import ts from "typescript";
-import { escapeRegExp, escapeMarkdown, ensureDir } from "./utils/index.js";
+import { ensureDir, escapeMarkdown, escapeRegExp } from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -299,7 +293,11 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
       }
 
       // Detect naming conventions from identifiers (functions, classes, variables, constants)
-      detectNamingFromContent(content, namingCounts[lang], ext === ".ts" || ext === ".js" || ext === ".tsx" || ext === ".jsx");
+      detectNamingFromContent(
+        content,
+        namingCounts[lang],
+        ext === ".ts" || ext === ".js" || ext === ".tsx" || ext === ".jsx",
+      );
 
       // Detect import style
       const importStats = detectImportStyle(content);
@@ -443,7 +441,7 @@ function collectSourceFiles(root: string): string[] {
     try {
       dirEntries = readdirSafe(dir);
     } catch (error: any) {
-    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
+      console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
       return;
     }
 
@@ -462,7 +460,7 @@ function collectSourceFiles(root: string): string[] {
           }
         }
       } catch (error: any) {
-    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
+        console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
         continue;
       }
     }
@@ -540,9 +538,13 @@ function collectDirectoryStructure(root: string): {
 /**
  * Detects naming conventions from file content.
  */
-function detectNamingFromContent(content: string, counts: Record<string, number>, isTS: boolean = false): void {
+function detectNamingFromContent(
+  content: string,
+  counts: Record<string, number>,
+  isTS: boolean = false,
+): void {
   if (isTS) {
-    const sourceFile = ts.createSourceFile('temp.ts', content, ts.ScriptTarget.Latest, true);
+    const sourceFile = ts.createSourceFile("temp.ts", content, ts.ScriptTarget.Latest, true);
     ts.forEachChild(sourceFile, function visit(node: ts.Node) {
       if (ts.isClassDeclaration(node) && node.name) {
         counts.PascalCase = (counts.PascalCase || 0) + 1;
@@ -883,7 +885,7 @@ export function validateFilesAgainstProfile(
       const violations = validateFileAgainstProfile(filePath, profile);
       allViolations.push(...violations);
     } catch (error: any) {
-    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
+      console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
       // Skip files that fail validation
       continue;
     }

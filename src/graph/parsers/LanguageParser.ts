@@ -30,7 +30,9 @@ export interface LanguageParser {
   resolveSymbolRanges(
     source: string,
     symbols: CodeGraphNode[],
-  ): Promise<Map<string, { startLine: number; endLine: number }>> | Map<string, { startLine: number; endLine: number }>;
+  ):
+    | Promise<Map<string, { startLine: number; endLine: number }>>
+    | Map<string, { startLine: number; endLine: number }>;
 
   /** Resolves an imported module string to a local file path if it exists */
   resolveImportTarget(
