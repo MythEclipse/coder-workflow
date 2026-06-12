@@ -39,15 +39,12 @@
     "install:link": "./install.sh --link"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "latest",
-    "blessed": "^0.1.81",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^15.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
-    "@types/blessed": "^0.1.27",
-    "@types/commander": "^2.12.0",
-    "@types/node": "latest",
+    "@types/node": "^22.0.0",
     "c8": "^11.0.0",
     "esbuild": "^0.28.0",
     "typescript": "latest"

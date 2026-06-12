@@ -46,7 +46,7 @@ export interface DoctorReport {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function run(file: string, args: string[], timeout = 5000): string | null {
+function execTool(file: string, args: string[], timeout = 5000): string | null {
   try {
     return execFileSync(file, args, { encoding: "utf-8", timeout }).trim();
   } catch {
@@ -99,7 +99,7 @@ export function checkTool(
   let version: string | null = null;
 
   if (installed) {
-    const output = run(tool, [versionArg]);
+    const output = execTool(tool, [versionArg]);
     if (output) {
       const match = output.match(versionRegex);
       version = match ? match[1] : output.split("\n")[0] || null;

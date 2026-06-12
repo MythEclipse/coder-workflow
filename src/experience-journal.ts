@@ -9,76 +9,13 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { runDreamingCycle } from "./dreaming.js";
-
-// ---------------------------------------------------------------------------
-// Data Types
-// ---------------------------------------------------------------------------
-
-/** Final outcome of a task. */
-export type ExperienceOutcome = "success" | "failure" | "partial";
-
-/**
- * Record of an architectural or technical decision.
- */
-export interface DecisionRecord {
-  /** Unique decision ID. */
-  id: string;
-  /** ISO 8601 timestamp when the decision was made. */
-  timestamp: string;
-  /** Context when the decision was made. */
-  context: string;
-  /** Options that were considered. */
-  options: string[];
-  /** The selected option. */
-  selected: string;
-  /** Rationale for selecting that option. */
-  rationale: string;
-  /** Decision outcome after evaluation (optional). */
-  outcome?: ExperienceOutcome;
-}
-
-/**
- * Record of a task completion.
- */
-export interface ExperienceEntry {
-  /** Unique entry ID. */
-  id: string;
-  /** ISO 8601 timestamp. */
-  timestamp: string;
-  /** Task type (e.g., "implement", "debug", "refactor", "test", "deploy"). */
-  taskType: string;
-  /** Short task description. */
-  taskDesc: string;
-  /** Final task outcome. */
-  outcome: ExperienceOutcome;
-  /** Root cause of failure (if outcome=failure). */
-  rootCause?: string;
-  /** Lessons learned. */
-  lessons: string[];
-  /** Identified patterns. */
-  patterns: string[];
-  /** Decisions made during the task. */
-  decisions: DecisionRecord[];
-  /** Tags for categorization. */
-  tags: string[];
-  /** Timestamp when this entry was processed by the Dreaming phase. */
-  dreamedAt?: string;
-}
-
-/**
- * Summary statistics from the journal.
- */
-export interface Stats {
-  /** Total entries in the journal. */
-  total: number;
-  /** Number of entries per outcome. */
-  byOutcome: Record<ExperienceOutcome, number>;
-  /** Most frequently occurring patterns. */
-  topPatterns: Array<{ pattern: string; frequency: number; avgSuccessRate: number }>;
-  /** Recent decisions. */
-  recentDecisions: DecisionRecord[];
-}
+import type {
+  ExperienceOutcome,
+  ExperienceEntry,
+  DecisionRecord,
+  Stats,
+} from "./experience-types.js";
+import { ensureDir } from "./utils/index.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -106,11 +43,7 @@ const DEFAULT_QUERY_LIMIT = 10;
  * @returns {string} Absolute path to the journal directory
  */
 function ensureJournalDir(): string {
-  const dir = resolve(join(process.cwd(), JOURNAL_DIR));
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+  return ensureDir(resolve(join(process.cwd(), JOURNAL_DIR)));
 }
 
 /**

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -15,10 +16,10 @@ export function escapeRegex(value: string): string {
 export const escapeRegExp = escapeRegex;
 
 /**
- * Escape pipe (|) and newline characters for Markdown tables.
+ * Escape pipe (|), newline, and carriage return characters for Markdown tables.
  */
 export function escapeMarkdown(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\n/g, " ");
+  return text.replace(/\|/g, "\\|").replace(/\n/g, " ").replace(/\r/g, "");
 }
 
 // ─── Glob ───────────────────────────────────────────────────────────────────
@@ -85,6 +86,20 @@ export function ensureDirSync(dirPath: string): void {
 }
 
 /**
+ * Ensure a directory exists and return the path.
+ * Useful for returning the dir in expressions.
+ *
+ * @param dirPath — Absolute directory path to ensure exists.
+ * @returns The input dirPath.
+ */
+export function ensureDir(dirPath: string): string {
+  if (!existsSync(dirPath)) {
+    mkdirSync(dirPath, { recursive: true });
+  }
+  return dirPath;
+}
+
+/**
  * Ensure the parent directory of a file path exists.
  *
  * @param filePath — Path to a file whose parent directory should exist.
@@ -94,4 +109,59 @@ export function ensureParentDirSync(filePath: string): void {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
+}
+
+// ─── Git Blame Helpers ───────────────────────────────────────────────────────
+
+/**
+ * Get the author from git blame for a specific line.
+ * @param file — Absolute file path
+ * @param line — Line number
+ * @returns Author email or undefined on failure
+ */
+export function blameAuthor(file: string, line: number): string | undefined {
+  try {
+    const out = execFileSync("git", ["blame", "-e", "-L", `${line},${line}`, "--", file], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 5000,
+    });
+    const match = out.match(/<([^>]+)>/);
+    return match ? match[1] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Get the last commit date for a specific line via git log.
+ * @param file — Absolute file path
+ * @param line — Line number
+ * @returns ISO date string or undefined on failure
+ */
+export function blameDate(file: string, line: number): string | undefined {
+  try {
+    const out = execFileSync(
+      "git",
+      ["log", "--follow", "-1", "--format=%aI", "-L", `${line},${line}`, "--", file],
+      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"], timeout: 8000 },
+    );
+    const d = out.trim();
+    return d || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Calculate the number of days between an ISO date and now.
+ * @param isoDate — ISO date string
+ * @returns Number of days
+ */
+export function daysSince(isoDate: string): number {
+  const then = new Date(isoDate).getTime();
+  if (Number.isNaN(then)) return 0;
+  const now = Date.now();
+  const diffMs = now - then;
+  return Math.floor(diffMs / 86_400_000);
 }

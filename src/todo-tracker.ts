@@ -9,6 +9,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
+import { blameAuthor, blameDate, daysSince, escapeMarkdown, escapeRegExp, globMatch, globToRegExp } from "./utils/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,76 +94,12 @@ const SKIP_DIRS = new Set([
 ]);
 
 /** Git blame a single line — returns author email (or undefined). */
-function blameAuthor(file: string, line: number): string | undefined {
-  try {
-    const out = execFileSync("git", ["blame", "-e", "-L", `${line},${line}`, "--", file], {
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 5000,
-    });
-    // Output format: commit-hash (Author Name <email>  date ) line-content
-    const match = out.match(/<([^>]+)>/);
-    return match ? match[1] : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Git log – date of the commit that last touched the given line. */
-function blameDate(file: string, line: number): string | undefined {
-  try {
-    const out = execFileSync(
-      "git",
-      ["log", "--follow", "-1", "--format=%aI", "-L", `${line},${line}`, "--", file],
-      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"], timeout: 8000 },
-    );
-    const d = out.trim();
-    return d || undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 /** Parse comment text from a matched line, stripping leading comment markers. */
 function extractMessage(text: string): string {
   return text
     .replace(/^\s*(?:\/\/|#|<!--?|\/\*+|\*+)\s*/, "")
     .replace(/\s*(?:\*\/|-->)?\s*$/, "")
     .trim();
-}
-
-/** Convert a glob pattern (with **, *) into a RegExp. */
-function globToRegExp(pattern: string): RegExp {
-  let source = "^";
-  for (let index = 0; index < pattern.length; index += 1) {
-    const char = pattern[index];
-    const next = pattern[index + 1];
-
-    if (char === "*" && next === "*") {
-      if (pattern[index + 2] === "/") {
-        source += "(?:.*/)?";
-        index += 2;
-      } else {
-        source += ".*";
-        index += 1;
-      }
-    } else if (char === "*") {
-      source += "[^/]*";
-    } else {
-      source += escapeRegExp(char);
-    }
-  }
-
-  return new RegExp(`${source}$`);
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
-}
-
-/** Check if a file path matches a simple glob pattern. */
-function globMatch(file: string, pattern: string): boolean {
-  return globToRegExp(pattern).test(file);
 }
 
 // ---------------------------------------------------------------------------
@@ -322,13 +259,6 @@ function buildReport(items: TodoItem[]): TodoReport {
 // ---------------------------------------------------------------------------
 
 /** Calculate number of days between ISO date string and now. */
-function daysSince(isoDate: string): number {
-  const then = new Date(isoDate).getTime();
-  if (Number.isNaN(then)) return 0;
-  const now = Date.now();
-  const diffMs = now - then;
-  return Math.floor(diffMs / 86_400_000);
-}
 
 /**
  * Compute age (days since git commit date) for a single TodoItem.
@@ -532,10 +462,6 @@ function formatItemTable(items: TodoItem[], showAge: boolean): string {
     return `| ${item.type} | ${item.file} | ${item.line} | ${author} | ${msg} |`;
   });
   return [header, sep, ...rows].join("\n");
-}
-
-function escapeMarkdown(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
 
 // ---------------------------------------------------------------------------

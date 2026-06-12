@@ -25,6 +25,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
+import { blameAuthor, blameDate, daysSince, escapeMarkdown } from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -274,65 +275,6 @@ function appendHistory(event: Record<string, unknown>): void {
   } catch {
     // Non-critical, fail silently
   }
-}
-
-// ─── Git Blame Helpers ────────────────────────────────────────────────
-
-/**
- * Gets the author from git blame for a specific line.
- * @param file Absolute file path
- * @param line Line number
- * @returns Author email or undefined on failure
- */
-function blameAuthor(file: string, line: number): string | undefined {
-  try {
-    const { execFileSync } = require("node:child_process");
-    const out = execFileSync("git", ["blame", "-e", "-L", `${line},${line}`, "--", file], {
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 5000,
-    });
-    const match = out.match(/<([^>]+)>/);
-    return match ? match[1] : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Gets the last commit date for a specific line via git log.
- * @param file Absolute file path
- * @param line Line number
- * @returns ISO date string or undefined on failure
- */
-function blameDate(file: string, line: number): string | undefined {
-  try {
-    const { execFileSync } = require("node:child_process");
-    const out = execFileSync(
-      "git",
-      ["log", "--follow", "-1", "--format=%aI", "-L", `${line},${line}`, "--", file],
-      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"], timeout: 8000 },
-    );
-    const d = out.trim();
-    return d || undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-// ─── Age Calculation ──────────────────────────────────────────────────
-
-/**
- * Calculates the number of days between an ISO date and now.
- * @param isoDate ISO date string
- * @returns Number of days
- */
-function daysSince(isoDate: string): number {
-  const then = new Date(isoDate).getTime();
-  if (Number.isNaN(then)) return 0;
-  const now = Date.now();
-  const diffMs = now - then;
-  return Math.floor(diffMs / 86_400_000);
 }
 
 // ─── Classification ───────────────────────────────────────────────────
@@ -1145,10 +1087,6 @@ function padEnd(str: string, len: number): string {
  * @param text Text to escape
  * @returns Escaped text
  */
-function escapeMarkdown(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\n/g, " ").replace(/\r/g, "");
-}
-
 // ─── Cleanup ──────────────────────────────────────────────────────────
 
 /**

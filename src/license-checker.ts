@@ -8,6 +8,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { readJsonSafe } from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -173,15 +174,6 @@ function detectIncompatibilities(
 }
 
 // ─── NPM License Scanner ────────────────────────────────────────────────
-
-function readJsonSafe(filePath: string): Record<string, unknown> | null {
-  try {
-    const content = readFileSync(filePath, "utf-8");
-    return JSON.parse(content) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 function extractLicenseField(pkg: Record<string, unknown>): string {
   const license = pkg.license;

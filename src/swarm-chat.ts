@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { ensureParentDirSync } from "./utils/index.js";
 
 export interface SwarmMessage {
   id: string;
@@ -15,10 +16,7 @@ function getChatFilePath(root: string): string {
 }
 
 function ensureDir(filePath: string) {
-  const dir = dirname(filePath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  ensureParentDirSync(filePath);
 }
 
 export function sendSwarmMessage(

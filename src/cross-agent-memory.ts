@@ -14,6 +14,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { ensureDir } from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -72,16 +73,12 @@ const PLATFORM_NAMES = {
 
 // ─── Storage ────────────────────────────────────────────────────────────
 
-function ensureDir(): string {
-  const dir = join(process.cwd(), MEMORY_DIR);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+function ensureMemDir(): string {
+  return ensureDir(join(process.cwd(), MEMORY_DIR));
 }
 
 function loadStore(): AgentMemoryStore {
-  const dir = ensureDir();
+  const dir = ensureMemDir();
   const indexPath = join(dir, MEMORY_INDEX);
 
   if (!existsSync(indexPath)) {
@@ -101,7 +98,7 @@ function loadStore(): AgentMemoryStore {
 }
 
 function saveStore(store: AgentMemoryStore): void {
-  const dir = ensureDir();
+  const dir = ensureMemDir();
   store.lastSync = new Date().toISOString();
   writeFileSync(join(dir, MEMORY_INDEX), JSON.stringify(store, null, 2), "utf-8");
 }
@@ -386,7 +383,7 @@ export function exportToYaml(options?: { filters?: MemoryQuery }): string {
  */
 export function syncWithPlatform(platform: AgentMemoryEntry["platform"]): SyncResult {
   const store = loadStore();
-  const dir = ensureDir();
+  const dir = ensureMemDir();
   const platformDir = join(dir, `platform-${platform}`);
 
   if (!existsSync(platformDir)) {

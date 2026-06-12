@@ -23,6 +23,7 @@ import {
 } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { scanForTodos } from "./todo-tracker.js";
+import { ensureDir } from "./utils/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,12 +97,8 @@ const SOURCE_EXTENSIONS = new Set([".ts", ".js", ".tsx", ".jsx"]);
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function ensureDir(): string {
-  const dir = join(process.cwd(), QUALITY_DIR);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+function ensureQualDir(): string {
+  return ensureDir(join(process.cwd(), QUALITY_DIR));
 }
 
 function walkSourceFiles(root: string): string[] {
@@ -364,7 +361,7 @@ function computeScore(snapshot: QualitySnapshot): number {
 // ---------------------------------------------------------------------------
 
 function appendSnapshot(root: string, snapshot: QualitySnapshot): void {
-  const dir = ensureDir();
+  const dir = ensureQualDir();
   const filePath = join(dir, SNAPSHOTS_FILE);
   const entry = JSON.stringify({ root, snapshot }) + "\n";
   try {
@@ -375,7 +372,7 @@ function appendSnapshot(root: string, snapshot: QualitySnapshot): void {
 }
 
 function readSnapshots(): Array<{ root: string; snapshot: QualitySnapshot }> {
-  const dir = ensureDir();
+  const dir = ensureQualDir();
   const filePath = join(dir, SNAPSHOTS_FILE);
   if (!existsSync(filePath)) return [];
 

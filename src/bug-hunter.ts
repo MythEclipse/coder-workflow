@@ -24,6 +24,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
+import { ensureDir } from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 /**
@@ -429,11 +430,7 @@ export function getBugPatterns(): BugPattern[] {
  * @returns {string} Absolute path to the storage directory
  */
 function ensureStorageDir(): string {
-  const dir = join(process.cwd(), STORAGE_DIR);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+  return ensureDir(join(process.cwd(), STORAGE_DIR));
 }
 
 /**

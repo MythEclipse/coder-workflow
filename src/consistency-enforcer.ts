@@ -25,6 +25,7 @@ import {
 } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import ts from "typescript";
+import { escapeRegExp, escapeMarkdown, ensureDir } from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -197,11 +198,7 @@ const SKIP_DIRS = new Set([
  * Ensures the storage directory exists, creates it if not.
  */
 function ensureStorageDir(): string {
-  const dir = join(process.cwd(), STORAGE_DIR);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+  return ensureDir(join(process.cwd(), STORAGE_DIR));
 }
 
 /**
@@ -228,13 +225,6 @@ function writeJSON(filePath: string, data: unknown): void {
     mkdirSync(dir, { recursive: true });
   }
   writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-}
-
-/**
- * Escapes special RegExp characters.
- */
-function escapeRegExp(value: string): string {
-  return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
 }
 
 /**
@@ -1870,7 +1860,7 @@ export function formatViolationReport(violations: ConsistencyViolation[]): strin
  * Escapes special Markdown characters for tables.
  */
 function escapeMd(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\n/g, " ");
+  return escapeMarkdown(text);
 }
 
 /**

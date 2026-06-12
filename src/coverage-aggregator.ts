@@ -8,6 +8,7 @@
  */
 
 import * as fs from "node:fs";
+import { readJsonSafe } from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -103,14 +104,6 @@ function emptyReport(error?: string): CoverageReport {
   return buildReport([], error);
 }
 
-function readJsonSafe(filePath: string): Record<string, unknown> | null {
-  try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    return JSON.parse(content) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 // ─── Istanbul JSON Parser ──────────────────────────────────────────────────
 // Shared by parseJestCoverage, parseVitestCoverage, parsePlaywrightCoverage

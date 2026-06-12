@@ -3,7 +3,7 @@ import { relative } from "node:path";
 import { listSearchableFiles, listSourceFiles } from "./graph/files.js";
 import { rankHybridSearchResults } from "./search/semantic.js";
 import type { CodeGraphSettings } from "./types.js";
-import { escapeRegex } from "./utils/escape.js";
+import { escapeRegex, globToRegExp, globMatch } from "./utils/index.js";
 
 const DEFAULT_MAX_RESULTS = 100;
 const MAX_RESULTS_LIMIT = 10_000;
@@ -272,31 +272,7 @@ function matchesSearchScope(file: string, options: NormalizedSearchOptions): boo
 }
 
 function globMatches(file: string, pattern: string): boolean {
-  return globToRegExp(pattern).test(file);
-}
-
-function globToRegExp(pattern: string): RegExp {
-  let source = "^";
-  for (let index = 0; index < pattern.length; index += 1) {
-    const char = pattern[index];
-    const next = pattern[index + 1];
-
-    if (char === "*" && next === "*") {
-      if (pattern[index + 2] === "/") {
-        source += "(?:.*/)?";
-        index += 2;
-      } else {
-        source += ".*";
-        index += 1;
-      }
-    } else if (char === "*") {
-      source += "[^/]*";
-    } else {
-      source += escapeRegex(char);
-    }
-  }
-
-  return new RegExp(`${source}$`);
+  return globMatch(file, pattern);
 }
 
 function isBinaryBuffer(buffer: Buffer): boolean {

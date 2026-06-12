@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CodeGraphSettings } from "../types.js";
-import { escapeRegex } from "../utils/escape.js";
+import { escapeRegex } from "../utils/index.js";
 
 interface IgnoreRule {
   negated: boolean;

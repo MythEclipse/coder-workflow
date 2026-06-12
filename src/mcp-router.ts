@@ -26,6 +26,13 @@ export class McpDelegationRouter {
   }
 
   /**
+   * Returns the handler for a given tool name, or undefined
+   */
+  getHandler(name: string): ToolHandler | undefined {
+    return this.handlers.get(name);
+  }
+
+  /**
    * Attaches the router to the MCP server
    */
   attach(server: Server, contextProvider: () => ToolHandlerContext) {

@@ -15,41 +15,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runDreamingCycle } from "./dreaming.js";
-
-// ─── Types ───────────────────────────────────────────────────────────────
-
-export interface FailureRecord {
-  id: string;
-  timestamp: string;
-  type: "tool_failure" | "stop_failure" | "session_failure" | "test_failure";
-  tool?: string;
-  error?: string;
-  context?: string;
-  resolved: boolean;
-  resolution?: string;
-  correctionWritten?: boolean;
-  /** Timestamp when this failure was processed by the Dreaming phase. */
-  dreamedAt?: string;
-}
-
-export interface CorrectionEntry {
-  id: string;
-  pattern: string;
-  symptom: RegExp;
-  fix: string;
-  source: "learn" | "manual";
-  createdAt: string;
-  appliedCount: number;
-}
-
-export interface LearnReport {
-  totalFailures: number;
-  unresolvedFailures: number;
-  correctionsWritten: number;
-  activePatterns: number;
-  recentFailures: FailureRecord[];
-}
+import type { FailureRecord, CorrectionEntry, LearnReport } from "./experience-types.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 
@@ -71,9 +37,9 @@ function ensureLearnDir(): string {
  * Log a failure event to the failure log.
  * Called by StopFailure and PostToolUseFailure hooks.
  */
-export function logFailure(
+export async function logFailure(
   record: Omit<FailureRecord, "id" | "timestamp" | "resolved">,
-): FailureRecord {
+): Promise<FailureRecord> {
   const dir = ensureLearnDir();
   const fullRecord: FailureRecord = {
     ...record,
@@ -84,9 +50,10 @@ export function logFailure(
 
   appendFileSync(join(dir, FAILURE_LOG), JSON.stringify(fullRecord) + "\n", "utf-8");
 
-  // Auto-trigger dreaming if backlog gets too large
+  // Auto-trigger dreaming if backlog gets too large (dynamic import to avoid circular dep)
   try {
     if (getUnprocessedFailures().length >= 5) {
+      const { runDreamingCycle } = await import("./dreaming.js");
       runDreamingCycle();
     }
   } catch {

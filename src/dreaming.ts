@@ -9,6 +9,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { MemoryCandidate } from "./experience-types.js";
 import { getUnprocessedMemories, markAsDreamed } from "./experience-journal.js";
 import { getUnprocessedFailures, markFailureAsDreamed } from "./learn.js";
 
@@ -16,15 +17,6 @@ const MEMORY_DIR = ".claude/memory-core";
 const CANDIDATES_FILE = "candidates.json";
 const DURABLE_MEMORY_FILE = "MEMORY.md";
 const PROMOTION_THRESHOLD = 3;
-
-interface MemoryCandidate {
-  id: string;
-  topic: string;
-  context: string;
-  confidence: number;
-  firstSeen: string;
-  lastSeen: string;
-}
 
 function ensureMemoryDir(): string {
   const dir = join(process.cwd(), MEMORY_DIR);

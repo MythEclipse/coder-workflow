@@ -21,6 +21,7 @@
 import { type ExecFileSyncOptions, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { ensureDir } from "./utils/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -111,11 +112,7 @@ const MEMORY_INDEX_FILE = ".claude/cross-agent-memory/memory-index.json";
 
 /** Ensure the storage directory exists. Returns absolute path. */
 function ensureStorageDir(root: string): string {
-  const dir = join(resolve(root), STORAGE_DIR);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+  return ensureDir(join(resolve(root), STORAGE_DIR));
 }
 
 /** Persist a report as JSONL to the storage directory. */
@@ -158,7 +155,7 @@ export function loadReports(root: string, limit = 10): PreflightReport[] {
 // ---------------------------------------------------------------------------
 
 /** Run a child process, returning { stdout, stderr, exitCode }. */
-function run(
+function execCmd(
   cmd: string,
   args: string[],
   opts?: ExecFileSyncOptions,
@@ -202,7 +199,7 @@ function fmtDuration(ms: number): string {
  */
 export function checkTypecheck(root: string): TypecheckResult {
   const cwd = resolve(root);
-  const { stdout, stderr, exitCode } = run("npx", ["tsc", "--noEmit"], { cwd });
+  const { stdout, stderr, exitCode } = execCmd("npx", ["tsc", "--noEmit"], { cwd });
 
   const allOutput = stdout + "\n" + stderr;
   const errors: string[] = [];
@@ -229,7 +226,7 @@ export function checkTypecheck(root: string): TypecheckResult {
  */
 export function checkLint(root: string): LintResult {
   const cwd = resolve(root);
-  const { stdout, stderr, exitCode } = run("npx", ["biome", "check", "src"], { cwd });
+  const { stdout, stderr, exitCode } = execCmd("npx", ["biome", "check", "src"], { cwd });
 
   const allOutput = stdout + "\n" + stderr;
   const warnings: string[] = [];
@@ -268,7 +265,7 @@ export function checkLint(root: string): LintResult {
  */
 export function checkTests(root: string): TestResult {
   const cwd = resolve(root);
-  const { stdout, stderr, exitCode } = run("npm", ["run", "test", "--", "--reporter=spec"], {
+  const { stdout, stderr, exitCode } = execCmd("npm", ["run", "test", "--", "--reporter=spec"], {
     cwd,
     timeout: 300_000,
   });

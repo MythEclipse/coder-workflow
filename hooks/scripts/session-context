@@ -1,28 +1,41 @@
 #!/usr/bin/env bash
-# session-context — lean UserPromptSubmit hook
-# Minimal: skill detection + security warnings + language + complexity.
-# Heavy intent scoring removed (advisory only, consumed context tokens).
+# session-context — lean UserPromptSubmit hook with caching
+# Cache: full detection runs once per session, then reuses output
 set -euo pipefail
 
+CACHE_FILE=".claude/.session-skills.cache"
 INPUT=$(cat)
 PROMPT=$(jq -r '.prompt // .message // .userPrompt // empty' <<< "$INPUT" 2>/dev/null || true)
 [ -z "${PROMPT:-}" ] && exit 0
 
 LOWER=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]' | sed -E 's/[[:space:]]+/ /g')
-WORD_COUNT=$(printf '%s' "$PROMPT" | wc -w | tr -d ' ')
-
-# ============================================================
-# Skill detection (keyword sets → skills)
-# ============================================================
+esc() { local s="$1"; s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\n'/\\n}"; printf '%s' "$s"; }
 has() { printf '%s' "$LOWER" | grep -qiE "\b($1)\b"; }
+
+# ── CACHE CHECK ────────────────────────────────────────────────
+CACHE_AGE=$([ -f "$CACHE_FILE" ] && echo $(( $(date +%s) - $(stat -c%Y "$CACHE_FILE" 2>/dev/null || echo 0) )) || echo 3601)
+if [ "$CACHE_AGE" -lt 3600 ]; then
+    CTX=$(cat "$CACHE_FILE" 2>/dev/null || true)
+    if [ -n "$CTX" ]; then
+        WARN=""; SEV="low"
+        has 'rf.*/ | rm.*-rf.*/ | rm.*-rf.*~' && WARN="Destructive file op" && SEV="critical"
+        has 'force.*push.*main|reset.*main.*--hard' && WARN="Destructive git" && SEV="critical"
+        has 'drop.*table.*prod|drop.*database' && WARN="Destructive DB" && SEV="critical"
+        has 'print.*env.*token|echo.*password|cat.*\.env|commit.*secret' && WARN="Secret exposure" && SEV="high"
+        if [ -n "$WARN" ]; then
+            printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s","systemMessage":"%s"}}\n' "$(esc "$CTX")" "$(esc "⚠ coder-workflow security [${SEV}]: ${WARN}")"
+        else
+            printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$(esc "$CTX")"
+        fi
+        exit 0
+    fi
+fi
+
+# ── FULL DETECTION (cache miss) ────────────────────────────────
 
 SKILLS=""
 _intent=""
-_add() {
-    local s="$1" i="$2"
-    [ -n "$SKILLS" ] && SKILLS="${SKILLS},${s}" || SKILLS="$s"
-    [ -n "$_intent" ] && _intent="${_intent},${i}" || _intent="$i"
-}
+_add() { local s="$1" i="$2"; [ -n "$SKILLS" ] && SKILLS="${SKILLS},${s}" || SKILLS="$s"; [ -n "$_intent" ] && _intent="${_intent},${i}" || _intent="$i"; }
 
 has 'deploy|deployment|docker|traefik|vps|ci.cd|github.*action|container|compose|nginx|containerize|dockerize|kubernetes|k8s|helm|terraform' && _add "deploy-docker" "deploy"
 has 'refactor|refactoring|reorganize|restructure|extract|modular|modularize|mvc|rewrite|cleanup|layer.*separation|susun.*ulang|struktur.*ulang|rapikan|solid|dry|yagni' && _add "refraktor" "refactor"
@@ -43,9 +56,7 @@ has 'docker|compose|container|vps|server.*production|ci.cd|github.*action|deploy
 
 [ -z "$SKILLS" ] && SKILLS="none" && _intent="unknown"
 
-# ============================================================
-# Security checks (critical/high only)
-# ============================================================
+# Security checks
 WARN=""; SEV="low"
 _add_warn() { local m="$1" s="$2"; WARN="${WARN}${m} "; [ "$s" = "critical" ] && SEV="critical" || [ "$s" = "high" ] && [ "$SEV" != "critical" ] && SEV="high"; }
 has 'rf.*/ | rm.*-rf.*/ | rm.*-rf.*~|hapus.*semua.*file|delete.*all.*file|wipe.*filesystem|format.*disk' && _add_warn "Destructive file op" "critical"
@@ -54,15 +65,10 @@ has 'drop.*table.*prod|drop.*database.*prod|truncate.*all|hancurkan.*database' &
 has 'print.*env.*token|echo.*password|cat.*\.env|commit.*secret|upload.*secret|commit.*private.*key' && _add_warn "Secret exposure" "high"
 has 'deploy.*prod|push.*production|live.*server|production.*database|migrate.*prod' && _add_warn "Production targeting" "high"
 
-# ============================================================
-# Language detection
-# ============================================================
+# Language, complexity
 LANG="en"
 printf '%s' "$LOWER" | grep -qE '(kerjakan|implementasi|perbaiki|buat|tambah|apa|bagaimana|jelaskan|fitur|kode|saya|kita|tolong|bisa|analisis|kelemahan|cek|susun|struktur|rapikan)' && LANG="id"
-
-# ============================================================
-# Complexity estimation
-# ============================================================
+WORD_COUNT=$(printf '%s' "$PROMPT" | wc -w | tr -d ' ')
 COMPLEXITY="simple"
 printf '%s' "$LOWER" | grep -qiE '\b(multi|architecture|migration|platform|scalab|distribut|event.*driven|refactor|restructure|modular|multiple.*module|schema.*design|auth|authentication|authorization)\b' && COMPLEXITY="complex"
 printf '%s' "$LOWER" | grep -qiE '\b(feature|endpoint|service|repository|controller|module|komponen|fitur)\b' && [ "$WORD_COUNT" -gt 20 ] && COMPLEXITY="standard"
@@ -74,9 +80,6 @@ PRIMARY=$(printf '%s' "$_intent" | cut -d',' -f1)
 
 CTX="coder-workflow: skills=[${SKILLS}], intents=[${_intent}], primary=${PRIMARY} (confidence=simple), complexity=${COMPLEXITY}, lang=${LANG}, words=${WORD_COUNT}. CRITICAL RULE: You MUST use TaskCreate and TaskUpdate immediately to track all work. Never ignore task tools."
 [ -n "$WARN" ] && CTX="${CTX} SECURITY[${SEV}]: ${WARN}"
-
-# JSON escape
-esc() { local s="$1"; s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\n'/\\n}"; printf '%s' "$s"; }
 CTX_E=$(esc "$CTX")
 
 if [ -n "$WARN" ]; then
@@ -85,4 +88,8 @@ if [ -n "$WARN" ]; then
 else
     printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$CTX_E"
 fi
+
+# Write cache for next call
+mkdir -p .claude 2>/dev/null || true
+printf '%s' "$CTX" > "$CACHE_FILE" 2>/dev/null || true
 exit 0

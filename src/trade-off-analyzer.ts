@@ -15,6 +15,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { ensureDir } from "./utils/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -102,11 +103,7 @@ const ENTRIES_FILE = "entries.jsonl";
 
 /** Ensure the storage directory exists, creating it if needed. Returns absolute path. */
 function ensureStorageDir(): string {
-  const dir = join(process.cwd(), STORAGE_DIR);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+  return ensureDir(join(process.cwd(), STORAGE_DIR));
 }
 
 /**

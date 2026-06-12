@@ -11,7 +11,7 @@
               "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-context"
             ],
             "timeout": 5,
-            "async": false,
+            "async": true,
             "statusMessage": "Detecting skills..."
           },
           {

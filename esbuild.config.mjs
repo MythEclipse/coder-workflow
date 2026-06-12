@@ -11,7 +11,7 @@ const shared = {
   target: "es2022",
   sourcemap: false,
   logLevel: "info",
-  external: ["node:*", "typescript", "blessed", "term.js", "pty.js"],
+  external: ["node:*", "typescript"],
 };
 
 await build({

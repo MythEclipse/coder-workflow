@@ -27,6 +27,8 @@ import { SequentialThinkingEngine } from "./sequential-thinking.js";
 import { loadSettings } from "./settings.js";
 import type { CodeGraph } from "./types.js";
 import { openGraphUi } from "./ui.js";
+import { router, McpDelegationRouter } from "./mcp-router.js";
+import type { ToolHandlerContext } from "./mcp-router.js";
 
 /**
  * Get mtime of the JSON graph file.
@@ -109,6 +111,28 @@ class GraphCacheService {
 }
 
 const graphCache = new GraphCacheService();
+
+// ─── McpDelegationRouter bridge ────────────────────────────────────────
+// Register delegation handlers. Existing switch-case tools can migrate to
+// this pattern incrementally. New tools should prefer router.register().
+const routerCtx = (): ToolHandlerContext => ({
+  root: cwd(),
+  settings: loadSettings(cwd()),
+  serverStartTime: _serverStartTime,
+  toolCallCount: _toolCallCount,
+  lastToolCallTime: _lastToolCallTime,
+  graphCache,
+});
+router.register("ping", async (_args, ctx) => ({
+  status: "ok",
+  uptimeSeconds: Math.round((Date.now() - ctx.serverStartTime) / 1000),
+  toolCalls: ctx.toolCallCount,
+  cache: {
+    loaded: graphCache.isLoaded,
+    nodes: graphCache.nodesCount,
+    edges: graphCache.edgesCount,
+  },
+}));
 
 const server = new Server(
   { name: "codegraph-mapper", version: "0.1.0" },
@@ -2143,8 +2167,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
     }
 
-    default:
+    default: {
+      // Try delegation router before throwing
+      const handler = router.getHandler(request.params.name);
+      if (handler) {
+        return handler(args, routerCtx());
+      }
       throw new Error(`Unknown tool: ${request.params.name}`);
+    }
   }
 });
 

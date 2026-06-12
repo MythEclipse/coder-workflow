@@ -45,18 +45,18 @@ test("coder-orchestrator defines routing matrix", async () => {
   assert.match(skill, /architecture-auditor/i);
   assert.match(skill, /code-implementer/i);
   assert.match(skill, /test-engineer/i);
-  assert.match(skill, /Impact Radius/i);
+  assert.match(skill, /explore-codebase/i);
   assert.match(skill, /deploy/i);
   assert.match(skill, /audit/i);
-  assert.match(skill, /bug fix phase/i);
+  assert.match(skill, /\bdebugging-engineer\b/i);
 });
 
 test("coder-orchestrator defines Workflow Sequence", async () => {
   const skill = await read("skills/coder-orchestrator/SKILL.md");
 
   assert.match(skill, /Swarm Dispatch/i);
-  assert.match(skill, /Synthesis.*Conflict/i);
-  assert.match(skill, /Bug Fix Phase/i);
+  assert.match(skill, /synthesiz.*conflict/i);
+  assert.match(skill, /\bfix\b.*\bdebugging-engineer\b/i);
   assert.match(skill, /FILE_MANIFEST/i);
 });
 

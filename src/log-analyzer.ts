@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { escapeMarkdown } from "./utils/index.js";
 
 export interface LogEntry {
   timestamp?: string;
@@ -363,10 +364,6 @@ export function formatLogReport(report: LogAnalysisReport): string {
   }
 
   return lines.join("\n");
-}
-
-function escapeMarkdown(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
 
 /**

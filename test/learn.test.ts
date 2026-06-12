@@ -30,11 +30,11 @@ function restoreCwd(orig: string, tmp: string): void {
 
 // ─── Failure Logging ──────────────────────────────────────────────────────────
 
-test("logFailure creates a failure record with defaults", () => {
+test("logFailure creates a failure record with defaults", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    const record = logFailure({
+    const record = await logFailure({
       type: "tool_failure",
       tool: "Bash",
       error: "Command exited with code 1",
@@ -59,11 +59,11 @@ test("logFailure creates a failure record with defaults", () => {
   }
 });
 
-test("logFailure creates stop_failure type", () => {
+test("logFailure creates stop_failure type", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    const record = logFailure({
+    const record = await logFailure({
       type: "stop_failure",
       error: "Rate limit exceeded",
       context: "API call to /v1/completions",
@@ -76,17 +76,17 @@ test("logFailure creates stop_failure type", () => {
   }
 });
 
-test("logFailure creates session_failure and test_failure types", () => {
+test("logFailure creates session_failure and test_failure types", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    const session = logFailure({
+    const session = await logFailure({
       type: "session_failure",
       error: "Session crashed",
     });
     assert.equal(session.type, "session_failure");
 
-    const test = logFailure({
+    const test = await logFailure({
       type: "test_failure",
       error: "Expected 2 but got 3",
       tool: "node:test",
@@ -110,13 +110,13 @@ test("getFailures returns empty array when no logs exist", () => {
   }
 });
 
-test("getFailures filters by type", () => {
+test("getFailures filters by type", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({ type: "tool_failure", tool: "Bash", error: "err1" });
-    logFailure({ type: "stop_failure", error: "err2" });
-    logFailure({ type: "tool_failure", tool: "Write", error: "err3" });
+    await logFailure({ type: "tool_failure", tool: "Bash", error: "err1" });
+    await logFailure({ type: "stop_failure", error: "err2" });
+    await logFailure({ type: "tool_failure", tool: "Write", error: "err3" });
 
     const toolFailures = getFailures({ type: "tool_failure" });
     assert.equal(toolFailures.length, 2);
@@ -128,12 +128,12 @@ test("getFailures filters by type", () => {
   }
 });
 
-test("getFailures filters by unresolved", () => {
+test("getFailures filters by unresolved", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    const r1 = logFailure({ type: "tool_failure", tool: "A", error: "e1" });
-    const r2 = logFailure({ type: "tool_failure", tool: "B", error: "e2" });
+    const r1 = await logFailure({ type: "tool_failure", tool: "A", error: "e1" });
+    const r2 = await logFailure({ type: "tool_failure", tool: "B", error: "e2" });
     resolveFailure(r1.id, "fixed");
 
     const unresolved = getFailures({ unresolved: true });
@@ -144,13 +144,13 @@ test("getFailures filters by unresolved", () => {
   }
 });
 
-test("getFailures respects limit and sorts newest first", () => {
+test("getFailures respects limit and sorts newest first", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({ type: "tool_failure", error: "e1", tool: "a" });
-    logFailure({ type: "tool_failure", error: "e2", tool: "b" });
-    logFailure({ type: "tool_failure", error: "e3", tool: "c" });
+    await logFailure({ type: "tool_failure", error: "e1", tool: "a" });
+    await logFailure({ type: "tool_failure", error: "e2", tool: "b" });
+    await logFailure({ type: "tool_failure", error: "e3", tool: "c" });
 
     const limited = getFailures({ limit: 2 });
     assert.equal(limited.length, 2);
@@ -161,11 +161,11 @@ test("getFailures respects limit and sorts newest first", () => {
   }
 });
 
-test("getFailures handles corrupted log lines gracefully", () => {
+test("getFailures handles corrupted log lines gracefully", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({ type: "tool_failure", error: "valid" });
+    await logFailure({ type: "tool_failure", error: "valid" });
     // Manually corrupt the file
     const learnDir = join(tmpDir, ".claude", "learn");
     const logPath = join(learnDir, "failures.jsonl");
@@ -184,11 +184,11 @@ test("getFailures handles corrupted log lines gracefully", () => {
 
 // ─── resolveFailure ──────────────────────────────────────────────────────────
 
-test("resolveFailure marks failure as resolved with resolution", () => {
+test("resolveFailure marks failure as resolved with resolution", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    const record = logFailure({ type: "tool_failure", tool: "Bash", error: "err" });
+    const record = await logFailure({ type: "tool_failure", tool: "Bash", error: "err" });
 
     const found = resolveFailure(record.id, "Increased timeout");
     assert.equal(found, true);
@@ -318,17 +318,17 @@ test("analyzeFailures returns empty when no failures exist", () => {
   }
 });
 
-test("analyzeFailures suggests corrections for similar errors (2+ occurrences)", () => {
+test("analyzeFailures suggests corrections for similar errors (2+ occurrences)", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({
+    await logFailure({
       type: "tool_failure",
       tool: "Bash",
       error:
         "Error: request timeout after waiting for the server to respond to the client (attempt 1)",
     });
-    logFailure({
+    await logFailure({
       type: "tool_failure",
       tool: "Bash",
       error:
@@ -345,18 +345,18 @@ test("analyzeFailures suggests corrections for similar errors (2+ occurrences)",
   }
 });
 
-test("analyzeFailures groups by error prefix and suggests fix for different error types", () => {
+test("analyzeFailures groups by error prefix and suggests fix for different error types", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
     // Timeout errors — must have same first 80 chars after digit normalization
-    logFailure({
+    await logFailure({
       type: "tool_failure",
       tool: "Bash",
       error:
         "Error: request timeout after waiting for the server to respond to the client (attempt 1)",
     });
-    logFailure({
+    await logFailure({
       type: "tool_failure",
       tool: "Bash",
       error:
@@ -364,13 +364,13 @@ test("analyzeFailures groups by error prefix and suggests fix for different erro
     });
 
     // Not found errors
-    logFailure({
+    await logFailure({
       type: "tool_failure",
       tool: "Read",
       error:
         "Error: file not found while trying to read the requested document from the remote server (path /tmp/test_1)",
     });
-    logFailure({
+    await logFailure({
       type: "tool_failure",
       tool: "Read",
       error:
@@ -378,7 +378,7 @@ test("analyzeFailures groups by error prefix and suggests fix for different erro
     });
 
     // Single unique error (should not produce a suggestion)
-    logFailure({
+    await logFailure({
       type: "tool_failure",
       tool: "Write",
       error: "Error: permission denied accessing system resource without valid credentials",
@@ -395,16 +395,16 @@ test("analyzeFailures groups by error prefix and suggests fix for different erro
   }
 });
 
-test("analyzeFailures rate limit errors produce backoff suggestion", () => {
+test("analyzeFailures rate limit errors produce backoff suggestion", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({
+    await logFailure({
       type: "stop_failure",
       error:
         "Error: rate limit exceeded while calling the external API endpoint for fetching user data (req_id: abc_001)",
     });
-    logFailure({
+    await logFailure({
       type: "stop_failure",
       error:
         "Error: rate limit exceeded while calling the external API endpoint for fetching user data (req_id: abc_002)",
@@ -417,16 +417,16 @@ test("analyzeFailures rate limit errors produce backoff suggestion", () => {
   }
 });
 
-test("analyzeFailures parse/syntax errors produce validation suggestion", () => {
+test("analyzeFailures parse/syntax errors produce validation suggestion", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({
+    await logFailure({
       type: "tool_failure",
       error:
         "Error: parse error encountered while processing the JSON response from the server during data sync (stream 1)",
     });
-    logFailure({
+    await logFailure({
       type: "tool_failure",
       error:
         "Error: parse error encountered while processing the JSON response from the server during data sync (stream 2)",
@@ -507,12 +507,12 @@ test("getLearnReport returns expected shape", () => {
   }
 });
 
-test("getLearnReport reflects after logging failures", () => {
+test("getLearnReport reflects after logging failures", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    logFailure({ type: "tool_failure", tool: "Bash", error: "error 1" });
-    logFailure({ type: "tool_failure", tool: "Write", error: "error 2" });
+    await logFailure({ type: "tool_failure", tool: "Bash", error: "error 1" });
+    await logFailure({ type: "tool_failure", tool: "Write", error: "error 2" });
 
     const report = getLearnReport();
     assert.equal(report.totalFailures, 2);
@@ -538,12 +538,12 @@ test("getLearnReport correctly counts corrections", () => {
   }
 });
 
-test("getLearnReport recentFailures is limited to 10", () => {
+test("getLearnReport recentFailures is limited to 10", async () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
     for (let i = 0; i < 15; i++) {
-      logFailure({ type: "tool_failure", tool: "Bash", error: `error ${i}` });
+      await logFailure({ type: "tool_failure", tool: "Bash", error: `error ${i}` });
     }
 
     const report = getLearnReport();

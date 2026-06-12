@@ -29,40 +29,7 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 
 ## Slash Commands (Fast Triggers)
 
-| Command | Triggers Agent | Purpose |
-|---|---|---|
-| `/coder-workflow` | `coder-orchestrator` (skill) | Main routing brain for any task |
-| `/plan` | `built-in planner` | Task decomposition |
-| `/audit` | `architecture-auditor` | Read-only architecture audit |
-| `/refraktor` | `refactoring-engineer` | Modular MVC extraction |
-| `/debug` | `debugging-engineer` | Root-cause analysis |
-| `/test` | `test-engineer` | TDD and test scaffolding |
-| `/deploy` | `devops-engineer` | Docker, CI/CD, Traefik setup |
-| `/ui` | `ui-engineer` | React, Vue, CSS, Accessibility |
-| `/db` | `db-architect` | SQL, indexing, schemas |
-| `/docs` | `docs-engineer` | README, API specs, inline docs |
-| `/review` | `code-reviewer` | Security & edge-case review |
-| `/deadcode` | `architecture-auditor` | Deteksi unused exports & dead code |
-| `/secrets` | `secret-scanner` | Scan API keys, tokens, passwords |
-| `/adr` | `docs-generator` | Architecture Decision Records |
-| `/pr` | `docs-generator` | PR description + changelog + release |
-| `/vuln` | `vulnerability-scanner` | CVE scan & SBOM generation |
-| `/qa` | `codebase-qa` | Ask anything about the codebase |
-| `/ops` | `devops-engineer` | Sprint, metrics, benchmark, auto-merge |
-| `/semantic-search` | `coder-workflow:explore-codebase` | Search code by meaning |
-| `/licenses` | `coder-workflow:explore-codebase` | Scan dependency licenses for compliance |
-| `/complexity` | `coder-workflow:explore-codebase` | Cyclomatic complexity analysis |
-| `/logs` | `coder-workflow:debugging-engineer` | Parse and analyze JSONL log files |
-| `/coverage` | `test-engineer` | Aggregate coverage reports (jest, vitest) |
-| `/hooks` | `coder-workflow:explore-codebase` | Scaffold git hooks with validation |
-| `/todos` | `todo-checker` | TODO/FIXME tracking with author aging |
-| `/perf` | `coder-workflow:explore-codebase` | Bundle size analysis and performance audit |
-| `/i18n` | `coder-workflow:explore-codebase` | Extract i18n strings and check translations |
-| `/db-schema` | `db-architect` | Prisma/TypeORM schema diff and analysis |
-| `/doctor` | `coder-workflow:explore-codebase` | Dev environment and project health check |
-| `/stats` | `coder-workflow:explore-codebase` | Codebase statistics (LOC, languages, trends) |
-| `/api-contract` | `coder-workflow:explore-codebase` | Compare OpenAPI specs for breaking changes |
-| `/think` | Custom MCP | Structured sequential reasoning with branching & revision |
+See `commands/` directory (40+ commands) or `docs/plugin-reference.md` for full command table. Key commands: `/coder-workflow` (orchestrator), `/audit` (architecture), `/plan` (task decomposition), `/refraktor` (refactor), `/debug` (debugging), `/test` (TDD), `/deploy` (infra).
 
 ## Agent Coordination
 
