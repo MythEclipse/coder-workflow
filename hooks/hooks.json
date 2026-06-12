@@ -429,7 +429,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'LOCK=.claude/agent-depth.lock; mkdir -p .claude 2>/dev/null; printf \"[%s] AGENT: %s\\n\" \"$(date -u +%T)\" \"${1:-unknown}\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; (flock -x 200; DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); NEW=$((DEPTH+1)); printf \"%s\" \"$NEW\" > \"$LOCK\"; if [ \"$NEW\" -gt 2 ]; then jq -n \"{systemMessage: \\\"DEPTH LIMIT: Agent nesting >2 max. Stop delegating. Execute directly.\\\"}\"; fi) 200>.claude/agent-depth.lock.flock; exit 0' subagent-start",
+            "command": "bash -c 'LOCK=.claude/agent-depth.lock; mkdir -p .claude 2>/dev/null; printf \"[%s] AGENT: %s\\n\" \"$(date -u +%T)\" \"${1:-unknown}\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; (flock -x 200; DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); NEW=$((DEPTH+1)); printf \"%s\" \"$NEW\" > \"$LOCK\"; if [ \"$NEW\" -gt 2 ]; then jq -n \"{systemMessage: \\\"DEPTH LIMIT: Agent nesting >2 max. Stop delegating. Execute directly.\\\"}\"; fi) 200>\"$LOCK\"; exit 0' subagent-start",
             "timeout": 5,
             "async": true
           }
@@ -441,7 +441,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'LOCK=.claude/agent-depth.lock; (flock -x 200; DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 1); NEW=$((DEPTH-1)); if [ $NEW -le 0 ]; then rm -f \"$LOCK\"; else printf \"%s\" \"$NEW\" > \"$LOCK\"; fi) 200>.claude/agent-depth.lock.flock; exit 0'",
+            "command": "bash -c 'LOCK=.claude/agent-depth.lock; (flock -x 200; DEPTH=$(cat \"$LOCK\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 1); NEW=$((DEPTH-1)); if [ $NEW -le 0 ]; then rm -f \"$LOCK\"; else printf \"%s\" \"$NEW\" > \"$LOCK\"; fi) 200>\"$LOCK\"; exit 0'",
             "timeout": 5,
             "async": true
           }

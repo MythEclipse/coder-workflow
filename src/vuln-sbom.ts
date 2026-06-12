@@ -8,6 +8,7 @@
  * SBOM output in SPDX 2.3 format.
  */
 
+import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -411,12 +412,91 @@ export function scanVulnerabilities(root: string): VulnScanReport {
   const vulnerabilities: Vulnerability[] = [];
   const bySeverity: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
 
+  // Phase 1: built-in DB match
   for (const dep of deps) {
     for (const entry of VULN_MATCHES) {
       if (dep.name === entry.name && versionLessThan(dep.version, entry.maxVersion)) {
         const vuln = { ...entry.vuln, packageName: dep.name };
         vulnerabilities.push(vuln);
         bySeverity[vuln.severity] = (bySeverity[vuln.severity] ?? 0) + 1;
+      }
+    }
+  }
+
+  // Phase 2: real npm audit if package-lock.json exists
+  const lockPath = join(root, "package-lock.json");
+  if (existsSync(lockPath)) {
+    try {
+      const auditJson = execSync("npm audit --json", {
+        cwd: root,
+        timeout: 15_000,
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      const auditResult = JSON.parse(auditJson);
+      if (auditResult.vulnerabilities) {
+        for (const [pkg, info] of Object.entries(
+          auditResult.vulnerabilities as Record<string, any>,
+        )) {
+          const sevMap: Record<string, "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"> = {
+            critical: "CRITICAL",
+            high: "HIGH",
+            moderate: "MEDIUM",
+            low: "LOW",
+          };
+
+          // Dedup: skip if same pkg+id already from built-in DB
+          const alreadyKnown = vulnerabilities.some(
+            (v) => v.packageName === pkg && v.id === info.cve?.[0],
+          );
+          if (alreadyKnown) continue;
+
+          const vuln: Vulnerability = {
+            id: info.cve?.[0] ?? `npm-audit-${pkg}-${Date.now()}`,
+            packageName: pkg,
+            severity: sevMap[info.severity] ?? "MEDIUM",
+            title: info.title ?? info.name ?? "npm audit advisory",
+            description: (info.range ?? "") + (info.fixAvailable ? ` → fix: ${typeof info.fixAvailable === "string" ? info.fixAvailable : info.fixAvailable.version ?? "upgrade"}` : ""),
+            fixedIn: typeof info.fixAvailable === "string" ? info.fixAvailable : info.fixAvailable?.version ?? "unknown",
+          };
+          vulnerabilities.push(vuln);
+          bySeverity[vuln.severity] = (bySeverity[vuln.severity] ?? 0) + 1;
+        }
+      }
+    } catch (_e) {
+      // npm audit --json exits 1 when vulns found — that's expected
+      const npmErr = _e as { stdout?: string; stderr?: string };
+      const output = npmErr.stdout || npmErr.stderr || "";
+      try {
+        const auditResult = JSON.parse(output);
+        if (auditResult.vulnerabilities) {
+          const sevMap: Record<string, "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"> = {
+            critical: "CRITICAL",
+            high: "HIGH",
+            moderate: "MEDIUM",
+            low: "LOW",
+          };
+          for (const [pkg, info] of Object.entries(
+            auditResult.vulnerabilities as Record<string, any>,
+          )) {
+            const alreadyKnown = vulnerabilities.some(
+              (v) => v.packageName === pkg && v.id === info.cve?.[0],
+            );
+            if (alreadyKnown) continue;
+            const vuln: Vulnerability = {
+              id: info.cve?.[0] ?? `npm-audit-${pkg}-${Date.now()}`,
+              packageName: pkg,
+              severity: sevMap[info.severity] ?? "MEDIUM",
+              title: info.title ?? info.name ?? "npm audit advisory",
+              description: (info.range ?? "") + (info.fixAvailable ? ` → fix: ${typeof info.fixAvailable === "string" ? info.fixAvailable : info.fixAvailable.version ?? "upgrade"}` : ""),
+              fixedIn: typeof info.fixAvailable === "string" ? info.fixAvailable : info.fixAvailable?.version ?? "unknown",
+            };
+            vulnerabilities.push(vuln);
+            bySeverity[vuln.severity] = (bySeverity[vuln.severity] ?? 0) + 1;
+          }
+        }
+      } catch {
+        // npm not available or audit failed — silent fallback to built-in DB only
       }
     }
   }

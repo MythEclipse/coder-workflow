@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -12,14 +13,33 @@ const WORKER_PATH = join(__dirname, "python-worker.py");
 
 let pythonWorker: ChildProcess | null = null;
 let msgIdCounter = 0;
+let _pythonAvailable: boolean | null = null;
 const pendingRequests = new Map<number, { resolve: (val: any) => void; reject: (err: any) => void }>();
 
-function getPythonWorker(): ChildProcess {
+function checkPythonAvailable(): boolean {
+  if (_pythonAvailable !== null) return _pythonAvailable;
+  try {
+    const { execSync } = require("node:child_process") as typeof import("node:child_process");
+    execSync("python3 --version", { stdio: "ignore", timeout: 3_000 });
+    _pythonAvailable = true;
+  } catch {
+    console.warn("[Graph] python3 not available — Python files will be skipped. Install python3 for full Python support.");
+    _pythonAvailable = false;
+  }
+  return _pythonAvailable;
+}
+
+function getPythonWorker(): ChildProcess | null {
+  if (!checkPythonAvailable()) return null;
   if (!pythonWorker) {
+    if (!existsSync(WORKER_PATH)) {
+      console.warn("[Graph] python-worker.py not found at", WORKER_PATH);
+      return null;
+    }
     pythonWorker = spawn("python3", [WORKER_PATH], { stdio: ["pipe", "pipe", "inherit"] });
     pythonWorker.unref();
-    pythonWorker.stdout?.unref();
-    pythonWorker.stdin?.unref();
+    (pythonWorker.stdout as unknown as NodeJS.RefCounted)?.unref();
+    (pythonWorker.stdin as unknown as NodeJS.RefCounted)?.unref();
     let buffer = "";
     pythonWorker.stdout?.on("data", (chunk: Buffer) => {
       buffer += chunk.toString("utf8");
@@ -56,10 +76,11 @@ function getPythonWorker(): ChildProcess {
 }
 
 async function parsePythonAST(source: string, path: string): Promise<any> {
+  const worker = getPythonWorker();
+  if (!worker) return { nodes: [], imports: [], importMap: [], routes: [], edges: [] };
   return new Promise((resolve, reject) => {
     const id = ++msgIdCounter;
     pendingRequests.set(id, { resolve, reject });
-    const worker = getPythonWorker();
     const payload = JSON.stringify({ id, action: "parse", source, path }) + "\n";
     worker.stdin?.write(payload);
   });

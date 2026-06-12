@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0",
+  "version": "0.3.0",
   "description": "Single source of truth for agent metadata. Used by coder-orchestrator to validate references and by hooks for agent-discovery logic.",
   "agents": {
     "architecture-auditor": {
@@ -13,7 +13,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "haiku"
+      "model": "sonnet"
     },
     "code-implementer": {
       "file": "agents/code-implementer.md",
@@ -45,7 +45,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "haiku"
+      "model": "sonnet"
     },
     "debugging-engineer": {
       "file": "agents/debugging-engineer.md",
