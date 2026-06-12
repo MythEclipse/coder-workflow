@@ -1,5 +1,5 @@
 ---
-description: Decompose a coding request into many small tracked tasks. Invokes coder-workflow:workflow-planner agent for aggressive task decomposition with skill/MCP routing for each task.
+description: Decompose a coding request into many small tracked tasks. Invokes the built-in planner with the workflow-planner skill for aggressive task decomposition with skill/MCP routing for each task.
 argument-hint: [task-description]
 allowed-tools: Read, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
@@ -14,7 +14,7 @@ Always execute via the Workflow engine.
   description: 'Aggressively decompose coding request into N atomic tasks with skill/agent routing',
   phases: [
     { title: 'Discover', detail: 'CodeGraph recon — understand current codebase state' },
-    { title: 'Plan',     detail: 'workflow-planner decomposes into atomic tasks with FILE_MANIFEST' },
+    { title: 'Plan',     detail: 'built-in planner decomposes into atomic tasks with FILE_MANIFEST' },
     { title: 'Register', detail: 'create TaskCreate entries for each decomposed task' },
   ],
 })
@@ -38,7 +38,7 @@ const decomposition = await agent(
   Codebase context: ${exploration}
 
   Output: ordered task list with FILE_MANIFEST, agent assignment, and dependency graph.`,
-  { label: 'decompose', phase: 'Plan', agent: 'coder-workflow:workflow-planner' }
+  { label: 'decompose', phase: 'Plan', skill: 'workflow-planner' }
 )
 
 phase('Register')

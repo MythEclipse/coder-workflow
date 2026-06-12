@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { javaParser } from "../../src/graph/parsers/java.js";
 
-test("javaParser extracts standard classes and methods", () => {
+test("javaParser extracts standard classes and methods", async () => {
   const source = `
     public class MyClass {
       public void doSomething() {}
@@ -10,14 +10,14 @@ test("javaParser extracts standard classes and methods", () => {
     }
   `;
   const sanitized = javaParser.sanitize(source);
-  const symbols = javaParser.extractSymbols(sanitized, "src/MyClass.java");
+  const symbols = await javaParser.extractSymbols(sanitized, "src/MyClass.java");
   assert.equal(symbols.length, 3);
   assert.equal(symbols[0].name, "MyClass");
   assert.equal(symbols[1].name, "doSomething");
   assert.equal(symbols[2].name, "calculate");
 });
 
-test("javaParser extracts inner classes and interfaces", () => {
+test("javaParser extracts inner classes and interfaces", async () => {
   const source = `
     public interface MyInterface {
       void interfaceMethod();
@@ -29,7 +29,7 @@ test("javaParser extracts inner classes and interfaces", () => {
     }
   `;
   const sanitized = javaParser.sanitize(source);
-  const symbols = javaParser.extractSymbols(sanitized, "src/Outer.java");
+  const symbols = await javaParser.extractSymbols(sanitized, "src/Outer.java");
   const names = symbols.map((s) => s.name);
   assert.ok(names.includes("MyInterface"));
   assert.ok(names.includes("interfaceMethod"));
@@ -38,19 +38,19 @@ test("javaParser extracts inner classes and interfaces", () => {
   assert.ok(names.includes("innerMethod"));
 });
 
-test("javaParser extracts wildcard and static imports", () => {
+test("javaParser extracts wildcard and static imports", async () => {
   const source = `
     import java.util.*;
     import static org.junit.Assert.assertEquals;
     import com.example.MyService;
   `;
-  const imports = javaParser.extractImports(source);
+  const imports = await javaParser.extractImports(source);
   assert.ok(imports.includes("java.util.*"));
   assert.ok(imports.includes("org.junit.Assert.assertEquals"));
   assert.ok(imports.includes("com.example.MyService"));
 });
 
-test("javaParser extracts multiline annotations correctly", () => {
+test("javaParser extracts multiline annotations correctly", async () => {
   const source = `
     @RestController
     @RequestMapping(
@@ -65,13 +65,13 @@ test("javaParser extracts multiline annotations correctly", () => {
     }
   `;
   const sanitized = javaParser.sanitize(source);
-  const routes = javaParser.extractRoutes(source, "src/UserController.java");
+  const routes = await javaParser.extractRoutes(source, "src/UserController.java");
   const names = routes.map((r) => r.name);
   // Routes in Java parser are constructed by reading @RequestMapping / @GetMapping etc.
   assert.ok(names.some((r) => r.includes("/api/users") || r.includes("/list")));
 });
 
-test("javaParser extracts relationship edges for implements and extends", () => {
+test("javaParser extracts relationship edges for implements and extends", async () => {
   const source = `
     public class MyClass extends BaseClass implements InterfaceA, InterfaceB {
     }
@@ -122,7 +122,7 @@ test("javaParser extracts relationship edges for implements and extends", () => 
       ],
     ],
   ]);
-  const edges = javaParser.extractRelationshipEdges(sanitized, symbols, symbolByName);
+  const edges = await javaParser.extractRelationshipEdges(sanitized, symbols, symbolByName);
   const targetNames = edges.map((e) => e.evidence);
   assert.ok(targetNames.includes("BaseClass"));
   assert.ok(targetNames.includes("InterfaceA"));

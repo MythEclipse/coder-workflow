@@ -64,7 +64,7 @@ function isReusableCacheEntry(
   return true;
 }
 
-function parseFile(
+async function parseFile(
   rel: string,
   file: string,
   language: string,
@@ -72,7 +72,7 @@ function parseFile(
   mtime: number,
   size: number,
   settings: CodeGraphSettings,
-): ParsedFileData {
+): Promise<ParsedFileData> {
   settings.onParseFile?.(rel);
 
   const fileNodeId = nodeId("file", rel);
@@ -88,9 +88,9 @@ function parseFile(
   const parser = getParser(language);
   if (parser) {
     sanitized = parser.sanitize(source);
-    symbols = parser.extractSymbols(sanitized, rel);
+    symbols = await parser.extractSymbols(sanitized, rel);
 
-    const symbolRanges = parser.resolveSymbolRanges(sanitized, symbols);
+    const symbolRanges = await parser.resolveSymbolRanges(sanitized, symbols);
     for (const symbol of symbols) {
       const range = symbolRanges.get(symbol.id);
       if (range) {
@@ -99,7 +99,7 @@ function parseFile(
       }
     }
 
-    const routes = parser.extractRoutes(source, rel);
+    const routes = await parser.extractRoutes(source, rel);
     for (const symbol of symbols) {
       fileNodes.push(symbol);
       fileEdges.push(edge("exports", fileNodeId, symbol.id, symbol.name));
@@ -109,13 +109,13 @@ function parseFile(
       fileEdges.push(edge("exports", fileNodeId, route.id, route.name));
     }
 
-    for (const imported of parser.extractImports(source)) {
+    for (const imported of await parser.extractImports(source)) {
       const importNodeId = nodeId("module", imported);
       fileNodes.push({ id: importNodeId, type: "module", name: imported, path: imported });
       fileEdges.push(edge("imports", fileNodeId, importNodeId, imported));
     }
 
-    const importMap = parser.parseImports(source);
+    const importMap = await parser.parseImports(source);
 
     return {
       entry: {
@@ -152,14 +152,22 @@ function parseFile(
   }
 }
 
-export async function scanCodebase(root: string, settings: CodeGraphSettings): Promise<CodeGraph> {
+export async function scanCodebase(
+  root: string, 
+  settings: CodeGraphSettings,
+  signal?: AbortSignal
+): Promise<CodeGraph> {
   const files = listSourceFiles(root, settings);
+  if (signal?.aborted) throw new Error("Aborted");
+
   const cache = await loadCache(root);
   const workspaceContext = loadWorkspaceResolutionContext(root);
+  if (signal?.aborted) throw new Error("Aborted");
 
   // Phase 1: Parallel I/O with bounded concurrency
   const maxWorkers = Math.min(16, availableParallelism());
   const results = await boundedMap(files, maxWorkers, async (file) => {
+    if (signal?.aborted) throw new Error("Aborted");
     const rel = relative(root, file).replace(/\\/g, "/");
     const language = languageForPath(file) ?? "unknown";
 
@@ -179,9 +187,9 @@ export async function scanCodebase(root: string, settings: CodeGraphSettings): P
     }
 
     // Cache miss — parse
-    const parsed = parseFile(rel, file, language, source, mtime, size, settings);
+    const parsed = await parseFile(rel, file, language, source, mtime, size, settings);
     return { rel, language, source, cached: parsed.entry, parsed };
-  });
+  }, signal);
 
   // Phase 2: Sequential collect into shared structures (no races)
   const nodes: CodeGraphNode[] = [];
@@ -232,7 +240,7 @@ export async function scanCodebase(root: string, settings: CodeGraphSettings): P
     const parser = getParser(item.language);
     if (!parser) continue;
     for (const imported of new Set(item.importMap.values())) {
-      const targetPath = parser.resolveImportTarget(imported, item.path, filePaths, {
+      const targetPath = await parser.resolveImportTarget(imported, item.path, filePaths, {
         packages: workspaceContext.packages,
         root,
         pathAliases: workspaceContext.pathAliases,
@@ -255,7 +263,7 @@ export async function scanCodebase(root: string, settings: CodeGraphSettings): P
       ...extractCallEdges(item.source, item.symbols, symbolByName, item.importMap, item.path),
     );
     if (parser) {
-      edges.push(...parser.extractRelationshipEdges(item.sanitized, item.symbols, symbolByName));
+      edges.push(...(await parser.extractRelationshipEdges(item.sanitized, item.symbols, symbolByName)));
     }
     edges.push(...extractRouteHandlerEdges(item.source, item.path, symbolByName));
     edges.push(...extractComponentUsageEdges(item.sanitized, item.symbols, symbolByName));
@@ -277,16 +285,19 @@ async function boundedMap<T, R>(
   items: T[],
   concurrency: number,
   fn: (item: T) => Promise<R>,
+  signal?: AbortSignal
 ): Promise<R[]> {
   const results: (R | undefined)[] = new Array(items.length);
   let idx = 0;
   const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (true) {
+      if (signal?.aborted) throw new Error("Aborted");
       const i = idx++;
       if (i >= items.length) return;
       try {
         results[i] = await fn(items[i]);
       } catch (err) {
+        if (signal?.aborted) throw err;
         console.error(`[scan] Error processing item ${i}:`, err);
         results[i] = undefined as R;
       }

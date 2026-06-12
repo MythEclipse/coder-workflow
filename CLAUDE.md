@@ -33,7 +33,7 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 | Command | Triggers Agent | Purpose |
 |---------|----------------|---------|
 | `/coder-workflow` | `coder-orchestrator` (skill) | Main routing brain for any task |
-| `/plan` | `workflow-planner` | Task decomposition |
+| `/plan` | `built-in planner` | Task decomposition |
 | `/audit` | `architecture-auditor` | Read-only architecture audit |
 | `/refraktor` | `refactoring-engineer` | Modular MVC extraction |
 | `/debug` | `debugging-engineer` | Root-cause analysis |
@@ -69,7 +69,7 @@ When loaded as a plugin, skills are namespaced: `/coder-workflow:coder`, `/coder
 
 | Agent | Purpose |
 |---|---|
-| `workflow-planner` | Decompose requests into tracked tasks |
+| `workflow-planner` (skill) | Decompose requests into tracked tasks |
 | `architecture-auditor` | Read-only architecture and layer violation audit |
 | `code-implementer` | Scoped implementation after plan approval |
 | `test-engineer` | Test generation, coverage gap detection |
@@ -135,7 +135,7 @@ Hooks are defined in `hooks/hooks.json` and companion scripts in `hooks/scripts/
 - **Always trigger `coder-orchestrator`** at session start for any coding task. It handles both workflow routing and codebase exploration (prioritize graph over grep, query over read).
 - **Context Token Efficiency**: The main orchestrator must NEVER read large files, perform extensive searches, or edit code directly. ALWAYS dispatch subagents (`coder-workflow:explore-codebase`, `code-implementer`) to perform these actions to prevent massive token bloat in the main session context.
 - **Tasks tracking is recommended**: While it is good practice to run `TaskCreate` early, initial codebase exploration using read-only tools is permitted before task creation.
-- The coding orchestrator routes work through an agent sequence: the `workflow-planner` agent breaks the task into units.
+- The coding orchestrator routes work through an agent sequence: the built-in planner breaks the task into units using the `workflow-planner` skill.
 - **Prefer sequential execution when modifying shared state** (e.g., config files, core modules) to avoid merge conflicts and race conditions. Use parallel subagents only for strictly independent tasks.
 - **Every discovered bug MUST be tracked as a low-priority task** to be fixed at the end of the session, preventing feature starvation.
 - Use skills and MCP tools before guessing. Use context7 MCP for framework docs. Use codegraph MCP for code search.

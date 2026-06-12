@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { rustParser } from "../../src/graph/parsers/rust.js";
 
-test("rustParser extracts structs, enums, traits, and impl blocks", () => {
+test("rustParser extracts structs, enums, traits, and impl blocks", async () => {
   const source = `
     pub struct User { id: u32 }
     enum Role { Admin, Member }
@@ -15,7 +15,7 @@ test("rustParser extracts structs, enums, traits, and impl blocks", () => {
     }
   `;
   const sanitized = rustParser.sanitize(source);
-  const symbols = rustParser.extractSymbols(sanitized, "src/models.rs");
+  const symbols = await rustParser.extractSymbols(sanitized, "src/models.rs");
   const names = symbols.map((s) => s.name);
   assert.ok(names.includes("User"));
   assert.ok(names.includes("Role"));
@@ -24,19 +24,19 @@ test("rustParser extracts structs, enums, traits, and impl blocks", () => {
   assert.ok(names.includes("drive"));
 });
 
-test("rustParser handles nested use declarations", () => {
+test("rustParser handles nested use declarations", async () => {
   const source = `
     use std::collections::{HashMap, HashSet as Set};
     use crate::services::UserService;
   `;
-  const importMap = rustParser.parseImports(source);
+  const importMap = await rustParser.parseImports(source);
   console.log("IMPORT MAP KEYS:", Array.from(importMap.keys()));
   assert.equal(importMap.get("HashMap"), "std::collections::HashMap");
   assert.equal(importMap.get("Set"), "std::collections::HashSet");
   assert.equal(importMap.get("UserService"), "crate::services::UserService");
 });
 
-test("rustParser extracts relationship edges for implements", () => {
+test("rustParser extracts relationship edges for implements", async () => {
   const source = `
     impl Clone for User {}
     impl fmt::Display for User {}
@@ -65,13 +65,13 @@ test("rustParser extracts relationship edges for implements", () => {
       ],
     ],
   ]);
-  const edges = rustParser.extractRelationshipEdges(sanitized, symbols, symbolByName);
+  const edges = await rustParser.extractRelationshipEdges(sanitized, symbols, symbolByName);
   const targets = edges.map((e) => e.evidence);
   assert.ok(targets.includes("Clone"));
   assert.ok(targets.includes("Display"));
 });
 
-test("rustParser matches import paths accurately", () => {
+test("rustParser matches import paths accurately", async () => {
   // src/utils.rs and crate::utils => should match
   const isMatch = rustParser.matchImport("crate::utils::helper", "src/utils.rs");
   assert.equal(isMatch, true);

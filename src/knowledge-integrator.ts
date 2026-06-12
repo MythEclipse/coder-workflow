@@ -15,8 +15,9 @@
  * The directory and file are created automatically on first use.
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
+import { KNOWLEDGE_DIR, ENTRIES_FILE, MAX_QUERY_RESULTS, MIN_RELEVANCE_THRESHOLD } from "./knowledge-config.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -107,16 +108,16 @@ export interface ContextTip {
 // ─── Constants ──────────────────────────────────────────────────────────
 
 /** Directory for storing knowledge entries */
-const KNOWLEDGE_DIR = ".claude/knowledge-integrator";
+
 
 /** JSONL file name for storing entries */
-const ENTRIES_FILE = "entries.jsonl";
+
 
 /** Maximum entries returned by queryProjectKnowledge */
-const MAX_QUERY_RESULTS = 20;
+
 
 /** Minimum relevance score to be considered a match in queries */
-const MIN_RELEVANCE_THRESHOLD = 2;
+
 
 // ─── Storage Helpers ────────────────────────────────────────────────────
 
@@ -184,10 +185,12 @@ function loadEntries(): KnowledgeEntry[] {
  */
 function saveAllEntries(entries: KnowledgeEntry[]): void {
   const filePath = entriesFilePath();
+  const tmpPath = filePath + ".tmp";
   const lines = entries.map((e) => JSON.stringify(e));
 
   try {
-    writeFileSync(filePath, lines.join("\n") + "\n", "utf-8");
+    writeFileSync(tmpPath, lines.join("\n") + (lines.length > 0 ? "\n" : ""), "utf-8");
+    renameSync(tmpPath, filePath);
   } catch (error) {
     throw new Error(
       `Failed to save knowledge entries: ${error instanceof Error ? error.message : String(error)}`,
@@ -201,10 +204,10 @@ function saveAllEntries(entries: KnowledgeEntry[]): void {
  * @param entry - KnowledgeEntry to append
  */
 function appendEntry(entry: KnowledgeEntry): void {
-  const filePath = entriesFilePath();
-
   try {
-    appendFileSync(filePath, JSON.stringify(entry) + "\n", "utf-8");
+    const entries = loadEntries();
+    entries.push(entry);
+    saveAllEntries(entries);
   } catch (error) {
     throw new Error(
       `Failed to append knowledge entry: ${error instanceof Error ? error.message : String(error)}`,

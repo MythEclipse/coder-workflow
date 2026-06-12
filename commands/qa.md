@@ -47,7 +47,7 @@ const answer = await agent(
   - Cite specific file:line for every claim
   - If uncertain, say so explicitly — do NOT hallucinate
   - If the question reveals a bug or gap, note it as a side finding`,
-  { label: 'qa-answer', phase: 'Answer', agent: 'coder-workflow:codebase-qa-agent' }
+  { label: 'qa-answer', phase: 'Answer', skill: 'codebase-qa-agent' }
 )
 
 return { answer }

@@ -1,7 +1,10 @@
-import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, writeFileSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import type { CodeGraph, CodeGraphEdge, CodeGraphNode } from "../types.js";
+
+// ─── Types & Interfaces ──────────────────────────────────────────────────
 
 export interface ScanCacheEntry {
   hash: string;
@@ -21,7 +24,7 @@ export interface ScanCacheData {
 // ─── File paths ──────────────────────────────────────────────────────────
 
 export function graphDbPath(root: string): string {
-  return join(root, ".codegraph", "graph.json");
+  return join(root, ".codegraph", "graph.db");
 }
 
 function scanCachePath(root: string): string {
@@ -32,61 +35,162 @@ export async function graphDbExists(root: string): Promise<boolean> {
   return existsSync(graphDbPath(root));
 }
 
-// ─── Graph read/write (JSON, atomic via tmp + rename) ──────────────────
+// ─── SQLite Integration ──────────────────────────────────────────────────
+
+function getDb(root: string): DatabaseSync {
+  const dir = join(root, ".codegraph");
+  mkdirSync(dir, { recursive: true });
+  const dbPath = graphDbPath(root);
+  const db = new DatabaseSync(dbPath);
+
+  // Initialize schema
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS metadata (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+    CREATE TABLE IF NOT EXISTS nodes (
+      id TEXT PRIMARY KEY,
+      type TEXT,
+      name TEXT,
+      path TEXT,
+      language TEXT,
+      line INTEGER,
+      startLine INTEGER,
+      endLine INTEGER,
+      summary TEXT
+    );
+    CREATE TABLE IF NOT EXISTS edges (
+      id TEXT PRIMARY KEY,
+      type TEXT,
+      source TEXT,
+      target TEXT,
+      evidence TEXT,
+      confidence REAL,
+      resolution TEXT,
+      candidates TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path);
+    CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source);
+    CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target);
+  `);
+
+  return db;
+}
+
+// ─── Graph read/write ────────────────────────────────────────────────────
 
 export async function writeGraphToDb(root: string, graph: CodeGraph): Promise<void> {
   validateGraphIntegrity(graph);
-  const dir = join(root, ".codegraph");
-  mkdirSync(dir, { recursive: true });
-
-  // Migrate: if old DB file exists, back it up so the JSON replaces it cleanly
-  const oldDbPath = join(dir, "graph.db");
-  if (existsSync(oldDbPath)) {
-    const backupPath = join(dir, "graph.db.migrated-" + Date.now());
-    try {
-      renameSync(oldDbPath, backupPath);
-    } catch {
-      // best-effort; user can clean up manually
-    }
-    // Also clean up WAL/SHM sidecars
-    for (const ext of ["-wal", "-shm"]) {
-      const sidecar = oldDbPath + ext;
-      if (existsSync(sidecar)) {
-        try {
-          renameSync(sidecar, backupPath + ext);
-        } catch {
-          /* ignore */
-        }
-      }
-    }
+  
+  // Migrate from old JSON DB if exists
+  const oldJsonPath = join(root, ".codegraph", "graph.json");
+  if (existsSync(oldJsonPath)) {
+    try { renameSync(oldJsonPath, oldJsonPath + ".migrated"); } catch {}
   }
 
-  const tmpPath = join(dir, `graph.tmp.${process.pid}.json`);
-  const finalPath = graphDbPath(root);
+  const db = getDb(root);
+  
+  const insertNode = db.prepare(`
+    INSERT OR REPLACE INTO nodes (id, type, name, path, language, line, startLine, endLine, summary)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  
+  const insertEdge = db.prepare(`
+    INSERT OR REPLACE INTO edges (id, type, source, target, evidence, confidence, resolution, candidates)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
-  // Atomic write: write to tmp, then rename
-  writeFileSync(tmpPath, JSON.stringify(graph), "utf8");
-  renameSync(tmpPath, finalPath);
+  const setMetadata = db.prepare(`INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)`);
+
+  // Run in transaction
+  const runTransaction = () => {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.exec('DELETE FROM nodes');
+      db.exec('DELETE FROM edges');
+      db.exec('DELETE FROM metadata');
+
+    setMetadata.run('version', graph.version);
+    setMetadata.run('generatedAt', graph.generatedAt);
+    setMetadata.run('metadata', JSON.stringify(graph.metadata));
+
+    for (const node of graph.nodes) {
+      insertNode.run(
+        node.id, node.type, node.name, node.path, node.language ?? null, 
+        node.line ?? null, node.startLine ?? null, node.endLine ?? null, node.summary ?? null
+      );
+    }
+    for (const edge of graph.edges) {
+      insertEdge.run(
+        edge.id, edge.type, edge.source, edge.target, edge.evidence ?? null, 
+        edge.confidence ?? null, edge.resolution ?? null, 
+        edge.candidates ? JSON.stringify(edge.candidates) : null
+      );
+    }
+    db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
+  };
+
+  runTransaction();
+  db.close();
 }
 
 export async function readGraphFromDb(root: string): Promise<CodeGraph> {
-  const path = graphDbPath(root);
-  if (!existsSync(path)) {
+  if (!existsSync(graphDbPath(root))) {
     return {
       version: "0.1.0",
       generatedAt: new Date(0).toISOString(),
       root,
       nodes: [],
       edges: [],
-      metadata: {
-        languages: [],
-        filesScanned: 0,
-        ignoredPaths: [],
-      },
+      metadata: { languages: [], filesScanned: 0, ignoredPaths: [] },
     };
   }
-  const content = await readFile(path, "utf8");
-  return JSON.parse(content) as CodeGraph;
+
+  const db = getDb(root);
+  const nodes = db.prepare('SELECT * FROM nodes').all() as any[];
+  const edges = db.prepare('SELECT * FROM edges').all() as any[];
+  const metadataRows = db.prepare('SELECT * FROM metadata').all() as {key: string, value: string}[];
+  
+  db.close();
+
+  const metaMap = new Map(metadataRows.map(r => [r.key, r.value]));
+  
+  const parsedNodes: CodeGraphNode[] = nodes.map(n => ({
+    id: n.id,
+    type: n.type,
+    name: n.name,
+    path: n.path,
+    language: n.language ?? undefined,
+    line: n.line ?? undefined,
+    startLine: n.startLine ?? undefined,
+    endLine: n.endLine ?? undefined,
+    summary: n.summary ?? undefined
+  }));
+
+  const parsedEdges: CodeGraphEdge[] = edges.map(e => ({
+    id: e.id,
+    type: e.type,
+    source: e.source,
+    target: e.target,
+    evidence: e.evidence ?? undefined,
+    confidence: e.confidence ?? undefined,
+    resolution: e.resolution ?? undefined,
+    candidates: e.candidates ? JSON.parse(e.candidates) : undefined
+  }));
+
+  return {
+    version: (metaMap.get('version') as any) || "0.1.0",
+    generatedAt: metaMap.get('generatedAt') || new Date().toISOString(),
+    root,
+    nodes: parsedNodes,
+    edges: parsedEdges,
+    metadata: metaMap.has('metadata') ? JSON.parse(metaMap.get('metadata')!) : { languages: [], filesScanned: 0, ignoredPaths: [] },
+  };
 }
 
 // ─── Scan cache (JSON, atomic) ─────────────────────────────────────────
@@ -96,7 +200,7 @@ export async function readScanCache(root: string): Promise<ScanCacheData> {
   if (!existsSync(path)) return { files: {} };
   try {
     const content = await readFile(path, "utf8");
-    return JSON.parse(content) as ScanCacheData;
+    return JSON.parse(content);
   } catch {
     return { files: {} };
   }
@@ -122,55 +226,95 @@ export async function replaceGraphPathsInDb(
   replacementNodes: CodeGraphNode[],
   replacementEdges: CodeGraphEdge[],
 ): Promise<void> {
-  // Read all existing nodes/edges from JSON
-  const existing = await readGraphFromDb(root);
+  if (!existsSync(graphDbPath(root))) {
+    // If db doesn't exist, this should be a full write anyway
+    return;
+  }
 
-  // Find all node IDs whose path matches one of the replaced paths
-  const pathSet = new Set(paths);
-  const removedNodeIds = new Set(
-    existing.nodes.filter((node) => pathSet.has(node.path)).map((node) => node.id),
-  );
-
-  // Preserve nodes/edges not touching the replaced paths
-  const preservedNodes = existing.nodes.filter((node) => !pathSet.has(node.path));
-  const preservedEdges = existing.edges.filter(
-    (edge) => !removedNodeIds.has(edge.source) && !removedNodeIds.has(edge.target),
-  );
-
-  const finalNodes = [...preservedNodes, ...replacementNodes];
+  const db = getDb(root);
 
   // Validate replacement edges against final node set
-  const finalNodeIds = new Set(finalNodes.map((node) => node.id));
+  const finalNodeIds = new Set(replacementNodes.map((node) => node.id));
+  
+  // To properly validate edges incrementally, we only need to make sure their source/target
+  // either exists in replacementNodes OR already exists in DB.
+  const checkNode = db.prepare('SELECT 1 FROM nodes WHERE id = ?');
+  
   for (const edge of replacementEdges) {
-    if (!finalNodeIds.has(edge.source)) {
+    if (!finalNodeIds.has(edge.source) && !checkNode.get(edge.source)) {
       throw new Error(`Graph edge ${edge.id} references missing source ${edge.source}`);
     }
-    if (!finalNodeIds.has(edge.target)) {
+    if (!finalNodeIds.has(edge.target) && !checkNode.get(edge.target)) {
       throw new Error(`Graph edge ${edge.id} references missing target ${edge.target}`);
     }
   }
 
-  // Deduplicate edges
-  const allEdges = [...preservedEdges, ...replacementEdges];
-  const seen = new Set<string>();
-  const finalEdges = allEdges.filter((e) => {
-    if (seen.has(e.id)) return false;
-    seen.add(e.id);
-    return true;
-  });
+  const deleteNodesByPath = db.prepare(`DELETE FROM nodes WHERE path = ?`);
+  const deleteEdgesBySource = db.prepare(`DELETE FROM edges WHERE source = ?`);
+  const deleteEdgesByTarget = db.prepare(`DELETE FROM edges WHERE target = ?`);
 
-  const updated: CodeGraph = {
-    ...existing,
-    nodes: finalNodes,
-    edges: finalEdges,
-    metadata: {
-      ...existing.metadata,
-      nodesCount: finalNodes.length,
-      edgesCount: finalEdges.length,
-    },
+  const insertNode = db.prepare(`
+    INSERT OR REPLACE INTO nodes (id, type, name, path, language, line, startLine, endLine, summary)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  
+  const insertEdge = db.prepare(`
+    INSERT OR REPLACE INTO edges (id, type, source, target, evidence, confidence, resolution, candidates)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const runTransaction = () => {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      // For each path, find nodes being deleted and delete their connected edges
+    for (const path of paths) {
+      const nodesToDelete = db.prepare('SELECT id FROM nodes WHERE path = ?').all(path) as {id: string}[];
+      for (const row of nodesToDelete) {
+        deleteEdgesBySource.run(row.id);
+        deleteEdgesByTarget.run(row.id);
+      }
+      deleteNodesByPath.run(path);
+    }
+
+    // Insert new nodes
+    for (const node of replacementNodes) {
+      insertNode.run(
+        node.id, node.type, node.name, node.path, node.language ?? null, 
+        node.line ?? null, node.startLine ?? null, node.endLine ?? null, node.summary ?? null
+      );
+    }
+
+    // Insert new edges
+    for (const edge of replacementEdges) {
+      insertEdge.run(
+        edge.id, edge.type, edge.source, edge.target, edge.evidence ?? null, 
+        edge.confidence ?? null, edge.resolution ?? null, 
+        edge.candidates ? JSON.stringify(edge.candidates) : null
+      );
+    }
+
+    // Update metadata counts
+    const nodesCount = (db.prepare('SELECT COUNT(*) as c FROM nodes').get() as any).c;
+    const edgesCount = (db.prepare('SELECT COUNT(*) as c FROM edges').get() as any).c;
+    
+    const existingMetaRow = db.prepare("SELECT value FROM metadata WHERE key = 'metadata'").get() as {value: string} | undefined;
+    if (existingMetaRow) {
+      try {
+        const meta = JSON.parse(existingMetaRow.value);
+        meta.nodesCount = nodesCount;
+        meta.edgesCount = edgesCount;
+        db.prepare('INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)').run('metadata', JSON.stringify(meta));
+      } catch {}
+    }
+    db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
   };
 
-  await writeGraphToDb(root, updated);
+  runTransaction();
+  db.close();
 }
 
 // ─── Validation ──────────────────────────────────────────────────────────

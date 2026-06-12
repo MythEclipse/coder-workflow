@@ -11,11 +11,7 @@ import { controlFlowKeywords, sanitizeBraceLanguage } from "./utils.js";
  */
 export function extractSymbolsFromAST(source: string, path: string): CodeGraphNode[] {
   const astSymbols = extractFromAST(source, path);
-  const regexSymbols = extractFromRegex(sanitizeBraceLanguage(source), path);
-
-  // Merge both approaches, deduping by ID
-  const allSymbols = [...astSymbols, ...regexSymbols];
-  return dedupeById(allSymbols);
+  return dedupeById(astSymbols);
 }
 
 /**
@@ -29,7 +25,7 @@ export function extractImportsFromAST(source: string): string[] {
     source,
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.TS,
+    ts.ScriptKind.TSX,
   );
 
   function visit(node: ts.Node): void {
@@ -50,7 +46,7 @@ function extractFromAST(source: string, path: string): CodeGraphNode[] {
     source,
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.TS,
+    ts.ScriptKind.TSX,
   );
 
   function visit(node: ts.Node): void {
@@ -115,12 +111,11 @@ function extractFromAST(source: string, path: string): CodeGraphNode[] {
 
     // Extract variable declarations (const/let/var)
     if (ts.isVariableStatement(node)) {
-      const isExported = node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
       for (const decl of node.declarationList.declarations) {
         if (ts.isIdentifier(decl.name)) {
           const name = decl.name.text;
-          // Treat exported const/let/var as functions if they're arrow functions or function expressions
-          if (isExported && decl.initializer) {
+          // Treat const/let/var as functions if they're arrow functions or function expressions
+          if (decl.initializer) {
             if (ts.isArrowFunction(decl.initializer) || ts.isFunctionExpression(decl.initializer)) {
               symbols.push({
                 id: nodeId("symbol", `${path}:${name}`),
@@ -141,32 +136,4 @@ function extractFromAST(source: string, path: string): CodeGraphNode[] {
   return symbols;
 }
 
-function extractFromRegex(sanitized: string, path: string): CodeGraphNode[] {
-  const patterns = [
-    /(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,
-    /(?:export\s+)?class\s+([A-Za-z_$][\w$]*)/g,
-    /(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/g,
-    /(?:export\s+)?interface\s+([A-Za-z_$][\w$]*)/g,
-    /(?:export\s+)?const\s+([A-Z][A-Za-z_$\d]*)\s*=/g,
-    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g,
-  ];
-  const nodes: CodeGraphNode[] = [];
-  for (const pattern of patterns) {
-    for (const match of sanitized.matchAll(pattern)) {
-      const name = match[1];
-      if (controlFlowKeywords.has(name)) continue;
-      const matchOffset = match[0].indexOf(name);
-      const actualIndex = (match.index ?? 0) + (matchOffset >= 0 ? matchOffset : 0);
-      const line = sanitized.slice(0, actualIndex).split("\n").length;
-      nodes.push({
-        id: nodeId("symbol", `${path}:${name}`),
-        type: match[0].includes("class") || match[0].includes("interface") ? "class" : "function",
-        name,
-        path,
-        language: "typescript",
-        line,
-      });
-    }
-  }
-  return nodes;
-}
+

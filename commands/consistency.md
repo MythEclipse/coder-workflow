@@ -25,25 +25,25 @@ const [namingIssues, patternIssues, importIssues, styleIssues] = await parallel(
     `Find naming inconsistencies: camelCase vs snake_case, PascalCase violations,
     inconsistent abbreviations, plural/singular confusion.
     Scope: ${$ARGUMENTS || 'full project'}`,
-    { label: 'naming-scan', phase: 'Discover', agent: 'coder-workflow:quality-guardian' }
+    { label: 'naming-scan', phase: 'Discover', skill: 'quality-guardian' }
   ),
   () => agent(
     `Find structural pattern inconsistencies: modules using different architectural patterns,
     services without interfaces, repositories without base class.
     Scope: ${$ARGUMENTS || 'full project'}`,
-    { label: 'pattern-scan', phase: 'Discover', agent: 'coder-workflow:quality-guardian' }
+    { label: 'pattern-scan', phase: 'Discover', skill: 'quality-guardian' }
   ),
   () => agent(
     `Find import inconsistencies: mixed default/named exports, circular imports,
     barrel index files missing, path alias not used.
     Scope: ${$ARGUMENTS || 'full project'}`,
-    { label: 'import-scan', phase: 'Discover', agent: 'coder-workflow:quality-guardian' }
+    { label: 'import-scan', phase: 'Discover', skill: 'quality-guardian' }
   ),
   () => agent(
     `Find style inconsistencies: mixed quote styles, inconsistent semicolons,
     trailing commas, line length violations, indent width.
     Scope: ${$ARGUMENTS || 'full project'}`,
-    { label: 'style-scan', phase: 'Discover', agent: 'coder-workflow:quality-guardian' }
+    { label: 'style-scan', phase: 'Discover', skill: 'quality-guardian' }
   ),
 ])
 
@@ -67,7 +67,7 @@ const [namingFix, patternFix, importFix, styleFix] = await parallel([
   () => agent(
     `Auto-fix style inconsistencies via biome/eslint --fix. Do not manually rewrite files for style.
     Issues: ${styleIssues}`,
-    { label: 'style-fix', phase: 'Fix', agent: 'coder-workflow:quality-guardian' }
+    { label: 'style-fix', phase: 'Fix', skill: 'quality-guardian' }
   ),
 ])
 
@@ -76,7 +76,7 @@ const verify = await agent(
   `Re-run consistency scan to confirm all violations resolved.
   Also run: typecheck + lint to confirm no regressions introduced.
   Fixes applied: ${[namingFix, patternFix, importFix, styleFix].map(r => r.label).join(', ')}`,
-  { label: 'consistency-verify', phase: 'Verify', agent: 'coder-workflow:quality-guardian' }
+  { label: 'consistency-verify', phase: 'Verify', skill: 'quality-guardian' }
 )
 
 return { verify, categoriesFixed: 4 }

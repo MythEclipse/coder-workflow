@@ -26,14 +26,7 @@ import { SequentialThinkingEngine } from "./sequential-thinking.js";
 import { loadSettings } from "./settings.js";
 import type { CodeGraph } from "./types.js";
 import { openGraphUi } from "./ui.js";
-
-let _cachedGraph: CodeGraph | null = null;
-let _cachedGraphMtime = 0;
-
-// ─── Sequential Thinking Engine (session-level singleton) ─────────────────
-const _thinkingEngine = new SequentialThinkingEngine({
-  stateDir: join(cwd(), ".claude", "sequential-thinking"),
-});
+import { getThinkingEngine } from "./mcp-handlers/sequential-thinking.js";
 
 /**
  * Get mtime of the JSON graph file.
@@ -48,21 +41,75 @@ function getGraphJsonMtime(root: string): number {
   }
 }
 
-/**
- * Get cached graph, reading from JSON only when the file has changed.
- * No locks required — JSON reads are always safe concurrent with
- * atomic write+rename.
- */
-async function getCachedGraph(root: string): Promise<CodeGraph> {
-  const mtime = getGraphJsonMtime(root);
-  if (_cachedGraph && _cachedGraphMtime === mtime) {
-    return _cachedGraph;
+
+class GraphCacheService {
+  private cachedGraph: CodeGraph | null = null;
+  private cachedGraphMtime = 0;
+  private isReading = false;
+  private readQueue: Array<() => void> = [];
+
+  private async acquireLock(): Promise<void> {
+    if (!this.isReading) {
+      this.isReading = true;
+      return;
+    }
+    return new Promise(resolve => this.readQueue.push(resolve));
   }
-  // File changed (or first load) — re-read
-  _cachedGraph = await readGraph(root);
-  _cachedGraphMtime = mtime;
-  return _cachedGraph;
+
+  private releaseLock() {
+    if (this.readQueue.length > 0) {
+      const next = this.readQueue.shift()!;
+      next();
+    } else {
+      this.isReading = false;
+    }
+  }
+
+  public get isLoaded(): boolean {
+    return this.cachedGraph !== null;
+  }
+
+  public get nodesCount(): number {
+    return this.cachedGraph?.nodes.length ?? 0;
+  }
+
+  public get edgesCount(): number {
+    return this.cachedGraph?.edges.length ?? 0;
+  }
+
+  public get mtime(): number {
+    return this.cachedGraphMtime;
+  }
+
+  async getGraph(root: string): Promise<CodeGraph> {
+    const mtime = getGraphJsonMtime(root);
+    if (this.cachedGraph && this.cachedGraphMtime === mtime) {
+      return this.cachedGraph;
+    }
+
+    await this.acquireLock();
+    try {
+      // Check again after acquiring lock
+      const currentMtime = getGraphJsonMtime(root);
+      if (this.cachedGraph && this.cachedGraphMtime === currentMtime) {
+        return this.cachedGraph;
+      }
+
+      this.cachedGraph = await readGraph(root);
+      this.cachedGraphMtime = currentMtime;
+      return this.cachedGraph;
+    } finally {
+      this.releaseLock();
+    }
+  }
+
+  invalidate() {
+    this.cachedGraph = null;
+    this.cachedGraphMtime = 0;
+  }
 }
+
+const graphCache = new GraphCacheService();
 
 const server = new Server(
   { name: "codegraph-mapper", version: "0.1.0" },
@@ -172,15 +219,18 @@ let _lastToolCallTime = 0;
 // ─── Tool timeout (prevents stalled scan requests from blocking the server) ───
 const SCAN_TIMEOUT_MS = 5 * 60_000; // 5 minutes for full scan
 
-async function withTimeout<T>(promise: Promise<T>, ms: number, toolName: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      reject(new Error(`Tool "${toolName}" timed out after ${ms}ms`));
-    }, ms);
-  });
+async function withTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  ms: number,
+  toolName: string
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort(new Error(`Tool "${toolName}" timed out after ${ms}ms`));
+  }, ms);
+
   try {
-    return await Promise.race([promise, timeout]);
+    return await operation(controller.signal);
   } finally {
     clearTimeout(timer);
   }
@@ -1327,6 +1377,7 @@ Key features:
           branchFromThought: { type: "number", description: "Branching point thought number" },
           branchId: { type: "string", description: "Branch identifier" },
           needsMoreThoughts: { type: "boolean", description: "If more thoughts are needed" },
+          sessionId: { type: "string", description: "Optional session ID to isolate thinking states per agent or task" },
         },
         required: ["thought", "nextThoughtNeeded", "thoughtNumber", "totalThoughts"],
       },
@@ -1379,23 +1430,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         lastToolCallSecondsAgo:
           _lastToolCallTime > 0 ? Math.round((Date.now() - _lastToolCallTime) / 1000) : null,
         cache: {
-          loaded: _cachedGraph !== null,
-          nodes: _cachedGraph?.nodes.length ?? 0,
-          edges: _cachedGraph?.edges.length ?? 0,
-          mtime: _cachedGraphMtime ? new Date(_cachedGraphMtime).toISOString() : null,
+          loaded: graphCache.isLoaded,
+          nodes: graphCache.nodesCount,
+          edges: graphCache.edgesCount,
+          mtime: graphCache.mtime ? new Date(graphCache.mtime).toISOString() : null,
         },
       });
     case "scan_codebase":
     case "update_codebase": {
       const graph = await withTimeout(
-        scanCodebase(root, settings),
+        (signal) => scanCodebase(root, settings, signal),
         SCAN_TIMEOUT_MS,
         request.params.name,
       );
       await writeGraph(root, graph);
       // Invalidate cache after write so next read gets fresh data
-      _cachedGraph = null;
-      _cachedGraphMtime = 0;
+      graphCache.invalidate();
       return text({
         graph: ".codegraph/graph.json",
         nodes: graph.nodes.length,
@@ -1405,7 +1455,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     case "query_graph": {
       const query = stringArg(args?.query, "query");
-      return text(queryGraph(await getCachedGraph(root), query, numberArg(args?.maxResults)));
+      return text(queryGraph(await graphCache.getGraph(root), query, numberArg(args?.maxResults)));
     }
     case "search_code": {
       const pattern = stringArg(args?.pattern, "pattern");
@@ -1437,7 +1487,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text({
         written: exportGraph(
           root,
-          await getCachedGraph(root),
+          await graphCache.getGraph(root),
           (args?.formats as string[] | undefined) ?? settings.exports,
         ),
       });
@@ -1448,17 +1498,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ? (directionStr as "upstream" | "downstream" | "both")
         : "both";
       return text(
-        analyzeImpact(await getCachedGraph(root), target, Number.MAX_SAFE_INTEGER, direction),
+        analyzeImpact(await graphCache.getGraph(root), target, Number.MAX_SAFE_INTEGER, direction),
       );
     }
     case "open_graph_ui":
       return text({ url: await openGraphUi(root, settings) });
     case "find_cycles":
-      return text(findCycles(await getCachedGraph(root)));
+      return text(findCycles(await graphCache.getGraph(root)));
     case "find_orphans":
-      return text(findOrphans(await getCachedGraph(root)));
+      return text(findOrphans(await graphCache.getGraph(root)));
     case "summarize_architecture": {
-      const graph = await getCachedGraph(root);
+      const graph = await graphCache.getGraph(root);
       const maxNodes = numberArg(args?.maxNodes) ?? graph.nodes.length;
       const maxEdges = numberArg(args?.maxEdges) ?? graph.edges.length;
       const summary = summarizeGraphForBudget(graph, { maxNodes, maxEdges });
@@ -1466,7 +1516,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text({ ...summary, freshness });
     }
     case "analyze_quality": {
-      const report = analyzeGraphQuality(await getCachedGraph(root), root);
+      const report = analyzeGraphQuality(await graphCache.getGraph(root), root);
       const threshold = readThreshold(args?.failOn);
       if (!threshold) return text(report);
       const gate = evaluateQualityGate(report.issues, threshold);
@@ -1479,7 +1529,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "quality_gate": {
       const threshold = readThreshold(args?.threshold);
       if (!threshold) throw new Error("Invalid threshold. Use high, medium, or low.");
-      const report = analyzeGraphQuality(await getCachedGraph(root), root);
+      const report = analyzeGraphQuality(await graphCache.getGraph(root), root);
       const gate = evaluateQualityGate(report.issues, threshold);
       const result = { ...gate, failingIssues: failingIssuesForThreshold(report, threshold) };
       if (args?.includeReport === true) return text({ ...report, ...result });
@@ -1492,7 +1542,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }),
       );
     case "summarize_graph": {
-      const summary = summarizeGraphForBudget(await getCachedGraph(root), {
+      const summary = summarizeGraphForBudget(await graphCache.getGraph(root), {
         maxNodes: numberArg(args?.maxNodes) ?? 50,
         maxEdges: numberArg(args?.maxEdges) ?? 100,
       });
@@ -2018,8 +2068,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const nextThoughtNeeded = args?.nextThoughtNeeded === true;
       const thoughtNumber = Number(args?.thoughtNumber) || 1;
       const totalThoughts = Number(args?.totalThoughts) || 1;
+      const sessionId = args?.sessionId as string | undefined;
 
-      const result = _thinkingEngine.processThought({
+      const engine = getThinkingEngine(sessionId);
+      const result = engine.processThought({
         thought,
         nextThoughtNeeded,
         thoughtNumber,
@@ -2040,13 +2092,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "sequential_thinking_export": {
       const format = (args?.format as string) ?? "markdown";
       const sessionId = args?.sessionId as string | undefined;
+      const engine = getThinkingEngine(sessionId);
 
       if (format === "summary") {
-        return text({ summary: _thinkingEngine.getSummary() });
+        return text({ summary: engine.getSummary() });
       }
 
       // If sessionId is provided, load that session's thoughts via the engine
-      if (sessionId && sessionId !== _thinkingEngine.getSessionId()) {
+      if (sessionId && sessionId !== engine.getSessionId()) {
         const loaded = SequentialThinkingEngine.loadSession(sessionId);
         if (!loaded) throw new Error(`Session not found: ${sessionId}`);
         // Create a temporary engine for the loaded session
@@ -2057,7 +2110,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return text(exportFromEngine(tempEngine, format));
       }
 
-      return text(exportFromEngine(_thinkingEngine, format));
+      return text(exportFromEngine(engine, format));
     }
     case "sequential_thinking_list": {
       const sessions = SequentialThinkingEngine.listSessions(
@@ -2066,7 +2119,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return text({ sessions, count: sessions.length });
     }
     case "sequential_thinking_reset": {
-      const result = _thinkingEngine.reset();
+      const sessionId = args?.sessionId as string | undefined;
+      const engine = getThinkingEngine(sessionId);
+      const result = engine.reset();
       return text({
         reset: true,
         previousThoughts: result.previousThoughtCount,

@@ -1,175 +1,135 @@
+import { spawn, type ChildProcess } from "node:child_process";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import type { CodeGraphEdge, CodeGraphNode } from "../../types.js";
 import { dedupeById, edge, nodeId } from "../ids.js";
 import type { LanguageParser } from "./LanguageParser.js";
-import type { LineRange } from "./utils.js";
-import { controlFlowKeywords, hasLine, replaceWithSpaces } from "./utils.js";
 
-function stripPythonComments(source: string): string {
-  return source
-    .split("\n")
-    .map((line) => {
-      const commentIdx = line.indexOf("#");
-      return commentIdx === -1 ? line : line.slice(0, commentIdx);
-    })
-    .join("\n");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const WORKER_PATH = join(__dirname, "python-worker.py");
+
+let pythonWorker: ChildProcess | null = null;
+let msgIdCounter = 0;
+const pendingRequests = new Map<number, { resolve: (val: any) => void; reject: (err: any) => void }>();
+
+function getPythonWorker(): ChildProcess {
+  if (!pythonWorker) {
+    pythonWorker = spawn("python3", [WORKER_PATH], { stdio: ["pipe", "pipe", "inherit"] });
+    pythonWorker.unref();
+    pythonWorker.stdout?.unref();
+    pythonWorker.stdin?.unref();
+    let buffer = "";
+    pythonWorker.stdout?.on("data", (chunk: Buffer) => {
+      buffer += chunk.toString("utf8");
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          const pending = pendingRequests.get(msg.id);
+          if (pending) {
+            pendingRequests.delete(msg.id);
+            if (msg.error) pending.reject(new Error(msg.error));
+            else pending.resolve(msg.result);
+          }
+        } catch (err) {
+          console.error("Python worker output parse error:", err);
+        }
+      }
+    });
+    pythonWorker.on("error", (err) => {
+      console.error("[Graph] Python worker error:", err);
+      for (const pending of pendingRequests.values()) pending.reject(err);
+      pendingRequests.clear();
+      pythonWorker = null;
+    });
+    pythonWorker.on("exit", () => {
+      for (const pending of pendingRequests.values()) pending.reject(new Error("Worker exited"));
+      pendingRequests.clear();
+      pythonWorker = null;
+    });
+  }
+  return pythonWorker;
+}
+
+async function parsePythonAST(source: string, path: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const id = ++msgIdCounter;
+    pendingRequests.set(id, { resolve, reject });
+    const worker = getPythonWorker();
+    const payload = JSON.stringify({ id, action: "parse", source, path }) + "\n";
+    worker.stdin?.write(payload);
+  });
+}
+
+const astCache = new Map<string, Promise<any>>();
+
+async function getAST(source: string, path: string): Promise<any> {
+  const key = createHash("sha256").update(source).digest("hex");
+  if (astCache.has(key)) return astCache.get(key);
+  
+  const promise = parsePythonAST(source, path);
+  astCache.set(key, promise);
+  if (astCache.size > 200) {
+    const firstKey = astCache.keys().next().value;
+    if (firstKey) astCache.delete(firstKey);
+  }
+  return promise;
 }
 
 export const pythonParser: LanguageParser = {
   language: "python",
 
   sanitize(source: string): string {
-    let result = source;
-    result = replaceWithSpaces(result, /#.*$/gm);
-    result = replaceWithSpaces(result, /'''[\s\S]*?'''/g);
-    result = replaceWithSpaces(result, /"""[\s\S]*?"""/g);
-    result = replaceWithSpaces(result, /"([^"\\]|\\.)*"/g);
-    result = replaceWithSpaces(result, /'([^'\\]|\\.)*'/g);
-    return result;
+    return source; // Handled correctly by actual Python AST
   },
 
-  extractSymbols(source: string, path: string): CodeGraphNode[] {
-    const patterns = [/^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)/gm, /^\s*class\s+([A-Za-z_]\w*)/gm];
-    const nodes: CodeGraphNode[] = [];
-    for (const pattern of patterns) {
-      for (const match of source.matchAll(pattern)) {
-        const name = match[1];
-        if (controlFlowKeywords.has(name)) continue;
-        const matchOffset = match[0].indexOf(name);
-        const actualIndex = (match.index ?? 0) + (matchOffset >= 0 ? matchOffset : 0);
-        const line = source.slice(0, actualIndex).split("\n").length;
-        nodes.push({
-          id: nodeId("symbol", `${path}:${name}`),
-          type: match[0].trimStart().startsWith("class") ? "class" : "function",
-          name,
-          path,
-          language: "python",
-          line,
-        });
-      }
-    }
-    return dedupeById(nodes);
+  async extractSymbols(source: string, path: string): Promise<CodeGraphNode[]> {
+    const ast = await getAST(source, path);
+    return ast.nodes ?? [];
   },
 
-  extractImports(source: string): string[] {
-    const uncommented = stripPythonComments(source);
-    const imports: string[] = [];
-    const patterns = [/^import\s+([\w.]+)/gm, /^from\s+([\w.]+)\s+import/gm];
-    for (const pattern of patterns) {
-      for (const match of uncommented.matchAll(pattern)) {
-        imports.push(match[1].trim());
-      }
-    }
-    return [...new Set(imports)];
+  async extractImports(source: string): Promise<string[]> {
+    const ast = await getAST(source, "dummy.py");
+    return ast.imports ?? [];
   },
 
-  parseImports(source: string): Map<string, string> {
-    const uncommented = stripPythonComments(source);
+  async parseImports(source: string): Promise<Map<string, string>> {
+    const ast = await getAST(source, "dummy.py");
     const map = new Map<string, string>();
-    const patterns = [
-      /^[ \t]*import[ \t]+([\w., \t]+)/gm,
-      /^[ \t]*from[ \t]+([\w.]+)[ \t]+import[ \t]+([\w., \t*]+)/gm,
-    ];
-
-    for (const match of uncommented.matchAll(patterns[0])) {
-      for (const imp of match[1].split(",")) {
-        const parts = imp.trim().split(/\s+as\s+/);
-        const full = parts[0];
-        const alias = parts.length > 1 ? parts[1] : full.split(".").pop();
-        if (alias) map.set(alias, full);
-      }
-    }
-
-    for (const match of uncommented.matchAll(patterns[1])) {
-      const full = match[1].trim();
-      const imported = match[2];
-      if (imported.trim() === "*") continue;
-      for (const imp of imported.split(",")) {
-        const parts = imp.trim().split(/\s+as\s+/);
-        const importedItem = parts[0];
-        const alias = parts.length > 1 ? parts[1] : importedItem;
-        if (alias) map.set(alias, `${full}.${importedItem}`);
-      }
+    for (const [alias, full] of ast.importMap ?? []) {
+      map.set(alias, full);
     }
     return map;
   },
 
-  extractRoutes(source: string, path: string): CodeGraphNode[] {
-    const routes: CodeGraphNode[] = [];
-    const pattern = /^\s*@[\w.]*\.(?:get|post|put|patch|delete|route)\(["']([^"']+)["']/gm;
-    for (const match of source.matchAll(pattern)) {
-      const line = source.slice(0, match.index ?? 0).split("\n").length;
-      routes.push({
-        id: nodeId("route", `${path}:${match[1]}`),
-        type: "route",
-        name: match[1],
-        path,
-        language: "python",
-        line,
-      });
-    }
-    return dedupeById(routes);
+  async extractRoutes(source: string, path: string): Promise<CodeGraphNode[]> {
+    const ast = await getAST(source, path);
+    return ast.routes ?? [];
   },
 
-  extractRelationshipEdges(
+  async extractRelationshipEdges(
     source: string,
     symbols: CodeGraphNode[],
     symbolByName: Map<string, CodeGraphNode[]>,
-  ): CodeGraphEdge[] {
-    const edges: CodeGraphEdge[] = [];
-    const classByName = new Map(
-      symbols.filter((symbol) => symbol.type === "class").map((symbol) => [symbol.name, symbol]),
-    );
-
-    for (const match of source.matchAll(/^\s*class\s+([A-Za-z_]\w*)\s*\(([^)]*)\)/gm)) {
-      const sourceSymbol = classByName.get(match[1]);
-      if (!sourceSymbol) continue;
-      for (const baseName of match[2]
-        .split(",")
-        .map((base) => base.trim().split(".").pop() ?? "")) {
-        const targetSymbol = classByName.get(baseName) ?? symbolByName.get(baseName)?.[0];
-        if (targetSymbol) edges.push(edge("extends", sourceSymbol.id, targetSymbol.id, baseName));
-      }
-    }
-
-    return dedupeById(edges);
+  ): Promise<CodeGraphEdge[]> {
+    const ast = await getAST(source, "dummy.py");
+    return ast.edges ?? [];
   },
 
   resolveSymbolRanges(
     source: string,
     symbols: CodeGraphNode[],
   ): Map<string, { startLine: number; endLine: number }> {
-    const lines = source.split("\n");
-    const lineIndents = lines.map((line) => {
-      if (line.trim().length === 0 || line.trim().startsWith("#")) return -1;
-      const match = line.match(/^(\s*)/);
-      return match ? match[1].length : 0;
-    });
-
-    const ranges = new Map<string, LineRange>();
-
+    const ranges = new Map<string, { startLine: number; endLine: number }>();
     for (const symbol of symbols) {
-      if (!hasLine(symbol)) continue;
-
-      const startIdx = symbol.line - 1;
-      if (startIdx < 0 || startIdx >= lines.length) continue;
-
-      const declLine = lines[startIdx];
-      const declIndentMatch = declLine.match(/^(\s*)/);
-      const declIndent = declIndentMatch ? declIndentMatch[1].length : 0;
-
-      let endLine = symbol.line;
-      for (let i = startIdx + 1; i < lines.length; i++) {
-        const indent = lineIndents[i];
-        if (indent === -1) {
-          endLine = i + 1;
-          continue;
-        }
-        if (indent <= declIndent) break;
-        endLine = i + 1;
+      if (symbol.startLine && symbol.endLine) {
+        ranges.set(symbol.id, { startLine: symbol.startLine, endLine: symbol.endLine });
       }
-      ranges.set(symbol.id, { startLine: symbol.line, endLine });
     }
-
     return ranges;
   },
 

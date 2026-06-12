@@ -13,69 +13,11 @@ function createJsTsParser(language: "javascript" | "typescript"): LanguageParser
     },
 
     extractSymbols(source: string, path: string): CodeGraphNode[] {
-      // Use AST extraction for TypeScript to avoid matching symbols in comments/strings
-      if (language === "typescript") {
-        return extractSymbolsFromAST(source, path);
-      }
-
-      // Fallback regex-based extraction for JavaScript
-      const patterns = [
-        /(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,
-        /(?:export\s+)?class\s+([A-Za-z_$][\w$]*)/g,
-        /(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/g,
-        /(?:export\s+)?interface\s+([A-Za-z_$][\w$]*)/g,
-        /(?:export\s+)?const\s+([A-Z][A-Za-z_$\d]*)\s*=/g,
-        /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g,
-        /^\s{2,}(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/gm,
-      ];
-      const nodes: CodeGraphNode[] = [];
-      for (const pattern of patterns) {
-        for (const match of source.matchAll(pattern)) {
-          const name = match[1];
-          if (controlFlowKeywords.has(name)) continue;
-          const matchOffset = match[0].indexOf(name);
-          const actualIndex = (match.index ?? 0) + (matchOffset >= 0 ? matchOffset : 0);
-          const line = source.slice(0, actualIndex).split("\n").length;
-          nodes.push({
-            id: nodeId("symbol", `${path}:${name}`),
-            type:
-              match[0].includes("class") || match[0].includes("interface") ? "class" : "function",
-            name,
-            path,
-            language,
-            line,
-          });
-        }
-      }
-      return dedupeById(nodes);
+      return extractSymbolsFromAST(source, path);
     },
 
     extractImports(source: string): string[] {
-      // Use AST extraction for TypeScript to handle multiline/destructured imports
-      if (language === "typescript") {
-        return extractImportsFromAST(source);
-      }
-
-      // Fallback regex-based extraction for JavaScript
-      const uncommented = source
-        .split("\n")
-        .map((line) => {
-          const commentIdx = line.indexOf("//");
-          return commentIdx === -1 ? line : line.slice(0, commentIdx);
-        })
-        .join("\n");
-
-      const imports: string[] = [];
-      const patterns = [
-        /^import\s+.*?from\s+["']([^"']+)["']/gm,
-        /^const\s+.*?=\s*require\(["']([^"']+)["']\)/gm,
-      ];
-      for (const pattern of patterns) {
-        for (const match of uncommented.matchAll(pattern)) {
-          imports.push(match[1].trim());
-        }
-      }
-      return [...new Set(imports)];
+      return extractImportsFromAST(source);
     },
 
     parseImports(source: string): Map<string, string> {

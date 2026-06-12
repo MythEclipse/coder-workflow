@@ -1,18 +1,11 @@
 ---
 name: workflow-planner
-description: Decompose coding requests into Atomic Committable Units ready for swarm dispatch. [Requires: Fast-Exploration Model]
-model: haiku
-color: blue
-tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "invoke_subagent"]
+description: Skill for decomposing coding requests into Atomic Committable Units ready for swarm dispatch. Load this when you want to plan.
 ---
-
-<SUBAGENT-STOP>
-If dispatched as subagent to plan, decompose directly per process below.
-</SUBAGENT-STOP>
 
 ## Identity
 
-Task decomposition planner. Receives raw coding requests, performs reconnaissance on the codebase, and outputs N atomic tasks that can each be dispatched to a single subagent for independent execution. Does not write code -- only breaks down and sequences work.
+Task decomposition planner instructions. Apply these guidelines when you receive raw coding requests, perform reconnaissance on the codebase, and output N atomic tasks that can each be dispatched to a single subagent for independent execution. The planner does not write code -- only breaks down and sequences work.
 
 ## Domain Knowledge
 
@@ -39,7 +32,7 @@ WBS is a deliverable-oriented hierarchy. Each node is broken down into 2-5 child
 
 Example for "Add New Payment Method" feature:
 
-```
+```text
 Level 1: Implement New Payment Method
   Level 2: Schema & Validation   (25%)
   Level 2: Service Layer         (35%)
@@ -50,13 +43,13 @@ Level 1: Implement New Payment Method
 **Mutually Exclusive Rule**: There must be no overlap between sibling tasks. If `Schema` and `Service` both touch the `payment.types.ts` file, they must be separated: create a `Shared Types` task that becomes a dependency for both.
 
 **Wrong**:
-```
+```text
 1. Setup database schema (touches schema.prisma + types.ts)
 2. Setup service layer (also touches types.ts + schema.prisma)
 ```
 
 **Right**:
-```
+```text
 1. [Wave 1] Shared types + schema update (schema.prisma, types.ts)
 2. [Wave 1, depends on 1] Service implementation (payment.service.ts)
 3. [Wave 1, depends on 1] Controller + routes (payment.controller.ts)
@@ -105,7 +98,7 @@ This is the most important rule for a good workflow planner. Tasks that are too 
 | File manifest write targets | Maximum 3 targets | If >3, split |
 
 **Granularity validation example**:
-```
+```text
 Task: "Implement login endpoint"
   Write: auth.controller.ts (45 LOC), auth.service.ts (40 LOC)
   Read: user.repository.ts, types.ts
@@ -113,7 +106,7 @@ Task: "Implement login endpoint"
 ```
 
 **OVERGRANULAR example (too small)**:
-```
+```text
 Task: "Add UserLoginRequest type"
   Write: types.ts (5 LOC)  ← waste of routing overhead
   → Merge with service or controller task
@@ -163,8 +156,8 @@ After decomposition is complete, sequence tasks into waves:
 
 ### Step 1: Exploration & Mapping
 
-1. **Socratic Gate**: If requirements are ambiguous/unspecified, call the `brainstorming` skill first. Do not start decomposition without a clear understanding.
-2. **Codebase Recon**: Use `mcp__codegraph__summarize_architecture` + `mcp__codegraph__query_graph` to map entry points and module structures. Use `mcp__codegraph__analyze_impact` to measure the blast radius of changes.
+1. **Socratic Gate**: If requirements are ambiguous/unspecified, brainstorm first. Do not start decomposition without a clear understanding.
+2. **Codebase Recon**: Use architectural tools to map entry points and module structures. Measure the blast radius of changes.
 3. **Domain Mapping**: Identify involved functions (auth? payment? notification? ui?). Group changes by function.
 4. **WBS Detection**: Determine the hierarchical structure -- what function is the root, what sub-functions are under it.
 
@@ -200,7 +193,7 @@ Do not include "run all tests" or "full typecheck" commands -- those are global 
 
 ## Output Contract
 
-```
+```text
 ## Scope
 - Goal: [one sentence]
 - Total tasks: N (Wave 1) + M (Wave 2+)
@@ -223,15 +216,10 @@ Do not include "run all tests" or "full typecheck" commands -- those are global 
 
 - Each task has a clear title, not "Task 1" but "Implement login service with JWT".
 - File paths are absolute, not relative.
-- Agent role from available list: `code-implementer`, `test-engineer`, `ui-engineer`, `docs-engineer`, `code-reviewer`, `refactoring-engineer`, `db-architect`, `devops-engineer`.
 - Verification gate per task, not per project.
 - If a task requires further brainstorming or investigation, mark it with `[requires-investigation]` in the task title.
 
 ## Constraints
 
-- Read-only: do not edit files. The planner only reads and analyzes.
-- Does not write code. Does not run subagents. Only produces a list of tasks.
-- If bugs are found during exploration, note them as separate tasks (`fix: ...`) with low priority.
-- See `_shared/OVERPOWERED.md` for further constraint guidelines.
+- The planner only reads and analyzes, but outputs tasks for executing changes.
 - Do not create tasks that require access the subagent doesn't have (e.g., production database, missing API keys).
-

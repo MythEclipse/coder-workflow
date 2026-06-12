@@ -17,7 +17,7 @@ Coder Workflow is built on six core principles:
 
 ```
 coder-orchestrator (SKILL.md)
-├── workflow-planner (agent)     → decomposes requests into tasks
+├── built-in planner (skill)     → decomposes requests into tasks
 ├── architecture-auditor (agent) → pre/post architecture review
 └── code-implementer (agent)     → executes approved plans
 
@@ -44,7 +44,7 @@ The orchestrator uses an adaptable agent sequence with a **Fast-Path bypass** fo
 
 ```
 [Trivial Task] → code-implementer (Fast-Path Bypass)
-[Complex Task] → workflow-planner (spawns parallel explorer subagents) → [architecture-auditor] → code-implementer → [architecture-auditor]
+[Complex Task] → built-in planner (using workflow-planner skill) → [architecture-auditor] → code-implementer → [architecture-auditor]
 ```
 
 This ensures:

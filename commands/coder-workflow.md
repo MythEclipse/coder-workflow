@@ -23,7 +23,7 @@ Determine Tier first (see coder-orchestrator SKILL.md Complexity Gate), then run
   phases: [
     { title: 'Brainstorm', detail: 'clarify intent if underspecified (skip if clear)' },
     { title: 'Discover',   detail: 'CodeGraph scan — map structure, find gaps' },
-    { title: 'Plan',       detail: 'workflow-planner decomposes into atomic tasks' },
+    { title: 'Plan',       detail: 'use built-in planner skill to decompose into atomic tasks' },
     { title: 'Swarm',      detail: '1 agent per task, all in parallel' },
     { title: 'Verify',     detail: 'architecture-auditor post-check' },
     { title: 'Synthesize', detail: 'collect outputs, resolve conflicts, produce report' },
@@ -51,7 +51,7 @@ const plan = await pipeline([
     `Decompose task into atomic units with FILE_MANIFEST per task. Each task targets ≤3 files.
 Input: ${exploration}
 User goal: $ARGUMENTS`,
-    { label: 'decompose', phase: 'Plan', agent: 'coder-workflow:workflow-planner' }
+    { label: 'decompose', phase: 'Plan', skill: 'workflow-planner' }
   ),
 ])
 

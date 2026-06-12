@@ -41,7 +41,7 @@ const [qualityMetrics, cycles, deadCode, smells] = await parallel([
     `Scan for code smells: god objects, long parameter lists, primitive obsession,
     shotgun surgery patterns, feature envy, duplicated logic blocks.
     Scope: ${$ARGUMENTS || 'full project'}`,
-    { label: 'smell-scan', phase: 'Scan', agent: 'coder-workflow:quality-guardian' }
+    { label: 'smell-scan', phase: 'Scan', skill: 'quality-guardian' }
   ),
 ])
 
@@ -53,7 +53,7 @@ const evaluation = await agent(
   Cycles: ${cycles}
   Dead code: ${deadCode}
   Smells: ${smells}`,
-  { label: 'evaluate', phase: 'Evaluate', agent: 'coder-workflow:quality-guardian' }
+  { label: 'evaluate', phase: 'Evaluate', skill: 'quality-guardian' }
 )
 
 phase('Report')

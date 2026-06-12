@@ -24,6 +24,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
+import ts from "typescript";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -212,7 +213,8 @@ function readJSON<T>(filePath: string, fallback: T): T {
     const raw = readFileSync(filePath, "utf-8").trim();
     if (!raw) return fallback;
     return JSON.parse(raw) as T;
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return fallback;
   }
 }
@@ -254,7 +256,8 @@ function detectNamingStyle(name: string): string {
 function readFileSafe(filePath: string): string {
   try {
     return readFileSync(filePath, "utf-8");
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return "";
   }
 }
@@ -267,7 +270,8 @@ function appendViolationLog(violation: ConsistencyViolation): void {
     const dir = ensureStorageDir();
     const logPath = join(dir, VIOLATIONS_LOG);
     appendFileSync(logPath, JSON.stringify(violation) + "\n", "utf-8");
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     // logging failed — non-critical
   }
 }
@@ -281,7 +285,8 @@ function resetViolationLog(violations: ConsistencyViolation[]): void {
     const logPath = join(dir, VIOLATIONS_LOG);
     const lines = violations.map((v) => JSON.stringify(v)).join("\n");
     writeFileSync(logPath, lines + (lines ? "\n" : ""), "utf-8");
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     // non-critical
   }
 }
@@ -299,12 +304,14 @@ function readViolationLog(): ConsistencyViolation[] {
     for (const line of raw.split("\n").filter(Boolean)) {
       try {
         violations.push(JSON.parse(line) as ConsistencyViolation);
-      } catch {
+      } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
         // skip corrupt entries
       }
     }
     return violations;
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return [];
   }
 }
@@ -393,7 +400,7 @@ export function detectProjectPatterns(root: string): ProjectPatternProfile {
       }
 
       // Detect naming conventions from identifiers (functions, classes, variables, constants)
-      detectNamingFromContent(content, namingCounts[lang]);
+      detectNamingFromContent(content, namingCounts[lang], ext === ".ts" || ext === ".js" || ext === ".tsx" || ext === ".jsx");
 
       // Detect import style
       const importStats = detectImportStyle(content);
@@ -536,7 +543,8 @@ function collectSourceFiles(root: string): string[] {
     let dirEntries: string[];
     try {
       dirEntries = readdirSafe(dir);
-    } catch {
+    } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
       return;
     }
 
@@ -554,7 +562,8 @@ function collectSourceFiles(root: string): string[] {
             result.push(full);
           }
         }
-      } catch {
+      } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
         continue;
       }
     }
@@ -570,7 +579,8 @@ function collectSourceFiles(root: string): string[] {
 function readdirSafe(dir: string): string[] {
   try {
     return readdirSync(dir);
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return [];
   }
 }
@@ -581,7 +591,8 @@ function readdirSafe(dir: string): string[] {
 function statSafe(path: string): ReturnType<typeof statSync> | null {
   try {
     return statSync(path);
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return null;
   }
 }
@@ -630,12 +641,30 @@ function collectDirectoryStructure(root: string): {
 /**
  * Detects naming conventions from file content.
  */
-function detectNamingFromContent(content: string, counts: Record<string, number>): void {
-  // Detect classes (PascalCase)
+function detectNamingFromContent(content: string, counts: Record<string, number>, isTS: boolean = false): void {
+  if (isTS) {
+    const sourceFile = ts.createSourceFile('temp.ts', content, ts.ScriptTarget.Latest, true);
+    ts.forEachChild(sourceFile, function visit(node: ts.Node) {
+      if (ts.isClassDeclaration(node) && node.name) {
+        counts.PascalCase = (counts.PascalCase || 0) + 1;
+      }
+      if (ts.isFunctionDeclaration(node) && node.name) {
+        const style = detectNamingStyle(node.name.text);
+        counts[style] = (counts[style] || 0) + 1;
+      }
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+        const style = detectNamingStyle(node.name.text);
+        counts[style] = (counts[style] || 0) + 1;
+      }
+      ts.forEachChild(node, visit);
+    });
+    return;
+  }
+
+  // Fallback to regex for non-TS/JS
   const classMatches = content.match(/\bclass\s+([A-Z][a-zA-Z0-9]+)\b/g);
   if (classMatches) counts.PascalCase += classMatches.length;
 
-  // Detect functions (camelCase or PascalCase for React components)
   const fnMatches = content.match(/\bfunction\s+([a-zA-Z_$][\w$]+)\b/g);
   if (fnMatches) {
     for (const match of fnMatches) {
@@ -645,7 +674,6 @@ function detectNamingFromContent(content: string, counts: Record<string, number>
     }
   }
 
-  // Detect variables/constants with assignment
   const constMatches = content.match(/\b(?:const|let|var)\s+([a-zA-Z_$][\w$]*)\s*[=:]/g);
   if (constMatches) {
     for (const match of constMatches) {
@@ -658,7 +686,6 @@ function detectNamingFromContent(content: string, counts: Record<string, number>
     }
   }
 
-  // Detect exports (named exports)
   const exportMatches = content.match(
     /\bexport\s+(?:const|let|var|function|class|interface|type)\s+([a-zA-Z_$][\w$]*)/g,
   );
@@ -795,7 +822,8 @@ function saveProfile(profile: ProjectPatternProfile): void {
   try {
     const dir = ensureStorageDir();
     writeJSON(join(dir, PROFILE_FILE), profile);
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     // non-critical
   }
 }
@@ -810,7 +838,8 @@ export function loadProfile(): ProjectPatternProfile | null {
     const dir = ensureStorageDir();
     const filePath = join(dir, PROFILE_FILE);
     return readJSON<ProjectPatternProfile | null>(filePath, null);
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return null;
   }
 }
@@ -827,7 +856,8 @@ export function clearProfile(): boolean {
     if (!existsSync(filePath)) return false;
     writeFileSync(filePath, JSON.stringify(null), "utf-8");
     return true;
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return false;
   }
 }
@@ -956,7 +986,8 @@ export function validateFilesAgainstProfile(
     try {
       const violations = validateFileAgainstProfile(filePath, profile);
       allViolations.push(...violations);
-    } catch {
+    } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
       // Skip files that fail validation
       continue;
     }
@@ -1719,7 +1750,8 @@ function getProfileAge(profile: ProjectPatternProfile): number {
     if (Number.isNaN(created)) return 0;
     const now = Date.now();
     return Math.floor((now - created) / 86_400_000);
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return 0;
   }
 }
@@ -2106,7 +2138,8 @@ export function getViolationLog(options?: {
     }
 
     return violations;
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return [];
   }
 }
@@ -2123,7 +2156,8 @@ export function clearViolationLog(): boolean {
     if (!existsSync(logPath)) return false;
     writeFileSync(logPath, "", "utf-8");
     return true;
-  } catch {
+  } catch (error: any) {
+    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return false;
   }
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { goParser } from "../../src/graph/parsers/go.js";
 
-test("goParser extracts structs, interfaces, methods, and functions", () => {
+test("goParser extracts structs, interfaces, methods, and functions", async () => {
   const source = `
     type User struct { ID string }
     type Reader interface { Read() }
@@ -10,7 +10,7 @@ test("goParser extracts structs, interfaces, methods, and functions", () => {
     func (u *User) GetID() string { return u.ID }
   `;
   const sanitized = goParser.sanitize(source);
-  const symbols = goParser.extractSymbols(sanitized, "main.go");
+  const symbols = await goParser.extractSymbols(sanitized, "main.go");
   const names = symbols.map((s) => s.name);
   assert.ok(names.includes("User"));
   assert.ok(names.includes("Reader"));
@@ -18,7 +18,7 @@ test("goParser extracts structs, interfaces, methods, and functions", () => {
   assert.ok(names.includes("GetID"));
 });
 
-test("goParser handles multiline imports and grouping", () => {
+test("goParser handles multiline imports and grouping", async () => {
   const source = `
     import (
       "fmt"
@@ -28,14 +28,14 @@ test("goParser handles multiline imports and grouping", () => {
       . "github.com/onsi/ginkgo"
     )
   `;
-  const importMap = goParser.parseImports(source);
+  const importMap = await goParser.parseImports(source);
   assert.equal(importMap.get("fmt"), "fmt");
   assert.equal(importMap.get("http"), "net/http");
   assert.equal(importMap.get("jsonparser"), "github.com/buger/jsonparser");
   assert.equal(importMap.get("."), "github.com/onsi/ginkgo");
 });
 
-test("goParser extracts routes from HandleFunc", () => {
+test("goParser extracts routes from HandleFunc", async () => {
   const source = `
     func main() {
       http.HandleFunc("/api/data", handleData)
@@ -43,7 +43,7 @@ test("goParser extracts routes from HandleFunc", () => {
     }
   `;
   const sanitized = goParser.sanitize(source);
-  const routes = goParser.extractRoutes(source, "main.go");
+  const routes = await goParser.extractRoutes(source, "main.go");
   const names = routes.map((r) => r.name);
   assert.ok(names.includes("/api/data"));
   // router.Handle with strings should also be caught if possible,
@@ -52,7 +52,7 @@ test("goParser extracts routes from HandleFunc", () => {
   assert.ok(names.includes("/users"));
 });
 
-test("goParser matches import paths accurately", () => {
+test("goParser matches import paths accurately", async () => {
   const isMatch = goParser.matchImport("github.com/myorg/myproject/pkg/util", "pkg/util/file.go");
   assert.equal(isMatch, true);
 

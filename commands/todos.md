@@ -24,12 +24,12 @@ const [todoList, blameData] = await parallel([
     `Run mcp__codegraph__scan_todos on scope: ${$ARGUMENTS || 'full project'}.
     Also grep for: TODO, FIXME, HACK, XXX, NOTE, BUG, WORKAROUND patterns.
     Return: file:line, comment text, category.`,
-    { label: 'todo-scan', phase: 'Scan', agent: 'coder-workflow:todo-checker' }
+    { label: 'todo-scan', phase: 'Scan', skill: 'todo-checker' }
   ),
   () => agent(
     `Run git blame on all files containing TODOs. Extract: author, date, commit SHA.
     Identify TODOs older than 30 days (stale) and older than 90 days (critical tech debt).`,
-    { label: 'blame-age', phase: 'Scan', agent: 'coder-workflow:todo-checker' }
+    { label: 'blame-age', phase: 'Scan', skill: 'todo-checker' }
   ),
 ])
 
@@ -44,7 +44,7 @@ const report = await agent(
   Create TaskCreate for all CRITICAL and HIGH items.
   TODOs: ${todoList}
   Age data: ${blameData}`,
-  { label: 'todo-report', phase: 'Report', agent: 'coder-workflow:todo-checker' }
+  { label: 'todo-report', phase: 'Report', skill: 'todo-checker' }
 )
 
 return { report }

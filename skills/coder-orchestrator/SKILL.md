@@ -65,7 +65,7 @@ return value                  // declare final output — always required
   description: 'Extract auth logic into dedicated Service + Repository layers',
   phases: [
     { title: 'Discover', detail: 'CodeGraph scan — map current auth structure' },
-    { title: 'Plan', detail: 'workflow-planner decomposes into atomic tasks' },
+    { title: 'Plan', detail: 'built-in planner decomposes into atomic tasks' },
     { title: 'Swarm', detail: 'parallel implementers per module' },
     { title: 'Verify', detail: 'architecture-auditor post-check' },
     { title: 'Synthesize', detail: 'conflict resolution + merge' },
@@ -81,7 +81,7 @@ const exploration = await agent(
 phase('Plan')
 const plan = await agent(
   `Decompose refactor into atomic tasks with FILE_MANIFEST per task. Input:\n${exploration}`,
-  { label: 'plan', phase: 'Plan', agent: 'coder-workflow:workflow-planner' }
+  { label: 'plan', phase: 'Plan', skill: 'workflow-planner' }
 )
 
 phase('Swarm')
@@ -186,7 +186,7 @@ phase('Discover')     — always required for Tier 2
 
 phase('Plan')
   pipeline([
-    () => agent('Decompose into atomic tasks with FILE_MANIFEST...', { label: 'plan', agent: 'coder-workflow:workflow-planner' }),
+    () => planTask('Decompose into atomic tasks with FILE_MANIFEST...', { label: 'plan', skill: 'workflow-planner' }),
   ])
 
 phase('Swarm')        — 1 agent() per task from plan output, all in parallel()
@@ -230,22 +230,22 @@ return { report, ... }
 | test / spec / coverage / TDD / unit / e2e | `coder-workflow:test-engineer` |
 | deploy / docker / CI / CD / VPS / infra | `coder-workflow:devops-engineer` |
 | explore / understand / how does / where is / explain | `coder-workflow:explore-codebase` |
-| secrets / API key / token / hardcoded credential | `coder-workflow:secret-scanner` |
-| vuln / CVE / SBOM / dependency risk | `coder-workflow:vulnerability-scanner` |
-| QA / question / codebase question | `coder-workflow:codebase-qa-agent` |
+| secrets / API key / token / hardcoded credential | `secret-scanner` (skill) |
+| vuln / CVE / SBOM / dependency risk | `vulnerability-scanner` (skill) |
+| QA / question / codebase question | `codebase-qa-agent` (skill) |
 | docs / README / contributing / architecture doc | `coder-workflow:docs-engineer` |
 | ADR / PR description / changelog / release | `coder-workflow:docs-generator` |
 | dead code / orphan / unused export | `coder-workflow:architecture-auditor` |
 | UI / frontend / component / CSS / a11y | `coder-workflow:ui-engineer` |
-| diagram / graph / architecture visualization | `coder-workflow:diagram-engineer` |
+| diagram / graph / architecture visualization | `diagram-engineer` (skill) |
 | DB / schema / migration / prisma / SQL | `coder-workflow:db-architect` |
-| quality / smell / consistency / lint | `coder-workflow:quality-guardian` |
+| quality / smell / consistency / lint | `quality-guardian` (skill) |
 | memory / store / recall | `coder-workflow:memory-librarian` |
 | rollback / bisect / timetravel / revert | `coder-workflow:rollback-engineer` |
 | multi-repo / cross-service / microservice | `coder-workflow:multi-repo-orchestrator` |
 | brainstorm / ideas / design / spec / unclear request | `Skill(brainstorming)` — **foreground skill load, NOT an agent()** |
-| think / sequential / reason / plan complex | `coder-workflow:workflow-planner` |
-| todo / FIXME / HACK / tech debt | `coder-workflow:todo-checker` |
+| think / sequential / reason / plan complex | built-in planner (`workflow-planner` skill) |
+| todo / FIXME / HACK / tech debt | `todo-checker` (skill) |
 | sprint / metrics / benchmark / ops | `coder-workflow:devops-engineer` |
 
 **Ambiguous request?** Default to parallel `[architecture-auditor, codebase-qa-agent]` inside a Tier 2 Workflow. Still no deliberation.
@@ -261,11 +261,11 @@ return { report, ... }
 | PR Description | `pr` | `generate_pr` | `coder-workflow:docs-engineer` |
 | Changelog | `changelog` | `generate_changelog` | `coder-workflow:docs-engineer` |
 | Release | `release` | `create_release` | `coder-workflow:devops-engineer` |
-| Secrets Scan | `secrets` | `scan_secrets` | `coder-workflow:secret-scanner` |
+| Secrets Scan | `secrets` | `scan_secrets` | `secret-scanner` (skill) |
 | ADR | `adr` | `adr_new/list/get/graph` | `coder-workflow:docs-engineer` |
-| Vuln Scan | `vuln-scan` | `scan_vulnerabilities` | `coder-workflow:vulnerability-scanner` |
-| SBOM | `sbom` | `generate_sbom` | `coder-workflow:vulnerability-scanner` |
-| Codebase QA | `qa` | `answer_question` | `coder-workflow:codebase-qa-agent` |
+| Vuln Scan | `vuln-scan` | `scan_vulnerabilities` | `vulnerability-scanner` (skill) |
+| SBOM | `sbom` | `generate_sbom` | `vulnerability-scanner` (skill) |
+| Codebase QA | `qa` | `answer_question` | `codebase-qa-agent` (skill) |
 | Onboarding Docs | `onboarding-docs` | `generate_onboarding_docs` | `coder-workflow:docs-engineer` |
 | Sprint Report | `sprint` | `sprint_report` | `coder-workflow:devops-engineer` |
 | Team Metrics | `team-metrics` | `team_metrics` | `coder-workflow:devops-engineer` |
@@ -277,15 +277,15 @@ return { report, ... }
 | Log Analysis | `logs` | `analyze_logs` | `coder-workflow:debugging-engineer` |
 | Coverage | `coverage` | `aggregate_coverage` | `coder-workflow:test-engineer` |
 | Git Hooks | `hooks` | `scaffold_git_hooks` | `coder-workflow:explore-codebase` |
-| TODO Tracker | `todos` | `scan_todos` | `coder-workflow:todo-checker` |
+| TODO Tracker | `todos` | `scan_todos` | `todo-checker` (skill) |
 | Performance | `perf` | `analyze_bundle` | `coder-workflow:explore-codebase` |
 | i18n Helper | `i18n` | `extract_i18n_strings` | `coder-workflow:explore-codebase` |
 | DB Schema | `db-schema` | `parse_prisma_schema` | `coder-workflow:db-architect` |
 | Doctor | `doctor` | `doctor` | `coder-workflow:explore-codebase` |
 | Codebase Stats | `stats` | `codebase_stats` | `coder-workflow:explore-codebase` |
-| Architecture Diagram | `diagram` | `export_graph` | `coder-workflow:diagram-engineer` |
-| Quality Gate | `quality` | `quality_gate` | `coder-workflow:quality-guardian` |
-| Consistency | `consistency` | — | `coder-workflow:quality-guardian` |
+| Architecture Diagram | `diagram` | `export_graph` | `diagram-engineer` (skill) |
+| Quality Gate | `quality` | `quality_gate` | `quality-guardian` (skill) |
+| Consistency | `consistency` | — | `quality-guardian` (skill) |
 | Bug Hunt | `bughunt` | — | `coder-workflow:debugging-engineer` |
 | Doc Generator | `docs-gen` | `generate_onboarding_docs` | `coder-workflow:docs-generator` |
 | Rollback/Bisect | `timetravel` | — | `coder-workflow:rollback-engineer` |

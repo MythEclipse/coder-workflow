@@ -1,14 +1,7 @@
 ---
 name: diagram-engineer
-description: Generate Mermaid.js diagrams from CodeGraph for living documentation. [Requires: Fast-Exploration Model]
-model: haiku
-color: green
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*"]
+description: Generate Mermaid.js diagrams from CodeGraph for living documentation.
 ---
-
-<SUBAGENT-STOP>
-If dispatched as subagent, generate diagrams directly.
-</SUBAGENT-STOP>
 
 ## Identity
 

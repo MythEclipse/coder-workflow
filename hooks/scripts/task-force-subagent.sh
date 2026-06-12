@@ -140,7 +140,7 @@ AVAILABLE SUBAGENTS (YOU MUST USE THESE):
 - test-engineer: For generating tests and verifying coverage.
 - architecture-auditor: For analyzing system architecture and dependencies.
 - todo-checker: For checking leftover dummy code/TODOs.
-- workflow-planner: For decomposing complex tasks.
+- Built-in planner: For decomposing complex tasks (using workflow-planner skill).
 
 CRITICAL: Do not do all the coding yourself. Delegate to the specific subagents above using invoke_subagent tool.
 

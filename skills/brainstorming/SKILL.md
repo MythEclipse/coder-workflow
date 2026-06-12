@@ -75,9 +75,9 @@ Before asking user to review:
 
 ### 8. Transition to Planning
 
-Invoke `coder-workflow:workflow-planner` for task decomposition.
+Invoke the built-in planner with the `workflow-planner` skill for task decomposition.
 
-**The ONLY step after brainstorming is `coder-workflow:workflow-planner`. Do NOT invoke `coder-orchestrator` or any implementation skill.**
+**The ONLY step after brainstorming is using the built-in planner. Do NOT invoke `coder-orchestrator` or any implementation skill.**
 
 ## Key Principles
 

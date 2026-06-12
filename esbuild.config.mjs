@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import { chmod } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname, join, dirname } from "node:path";
 import { build } from "esbuild";
 
 const shared = {
@@ -72,6 +72,10 @@ await build({
 
 await chmod("dist/cli.js", 0o755);
 await chmod("dist/mcp-server.js", 0o755);
+
+// Copy python worker
+copyFileSync("src/graph/parsers/python-worker.py", "dist/python-worker.py");
+copyFileSync("src/graph/parsers/python-worker.py", "dist/test/python-worker.py");
 
 // ── Build manifest with SHA-256 checksums ──
 function collectFiles(dir) {

@@ -177,7 +177,7 @@ public class App {
   }
 });
 
-test("writes graph runtime data to JSON file", async () => {
+test("writes graph runtime data to SQLite database", async () => {
   const root = fixture({
     "src/app.ts": `export function realSymbol() { return "ok"; }`,
   });
@@ -186,7 +186,7 @@ test("writes graph runtime data to JSON file", async () => {
   await writeGraph(root, graph);
 
   assert.equal(await graphExists(root), true);
-  assert.equal(existsSync(join(root, ".codegraph", "graph.json")), true);
+  assert.equal(existsSync(join(root, ".codegraph", "graph.db")), true);
   assert.equal(existsSync(join(root, ".codegraph", "index.json")), false);
   assert.equal(existsSync(join(root, ".codegraph", "cache", "scan-cache.json")), false);
   assertNode(await readGraph(root), "symbol:src/app.ts:realSymbol");
@@ -428,11 +428,16 @@ def create_user(name):
 
   const graph = await scanCodebase(root, settings);
 
-  assertNode(graph, "symbol:app/service.py:UserService");
-  assertNode(graph, "symbol:app/service.py:find");
-  assertNode(graph, "symbol:app/service.py:create_user");
-  assertEdge(graph, "imports", "file:app/service.py", "module:app.repo");
-  assertEdge(graph, "calls", "symbol:app/service.py:find", "symbol:app/repo.py:load_user");
+  try {
+    assertNode(graph, "symbol:app/service.py:UserService");
+    assertNode(graph, "symbol:app/service.py:find");
+    assertNode(graph, "symbol:app/service.py:create_user");
+    assertEdge(graph, "imports", "file:app/service.py", "module:app.repo");
+    assertEdge(graph, "calls", "symbol:app/service.py:find", "symbol:app/repo.py:load_user");
+  } catch (e) {
+    console.error("TEST FAILED:", e);
+    throw e;
+  }
 });
 
 test("scans Go functions, imports, and calls", async () => {

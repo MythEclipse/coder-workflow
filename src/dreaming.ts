@@ -50,11 +50,57 @@ function saveCandidates(candidates: MemoryCandidate[]): void {
   writeFileSync(join(dir, CANDIDATES_FILE), JSON.stringify(candidates, null, 2), "utf-8");
 }
 
+const STOP_WORDS = new Set([
+  "error", "failed", "failure", "while", "trying", "cannot", "could", "not", "during", "the", "a", "an", "is", "are",
+  "was", "were", "to", "from", "in", "on", "at", "by", "for", "with", "about", "against", "between", "into", "through",
+  "after", "before", "of", "and", "or", "but", "if", "then", "else", "when", "where", "why", "how", "all", "any",
+  "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "only", "own", "same", "so", "than",
+  "too", "very", "can", "will", "just", "should", "now", "it", "this", "that", "these", "those", "we", "you", "they",
+  "has", "have", "had", "do", "does", "did", "be", "been", "being", "am", "as", "their", "there", "here",
+  "occurred", "happened", "found", "unexpected", "invalid", "undefined", "null", "missing", "provided", "expected",
+  "received", "returned", "called", "execution", "execute", "run", "running", "start", "starting", "stop", "stopping",
+  "fail", "fails", "crashing", "crashed", "issue", "problem", "bug", "fix", "fixed", "resolving", "resolved"
+]);
+
 function extractTopic(text: string): string {
-  const normalized = text.toLowerCase().replace(/[^a-z0-9\s]/g, "");
-  const words = normalized.split(/\s+/).filter((w) => w.length > 4);
-  // Simple heuristic: return the first 3 significant words as a topic
-  return words.slice(0, 3).join(" ");
+  // 1. Remove file paths, URLs, and stack trace noise
+  let cleanText = text.replace(/(?:https?|ftp):\/\/[\n\S]+/g, " "); // Remove URLs
+  cleanText = cleanText.replace(/(?:\/[a-zA-Z0-9_.-]+)+/g, " "); // Remove absolute/relative file paths
+  cleanText = cleanText.replace(/at\s+.*:\d+:\d+/g, " "); // Remove stack traces
+  cleanText = cleanText.replace(/[a-fA-F0-9-]{16,}/g, " "); // Remove UUIDs and long hashes
+  
+  // 2. Tokenize and filter out non-alphanumeric noise, very short words, and stop words
+  const normalized = cleanText.toLowerCase().replace(/[^a-z0-9\s]/g, " ");
+  const words = normalized.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
+  
+  // 3. Deduplicate to get distinct key terms
+  const distinctWords = [...new Set(words)];
+  
+  if (distinctWords.length === 0) {
+    return "general_operations";
+  }
+  
+  // Return the top 3-4 distinct words combined to form a technical topic identifier
+  return distinctWords.slice(0, 4).join("_");
+}
+
+function updateDurableMemory(candidate: MemoryCandidate, currentMemory: string): string {
+  const sectionHeader = `## Topic: ${candidate.topic}`;
+  const cleanContext = candidate.context.replace(/\n/g, " ").trim();
+  const newFact = `- **Context:** ${cleanContext}\n  *First Seen:* ${candidate.firstSeen} | *Promoted:* ${new Date().toISOString()}`;
+  
+  if (currentMemory.includes(cleanContext)) {
+      return currentMemory; // Already exists, prevent duplication
+  }
+  
+  if (currentMemory.includes(sectionHeader)) {
+    // Inject right after the section header
+    const parts = currentMemory.split(sectionHeader);
+    return `${parts[0]}${sectionHeader}\n${newFact}\n${parts[1]}`;
+  } else {
+    // Append new section entirely
+    return `${currentMemory}\n\n${sectionHeader}\n${newFact}\n`;
+  }
 }
 
 /**
@@ -111,7 +157,7 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
       candidate = {
         id: `cand-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         topic,
-        context: `Failure observation: ${failure.error}`,
+        context: `Failure observation: ${failure.error.substring(0, 300)}...`, // Truncate huge errors
         confidence: 1,
         firstSeen: new Date().toISOString(),
         lastSeen: new Date().toISOString(),
@@ -136,7 +182,7 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
  */
 export function runRemSleep(): { promoted: number } {
   let candidates = loadCandidates();
-  const memoryFile = join(process.cwd(), DURABLE_MEMORY_FILE);
+  const memoryFile = join(ensureMemoryDir(), DURABLE_MEMORY_FILE);
 
   let currentMemory = "";
   if (existsSync(memoryFile)) {
@@ -151,10 +197,9 @@ export function runRemSleep(): { promoted: number } {
 
   for (const candidate of candidates) {
     if (candidate.confidence >= PROMOTION_THRESHOLD) {
-      // Promote
-      const newFact = `\n- **Topic:** ${candidate.topic}\n  **Context:** ${candidate.context}\n  *Promoted on:* ${new Date().toISOString()}\n`;
-      if (!currentMemory.includes(candidate.context)) {
-        currentMemory += newFact;
+      const prevMemoryLength = currentMemory.length;
+      currentMemory = updateDurableMemory(candidate, currentMemory);
+      if (currentMemory.length > prevMemoryLength) {
         promotedCount++;
       }
     } else {

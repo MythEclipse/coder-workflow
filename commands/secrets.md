@@ -25,18 +25,18 @@ const [sourceSecrets, configSecrets, gitHistory] = await parallel([
     `Run mcp__codegraph__scan_secrets on source code files.
     Also grep for patterns: API_KEY, SECRET, TOKEN, PASSWORD, PRIVATE_KEY, aws_, ghp_, sk-.
     Scope: ${$ARGUMENTS || 'full project'}`,
-    { label: 'source-scan', phase: 'Scan', agent: 'coder-workflow:secret-scanner' }
+    { label: 'source-scan', phase: 'Scan', skill: 'secret-scanner' }
   ),
   () => agent(
     `Scan configuration files for secrets: .env*, config.json, *.yaml, *.toml, docker-compose.
     Check that sensitive values are not committed — only placeholders/references.
     Scope: ${$ARGUMENTS || 'full project'}`,
-    { label: 'config-scan', phase: 'Scan', agent: 'coder-workflow:secret-scanner' }
+    { label: 'config-scan', phase: 'Scan', skill: 'secret-scanner' }
   ),
   () => agent(
     `Scan git history (last 50 commits) for accidentally committed secrets.
     Use: git log --all --full-history --diff-filter=D -- '*.env' and git grep in past commits.`,
-    { label: 'git-history-scan', phase: 'Scan', agent: 'coder-workflow:secret-scanner' }
+    { label: 'git-history-scan', phase: 'Scan', skill: 'secret-scanner' }
   ),
 ])
 
@@ -49,7 +49,7 @@ const triage = await agent(
   Source: ${sourceSecrets}
   Config: ${configSecrets}
   Git history: ${gitHistory}`,
-  { label: 'secrets-triage', phase: 'Triage', agent: 'coder-workflow:secret-scanner' }
+  { label: 'secrets-triage', phase: 'Triage', skill: 'secret-scanner' }
 )
 
 phase('Report')

@@ -1,14 +1,7 @@
 ---
 name: quality-guardian
-description: Code smell detection, best practice enforcement, consistency enforcement. Gatekeeper. [Requires: Fast-Exploration Model]
-model: haiku
-color: green
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+description: Code smell detection, best practice enforcement, consistency enforcement. Gatekeeper.
 ---
-
-<SUBAGENT-STOP>
-If dispatched as subagent, run quality check directly.
-</SUBAGENT-STOP>
 
 ## Identity
 
@@ -245,7 +238,6 @@ grep -rn "?.*?.*:" src/ --include="*.ts"
 - Fix one severity category at a time (critical → major → minor).
 - After each batch: `npx tsc --noEmit --pretty` + test.
 - Do not mix consistency fixes with logic changes.
-- For large refactors: use `invoke_subagent` with the `refactoring-engineer` agent.
 
 ## Output Contract
 

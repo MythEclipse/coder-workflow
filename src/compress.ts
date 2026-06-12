@@ -65,9 +65,8 @@ export interface CacheAlignerResult {
 // ─── Constants ──────────────────────────────────────────────────────────
 
 const CCR_DIR = ".claude/ccr";
-const PROSE_MAX_CHARS = 1500;
-const CODE_MAX_CHARS = 2000;
-const JSON_MAX_CHARS = 3000;
+// We do not truncate context here. The LLM must see the full file.
+// We only compress via minification and AST stripping.
 const MIN_COMPRESSION_RATIO = 0.15; // skip if less than 15% savings
 const CACHE_PREFIX = "[PROJECT] coder-workflow |";
 
@@ -87,7 +86,7 @@ function smartCrusher(input: string, _pathHint?: string): CompressionResult {
       // Nested object → key path shortening
       compressed = crushObject(parsed);
     } else {
-      compressed = JSON.stringify(parsed).slice(0, JSON_MAX_CHARS);
+      compressed = JSON.stringify(parsed);
     }
   } catch {
     // Not valid JSON — treat as prose
@@ -117,7 +116,7 @@ function crushArray(arr: unknown[]): string {
   // Extract schema from first object
   const first = arr[0];
   if (typeof first !== "object" || first === null) {
-    return JSON.stringify(arr).slice(0, JSON_MAX_CHARS);
+    return JSON.stringify(arr);
   }
 
   const keys = Object.keys(first as Record<string, unknown>);
@@ -205,13 +204,6 @@ function codeCompressor(input: string, filePath?: string): CompressionResult {
     compressed = shortenIdentifiersIfSafe(compressed, lang);
   }
 
-  // Truncate to max code chars
-  if (compressed.length > CODE_MAX_CHARS) {
-    compressed =
-      compressed.slice(0, CODE_MAX_CHARS) +
-      `\n/* … truncated ${compressed.length - CODE_MAX_CHARS} more bytes */`;
-  }
-
   const compressedBytes = new TextEncoder().encode(compressed).length;
   const ratio = originalSize > 0 ? 1 - compressedBytes / originalSize : 0;
 
@@ -271,11 +263,11 @@ function stripComments(input: string, lang: string): string {
     ].includes(lang)
   ) {
     return input
-      .replace(/\/\/.*$/gm, "") // line comments
+      .replace(/(?<!https?:)\/\/.*$/gm, "") // line comments (avoid http://)
       .replace(/\/\*[\s\S]*?\*\//g, ""); // block comments
   }
   if (lang === "python" || lang === "ruby") {
-    return input.replace(/#.*$/gm, "");
+    return input.replace(/(?<!['"])#.*$/gm, "");
   }
   return input;
 }
@@ -301,20 +293,14 @@ function compressProse(input: string): CompressionResult {
   // For prose (tool output, logs, etc.) — extract key info
   const lines = input.split("\n");
 
-  if (lines.length > 30) {
-    // Keep first 15 and last 15 lines
-    const head = lines.slice(0, 15);
-    const tail = lines.slice(-15);
-    compressed = [...head, `… [${lines.length - 30} lines collapsed]`, ...tail].join("\n");
+  if (lines.length > 500) {
+    // Keep first 250 and last 250 lines
+    const head = lines.slice(0, 250);
+    const tail = lines.slice(-250);
+    compressed = [...head, `… [${lines.length - 500} lines collapsed]`, ...tail].join("\n");
     truncated = true;
   } else {
     compressed = input;
-  }
-
-  if (compressed.length > PROSE_MAX_CHARS) {
-    compressed =
-      compressed.slice(0, PROSE_MAX_CHARS) + `\n… [truncated, original ${originalSize} bytes]`;
-    truncated = true;
   }
 
   const compressedBytes = new TextEncoder().encode(compressed).length;

@@ -40,7 +40,7 @@ const diagram = await agent(
   3. Text summary: key architectural decisions visible in the graph
   Graph: ${graphExport}
   Summary: ${archSummary}`,
-  { label: 'render-diagram', phase: 'Render', agent: 'coder-workflow:diagram-engineer' }
+  { label: 'render-diagram', phase: 'Render', skill: 'diagram-engineer' }
 )
 
 return { diagram }

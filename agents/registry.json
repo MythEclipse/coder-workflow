@@ -2,19 +2,6 @@
   "version": "0.4.0",
   "description": "Single source of truth for agent metadata. Used by coder-orchestrator to validate references and by hooks for agent-discovery logic.",
   "agents": {
-    "workflow-planner": {
-      "file": "agents/workflow-planner.md",
-      "role": "planning",
-      "description": "Decompose requests into atomic tasks ready for 1:1 swarm dispatch",
-      "tools": [
-        "Read",
-        "Grep",
-        "Glob",
-        "mcp__codegraph__*",
-        "invoke_subagent"
-      ],
-      "model": "haiku"
-    },
     "architecture-auditor": {
       "file": "agents/architecture-auditor.md",
       "role": "audit",
@@ -176,52 +163,7 @@
       ],
       "model": "sonnet"
     },
-    "quality-guardian": {
-      "file": "agents/quality-guardian.md",
-      "role": "quality",
-      "description": "Code smell detection + consistency enforcement - quality gatekeeper",
-      "tools": [
-        "Read",
-        "Edit",
-        "Write",
-        "Grep",
-        "Glob",
-        "Bash",
-        "mcp__codegraph__*",
-        "invoke_subagent"
-      ],
-      "model": "haiku"
-    },
-    "todo-checker": {
-      "file": "agents/todo-checker.md",
-      "role": "quality",
-      "description": "Scan for TODOs, FIXME, HACK, dummy code before merge",
-      "tools": [
-        "Read",
-        "Grep",
-        "Glob",
-        "Bash",
-        "invoke_subagent"
-      ],
-      "model": "haiku"
-    },
-    "diagram-engineer": {
-      "file": "agents/diagram-engineer.md",
-      "role": "docs",
-      "description": "Generate Mermaid.js diagrams from CodeGraph for living documentation",
-      "tools": [
-        "Read",
-        "Edit",
-        "Write",
-        "Grep",
-        "Glob",
-        "Bash",
-        "invoke_subagent",
-        "mcp__codegraph__*",
-        "mcp__code-review-graph__*"
-      ],
-      "model": "haiku"
-    },
+
     "rollback-engineer": {
       "file": "agents/rollback-engineer.md",
       "role": "debug",
@@ -270,42 +212,7 @@
       ],
       "model": "sonnet"
     },
-    "codebase-qa-agent": {
-      "file": "agents/codebase-qa-agent.md",
-      "role": "qa",
-      "description": "Answer codebase questions via graph search and semantic search",
-      "tools": [
-        "Read",
-        "Grep",
-        "Glob",
-        "Bash"
-      ],
-      "model": "haiku"
-    },
-    "secret-scanner": {
-      "file": "agents/secret-scanner.md",
-      "role": "security",
-      "description": "Scan for hardcoded secrets, API keys, tokens, passwords",
-      "tools": [
-        "Read",
-        "Grep",
-        "Glob",
-        "Bash"
-      ],
-      "model": "haiku"
-    },
-    "vulnerability-scanner": {
-      "file": "agents/vulnerability-scanner.md",
-      "role": "security",
-      "description": "Scan deps for known CVEs, generate SBOM (SPDX/CycloneDX)",
-      "tools": [
-        "Read",
-        "Grep",
-        "Glob",
-        "Bash"
-      ],
-      "model": "haiku"
-    },
+
     "docs-generator": {
       "file": "agents/docs-generator.md",
       "role": "docs",

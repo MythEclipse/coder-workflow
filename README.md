@@ -14,7 +14,7 @@ Designed for teams or solo developers who want Claude Code to behave like a stru
 - **Two-tier Complexity Gate** — scoped requests (≤3 named files) dispatch immediately; broad/cross-cutting requests run a mandatory Brainstorm → Explore → Plan pre-flight before any implementation agent fires.
 - **Foreground brainstorming** — `Skill(brainstorming)` runs as an interactive, blocking skill in the main context, asking one question at a time and requiring user approval before planning begins.
 - **Graph-first codebase understanding** — CodeGraph MCP tools prefer dependency/call-graph queries over raw grep.
-- **Specialized engineering agents** — planner, implementer, reviewer, debugger, tester, docs, UI, DB, DevOps, refactorer, auditor, and more.
+- **Specialized engineering agents** — implementer, reviewer, debugger, tester, docs, UI, DB, DevOps, refactorer, auditor, and more.
 - **Lifecycle hooks** — session startup, safety guards, graph refresh, task reminders, git operation warnings, and session summaries.
 - **CLI + MCP server** — `coder-workflow` provides local commands and a stdio MCP server for Claude Code.
 - **Persistent graph cache** — `.codegraph/graph.json` stores file/symbol/edge relationships using JSON.
@@ -36,7 +36,7 @@ graph TD
     
     Preflight --> Step1["1. Skill(brainstorming)<br/><i>foreground, interactive, blocks</i>"]
     Step1 --> Step2["2. explore-codebase agent<br/><i>background CodeGraph recon</i>"]
-    Step2 --> Step3["3. workflow-planner<br/><i>decomposes into N atomic tasks</i>"]
+    Step2 --> Step3["3. built-in planner<br/><i>decomposes into N atomic tasks</i>"]
     
     DirectDispatch --> Swarm["Swarm Dispatch<br/><i>1 Agent per task (parallel)</i>"]
     Step3 --> Swarm
@@ -238,7 +238,7 @@ Agent metadata is centralized in `agents/registry.json`.
 
 | Agent | Role |
 |---|---|
-| `workflow-planner` | Task decomposition and dependency ordering. |
+| `workflow-planner` (skill) | Task decomposition and dependency ordering. |
 | `code-implementer` | Scoped implementation after planning. |
 | `architecture-auditor` | Read-only architecture and layer audit. |
 | `code-reviewer` | Security, correctness, and edge-case review. |
@@ -405,7 +405,7 @@ coder-workflow/
 │   └── writing-skills/
 ├── agents/
 │   ├── registry.json
-│   ├── workflow-planner.md
+│   ├── vulnerability-scanner.md
 │   ├── code-implementer.md
 │   └── ...
 ├── commands/
@@ -439,7 +439,7 @@ Before dispatching any agent, the orchestrator classifies the request:
 
 1. `Skill(brainstorming)` — foreground, interactive, blocks the conversation. Asks one question at a time, proposes 2-3 approaches, gets user approval, writes a spec doc. **Never spawned as a background agent.**
 2. `explore-codebase agent` — background CodeGraph recon: maps structure, finds duplications, traces call paths.
-3. `coder-workflow:workflow-planner` — decomposes findings into N atomic tasks with `FILE_MANIFEST` per task.
+3. Built-in planner — decomposes findings into N atomic tasks with `FILE_MANIFEST` per task.
 4. Swarm dispatch — 1 `Agent()` per task, all in parallel.
 
 **Tier 2 trigger keywords:** `codebase`, `everywhere`, `semua`, `seluruh`, `all`, `project-wide`, multiple concerns combined (e.g. `atomic + DRY + logging`).

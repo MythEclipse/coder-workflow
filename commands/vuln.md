@@ -25,13 +25,13 @@ const [sbom, depTree] = await parallel([
     `Generate Software Bill of Materials (SBOM) in CycloneDX/SPDX format.
     Use mcp__codegraph__generate_sbom or parse package.json/go.mod/requirements.txt.
     Scope: ${$ARGUMENTS || 'full project'}`,
-    { label: 'sbom-gen', phase: 'Inventory', agent: 'coder-workflow:vulnerability-scanner' }
+    { label: 'sbom-gen', phase: 'Inventory', skill: 'vulnerability-scanner' }
   ),
   () => agent(
     `Build full dependency tree including transitive dependencies.
     Identify: direct vs transitive, version pins, floating versions.
     Scope: ${$ARGUMENTS || 'full project'}`,
-    { label: 'dep-tree', phase: 'Inventory', agent: 'coder-workflow:vulnerability-scanner' }
+    { label: 'dep-tree', phase: 'Inventory', skill: 'vulnerability-scanner' }
   ),
 ])
 
@@ -41,18 +41,18 @@ const [cveFindings, licenseRisks, outdatedDeps] = await parallel([
     `Run mcp__codegraph__scan_vulnerabilities against the SBOM.
     Return all CVEs with CVSS score, affected package+version, fixed version.
     SBOM: ${sbom}`,
-    { label: 'cve-scan', phase: 'Scan', agent: 'coder-workflow:vulnerability-scanner' }
+    { label: 'cve-scan', phase: 'Scan', skill: 'vulnerability-scanner' }
   ),
   () => agent(
     `Run mcp__codegraph__check_licenses. Flag: GPL in commercial project, AGPL, unknown licenses.
     Dependency tree: ${depTree}`,
-    { label: 'license-scan', phase: 'Scan', agent: 'coder-workflow:vulnerability-scanner' }
+    { label: 'license-scan', phase: 'Scan', skill: 'vulnerability-scanner' }
   ),
   () => agent(
     `Identify outdated dependencies with available major-version upgrades.
     Flag any with known breaking changes or end-of-life status.
     Dependency tree: ${depTree}`,
-    { label: 'outdated-scan', phase: 'Scan', agent: 'coder-workflow:vulnerability-scanner' }
+    { label: 'outdated-scan', phase: 'Scan', skill: 'vulnerability-scanner' }
   ),
 ])
 

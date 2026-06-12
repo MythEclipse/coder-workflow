@@ -30,7 +30,7 @@ const [infraState, secretCheck] = await parallel([
   () => agent(
     `Run mcp__codegraph__scan_secrets on infra files: Dockerfile, .env*, CI YAML, compose files.
     Flag any hardcoded credentials or secrets that should be in vault/env.`,
-    { label: 'secret-preflight', phase: 'Discover', agent: 'coder-workflow:secret-scanner' }
+    { label: 'secret-preflight', phase: 'Discover', skill: 'secret-scanner' }
   ),
 ])
 

@@ -27,7 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `auditor` skill — read-only architecture and layer violation audit
 - `refraktor` skill — multi-language Modular MVC + Service + Repository refactor with mandatory planning
 - `deploy-docker` skill — Docker, GHCR, VPS, Traefik deployment workflow
-- 3 agents: workflow-planner, architecture-auditor, code-implementer
+- 2 agents: architecture-auditor, code-implementer
 - 3 commands: coder-workflow, audit, plan
 - `hooks/hooks.json` — SessionStart, PostToolUse, Stop hooks
 - Bug Fix Phase mandate — all discovered bugs must be tracked and fixed
@@ -39,6 +39,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Initial release
 - Basic orchestrator skill for coding workflow routing
-- Workflow planner agent for task decomposition
+- Workflow planner skill for task decomposition using built-in planner
 - Architecture auditor agent for read-only review
 - Code implementer agent for scoped implementation

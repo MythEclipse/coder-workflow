@@ -30,6 +30,15 @@ export function sendSwarmMessage(
   const filePath = getChatFilePath(root);
   ensureDir(filePath);
 
+  // Payload safeguard: Truncate excessively large messages
+  if (content.length > 50000) {
+    content = content.substring(0, 50000) + "\n... [Truncated: Exceeded 50KB limit]";
+  }
+  // Broadcast safeguard
+  if (recipient === "all" && content.length > 10000) {
+    content = "[BROADCAST WARNING] Large broadcasts degrade performance. Please target specific agents if possible.\n\n" + content;
+  }
+
   let messages: SwarmMessage[] = [];
   if (existsSync(filePath)) {
     try {
