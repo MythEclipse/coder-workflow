@@ -4,13 +4,6 @@
 # and denies execution if the rm targets root, home, or unqualified globs.
 set -euo pipefail
 
-# Try running python3 script if available (preferred, robust argument parsing)
-SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
-if command -v python3 >/dev/null 2>&1; then
-  python3 "$SCRIPT_DIR/rm-guard.py"
-  exit 0
-fi
-
 # Fallback basic bash parser if python3 is missing
 if ! command -v jq >/dev/null 2>&1; then
   exit 0
