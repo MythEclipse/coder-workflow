@@ -8,6 +8,12 @@
       "env": {
         "CODEGRAPH_DEFAULT_UI_PORT": "3737"
       }
+    },
+    "context7": {
+      "description": "Context7 documentation MCP — fetch up-to-date docs for any library/framework",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@context7/context7-mcp"]
     }
   }
 }

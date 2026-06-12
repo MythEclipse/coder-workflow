@@ -19,6 +19,7 @@ export interface SearchOptions {
   contextLines?: number;
   maxResults?: number;
   maxFileSizeBytes?: number;
+  path?: string;
   include?: string[];
   exclude?: string[];
 }
@@ -87,6 +88,10 @@ export function searchCodebase(
 
   for (const file of listSearchableFiles(root, settings)) {
     const rel = relative(root, file).replace(/\\/g, "/");
+    if (normalized.path !== "" && !rel.startsWith(normalized.path)) {
+      stats.filesSkipped += 1;
+      continue;
+    }
     if (!matchesSearchScope(rel, normalized)) {
       stats.filesSkipped += 1;
       continue;
@@ -171,6 +176,7 @@ export function normalizeSearchOptions(options: SearchOptions): NormalizedSearch
       1,
       Number.MAX_SAFE_INTEGER,
     ),
+    path: options.path ?? "",
     include: options.include ?? [],
     exclude: options.exclude ?? [],
   };

@@ -21,12 +21,12 @@ import { getDirectoryTree } from "./fs-tools.js";
 import { diffGraphs, formatGraphDiff } from "./git-diff.js";
 import { summarizeGraphForBudget } from "./graph/summarize.js";
 import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
+import { getThinkingEngine } from "./mcp-handlers/sequential-thinking.js";
 import { searchCodebase } from "./search.js";
 import { SequentialThinkingEngine } from "./sequential-thinking.js";
 import { loadSettings } from "./settings.js";
 import type { CodeGraph } from "./types.js";
 import { openGraphUi } from "./ui.js";
-import { getThinkingEngine } from "./mcp-handlers/sequential-thinking.js";
 
 /**
  * Get mtime of the JSON graph file.
@@ -41,7 +41,6 @@ function getGraphJsonMtime(root: string): number {
   }
 }
 
-
 class GraphCacheService {
   private cachedGraph: CodeGraph | null = null;
   private cachedGraphMtime = 0;
@@ -53,7 +52,7 @@ class GraphCacheService {
       this.isReading = true;
       return;
     }
-    return new Promise(resolve => this.readQueue.push(resolve));
+    return new Promise((resolve) => this.readQueue.push(resolve));
   }
 
   private releaseLock() {
@@ -161,7 +160,6 @@ import {
   storeMemory,
   syncWithPlatform,
 } from "./cross-agent-memory.js";
-import { readSwarmMessages, sendSwarmMessage } from "./swarm-chat.js";
 import {
   compareSchemas,
   formatSchemaDiff,
@@ -201,6 +199,7 @@ import {
 } from "./release.js";
 import { formatSecretsReport, scanForSecrets } from "./secrets.js";
 import { buildEmbeddings, getEmbeddingStats, semanticSearch } from "./semantic-search.js";
+import { readSwarmMessages, sendSwarmMessage } from "./swarm-chat.js";
 import {
   checkPRAutoMerge,
   detectBenchmarkRegression,
@@ -222,7 +221,7 @@ const SCAN_TIMEOUT_MS = 5 * 60_000; // 5 minutes for full scan
 async function withTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,
   ms: number,
-  toolName: string
+  toolName: string,
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => {
@@ -304,8 +303,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           regex: {
             type: "boolean",
-            description:
-              "Set to false for literal string search. Default is true (regex).",
+            description: "Set to false for literal string search. Default is true (regex).",
           },
           caseSensitive: { type: "boolean", description: "Default is false (case-insensitive)." },
           contextLines: {
@@ -323,6 +321,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "array",
             items: { type: "string" },
             description: "Glob patterns to exclude",
+          },
+          path: {
+            type: "string",
+            description: "Optional directory/file path to scope the search",
           },
         },
         required: ["pattern"],
@@ -609,7 +611,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     // ─── Swarm Chat (Inter-Agent Communication) ────────────────────────
     {
       name: "send_swarm_message",
-      description: "Swarm Chat — Send a message to another parallel subagent or broadcast to 'all'. Use this to coordinate, resolve file conflicts, or share discoveries.",
+      description:
+        "Swarm Chat — Send a message to another parallel subagent or broadcast to 'all'. Use this to coordinate, resolve file conflicts, or share discoveries.",
       inputSchema: {
         type: "object",
         properties: {
@@ -626,8 +629,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          recipientFilter: { type: "string", description: "Your agent name/role to filter messages for you. Leave empty to see all." },
-          sinceTimestamp: { type: "string", description: "ISO 8601 timestamp to only get new messages since this time" },
+          recipientFilter: {
+            type: "string",
+            description: "Your agent name/role to filter messages for you. Leave empty to see all.",
+          },
+          sinceTimestamp: {
+            type: "string",
+            description: "ISO 8601 timestamp to only get new messages since this time",
+          },
         },
       },
     },
@@ -1377,7 +1386,10 @@ Key features:
           branchFromThought: { type: "number", description: "Branching point thought number" },
           branchId: { type: "string", description: "Branch identifier" },
           needsMoreThoughts: { type: "boolean", description: "If more thoughts are needed" },
-          sessionId: { type: "string", description: "Optional session ID to isolate thinking states per agent or task" },
+          sessionId: {
+            type: "string",
+            description: "Optional session ID to isolate thinking states per agent or task",
+          },
         },
         required: ["thought", "nextThoughtNeeded", "thoughtNumber", "totalThoughts"],
       },
@@ -1468,6 +1480,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const maxFileSizeBytes = numberArg(args?.maxFileSizeBytes);
       const include = stringArrayArg(args?.include, "include");
       const exclude = stringArrayArg(args?.exclude, "exclude");
+      const path = args?.path as string | undefined;
 
       const result = searchCodebase(root, settings, {
         pattern,
@@ -1479,6 +1492,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         maxFileSizeBytes,
         include,
         exclude,
+        path,
       });
 
       return text(result);
@@ -1634,7 +1648,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         root,
         stringArg(args?.sender, "sender"),
         stringArg(args?.recipient, "recipient"),
-        stringArg(args?.content, "content")
+        stringArg(args?.content, "content"),
       );
       return text({ success: true, message: msg });
     }
@@ -1643,7 +1657,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const messages = readSwarmMessages(
         root,
         args?.recipientFilter ? String(args.recipientFilter) : undefined,
-        args?.sinceTimestamp ? String(args.sinceTimestamp) : undefined
+        args?.sinceTimestamp ? String(args.sinceTimestamp) : undefined,
       );
       return text({ messages });
     }
@@ -2154,7 +2168,31 @@ function exportFromEngine(
   }
 }
 
-await server.connect(new StdioServerTransport());
+// ─── Process lifecycle — graceful shutdown ────────────────────────────────
+process.on("SIGINT", async () => {
+  console.error("[coder-workflow MCP] SIGINT received, shutting down...");
+  await server.close();
+  process.exit(0);
+});
+process.on("SIGTERM", async () => {
+  console.error("[coder-workflow MCP] SIGTERM received, shutting down...");
+  await server.close();
+  process.exit(0);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[coder-workflow MCP] Uncaught exception:", err);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[coder-workflow MCP] Unhandled rejection:", reason);
+});
+
+try {
+  await server.connect(new StdioServerTransport());
+} catch (err) {
+  console.error("[coder-workflow MCP] Failed to connect transport:", err);
+  process.exit(1);
+}
 
 function text(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] };
