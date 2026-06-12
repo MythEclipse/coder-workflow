@@ -174,7 +174,7 @@ test("searchCodebase skips binary and oversized files", () => {
   assert.equal(output.stats.oversizedFilesSkipped, 1);
 });
 
-test("searchCodebase records read errors", () => {
+test("searchCodebase records read errors", { skip: process.platform === "win32" }, () => {
   const root = fixture({
     "src/app.ts": `const value = "needle";`,
     "src/blocked.ts": `const value = "needle";`,
