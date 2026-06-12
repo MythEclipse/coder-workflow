@@ -1,8 +1,9 @@
 ---
 name: docs-generator
 description: Generate CONTRIBUTING.md, ARCHITECTURE.md, ADRs, PR descriptions, changelogs, releases.
-tools: Read, Edit, Write, Grep, Glob, Bash
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*"]
 model: sonnet
+color: green
 maxTurns: 15
 effort: high
 ---

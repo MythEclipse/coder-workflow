@@ -6,6 +6,7 @@ tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "invoke_subagent"]
 disallowedTools: ["Edit", "Write", "Bash"]
 model: haiku
 maxTurns: 30
+effort: low
 ---
 
 <SUBAGENT-STOP>

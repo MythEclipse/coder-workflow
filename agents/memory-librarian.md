@@ -4,6 +4,8 @@ description: Long-term agentic memory management — read, write, synthesize, cr
 model: haiku
 color: yellow
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*"]
+maxTurns: 20
+effort: low
 ---
 
 <SUBAGENT-STOP>

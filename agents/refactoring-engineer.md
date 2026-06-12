@@ -4,7 +4,9 @@ description: Transform codebases to layered modular architecture. Language-agnos
 model: sonnet
 version: 0.4.0
 argument-hint: "[scope-optional]"
-tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(*)","mcp__codegraph__*","mcp__code-review-graph__*", "invoke_subagent"]
+tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(*)","mcp__codegraph__*","invoke_subagent"]
+maxTurns: 50
+effort: high
 color: blue
 ---
 
@@ -154,6 +156,15 @@ All refactoring starts with detecting code smells. Here is the complete taxonomy
 - **Over-Engineering**: Adding abstractions "just in case" that are never used (Speculative Generality). Solution: YAGNI (You Aren't Gonna Need It).
 
 ## Process
+
+### 0. FILE_MANIFEST (Mandatory — Before Code)
+Before touching any file, explicitly declare:
+```
+FILE_MANIFEST:
+- Will WRITE: src/modules/user/user.service.ts
+- Will READ: src/shared/database/prisma.ts
+```
+Use `mcp__codegraph__query_graph` to validate target files exist.
 
 Every refactor follows this flow, referencing the domain knowledge above:
 

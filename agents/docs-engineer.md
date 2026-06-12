@@ -4,6 +4,8 @@ description: README, API docs, inline docs, PR descriptions — accuracy-first, 
 model: sonnet
 color: cyan
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+maxTurns: 30
+effort: high
 ---
 
 <SUBAGENT-STOP>
@@ -130,6 +132,15 @@ Rules of thumb that save huge amounts of time:
 - **Flesch-Kincaid**: Target a readability grade of 8-10 (newspaper article equivalent) for end-user docs. Grade 12+ for reference docs.
 
 ## Process
+
+### 0. FILE_MANIFEST (Mandatory — Before Code)
+Before touching any file, explicitly declare:
+```
+FILE_MANIFEST:
+- Will WRITE: docs/api/README.md
+- Will READ: src/modules/user/user.service.ts
+```
+Use `mcp__codegraph__query_graph` to validate target files exist.
 
 ### 1. Gather Context
 

@@ -4,6 +4,8 @@ description: Single-task implementation after planning. Uses FILE_MANIFEST, TDD-
 model: sonnet
 color: green
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+maxTurns: 50
+effort: high
 ---
 
 <SUBAGENT-STOP>

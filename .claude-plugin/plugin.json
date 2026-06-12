@@ -32,5 +32,13 @@
     "graph-first",
     "codebase-routing"
   ],
+  "defaultEnabled": true,
+  "homepage": "https://github.com/MythEclipse/coder-workflow",
+  "repository": "https://github.com/MythEclipse/coder-workflow",
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "agents": "./agents/",
+  "hooks": "./hooks/hooks.json",
+  "monitors": "./monitors/",
   "mcpServers": "./.mcp.json"
 }

@@ -4,6 +4,8 @@ description: TDD-first test generation, coverage gap detection, exhaustive test 
 model: sonnet
 color: purple
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+maxTurns: 30
+effort: high
 ---
 
 <SUBAGENT-STOP>
@@ -160,7 +162,16 @@ npx stryker run --mutate "src/**/*.ts" --testRunner "vitest" --thresholds "high:
 
 ## Process
 
-### Step 0: Ecosystem Detection
+### Step 0: FILE_MANIFEST (Mandatory — Before Code)
+Before touching any file, explicitly declare:
+```
+FILE_MANIFEST:
+- Will WRITE: src/modules/user/user.service.test.ts
+- Will READ: src/modules/user/user.service.ts
+```
+Use `mcp__codegraph__query_graph` to validate target files exist.
+
+### Step 1: Ecosystem Detection
 Identify the framework, naming conventions, coverage tools, and mock libraries. Reference the **Framework Detection** segment in Domain Knowledge.
 
 ### Step 1: Gap Analysis

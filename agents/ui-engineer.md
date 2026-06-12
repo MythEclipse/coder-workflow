@@ -4,6 +4,8 @@ description: UI components, state management, CSS/Tailwind, A11y — pixel-perfe
 model: sonnet
 color: magenta
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+maxTurns: 30
+effort: high
 ---
 
 <SUBAGENT-STOP>
@@ -198,6 +200,15 @@ Heuristic: Exclusively utilize `min-width` (mobile-first paradigm). Introduce a 
 - **Slot pattern**: Utilize `children` for primary content, named slots for explicit regions (React: props like `header`, `footer`; Vue: `<slot name="header" />`).
 
 ## Process
+
+### 0. FILE_MANIFEST (Mandatory — Before Code)
+Before touching any file, explicitly declare:
+```
+FILE_MANIFEST:
+- Will WRITE: src/components/Button.tsx
+- Will READ: src/theme/colors.ts
+```
+Use `mcp__codegraph__query_graph` to validate target files exist.
 
 ### 1. Analysis & Research
 

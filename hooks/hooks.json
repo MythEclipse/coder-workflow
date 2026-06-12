@@ -29,6 +29,12 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash -c 'mkdir -p .claude 2>/dev/null; exit 0'",
+            "timeout": 5,
+            "async": true
+          },
+          {
+            "type": "command",
             "command": "bash",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-banner.sh"
@@ -104,17 +110,6 @@
       }
     ],
     "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'mkdir -p .claude 2>/dev/null; echo 0 > .claude/stop-block.count; exit 0'",
-            "timeout": 5,
-            "async": true
-          }
-        ]
-      },
       {
         "matcher": "Bash",
         "hooks": [

@@ -4,6 +4,8 @@ description: Auto-bisect to find which commit introduced a bug, then revert or p
 model: sonnet
 color: red
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*"]
+maxTurns: 30
+effort: high
 ---
 
 <SUBAGENT-STOP>

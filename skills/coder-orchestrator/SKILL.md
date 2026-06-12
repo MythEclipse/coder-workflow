@@ -226,72 +226,41 @@ return { report, ... }
 | implement / build / create / add / scaffold | `coder-workflow:code-implementer` |
 | fix / debug / resolve / error / crash / bug | `coder-workflow:debugging-engineer` |
 | refactor / reorganize / extract / move / layer | `coder-workflow:refactoring-engineer` |
-| audit / review / check / analyze / inspect / cek / weakness / disconnect | `coder-workflow:architecture-auditor` |
+| audit / check / analyze / inspect / cek / weakness / disconnect | `coder-workflow:architecture-auditor` |
+| review / security / adversarial / peer review / PR review | `coder-workflow:code-reviewer` |
 | test / spec / coverage / TDD / unit / e2e | `coder-workflow:test-engineer` |
-| deploy / docker / CI / CD / VPS / infra | `coder-workflow:devops-engineer` |
+| deploy / docker / CI / CD / VPS / infra / sprint / metrics / benchmark / ops / release | `coder-workflow:devops-engineer` |
 | explore / understand / how does / where is / explain | `coder-workflow:explore-codebase` |
 | secrets / API key / token / hardcoded credential | `secret-scanner` (skill) |
 | vuln / CVE / SBOM / dependency risk | `vulnerability-scanner` (skill) |
-| QA / question / codebase question | `codebase-qa-agent` (skill) |
-| docs / README / contributing / architecture doc | `coder-workflow:docs-engineer` |
-| ADR / PR description / changelog / release | `coder-workflow:docs-generator` |
+| QA / question / codebase question | `codebase-qa` (skill) |
+| docs / README / contributing / architecture doc / ADR | `coder-workflow:docs-engineer` |
+| PR description / changelog / release notes / doc generation | `coder-workflow:docs-generator` |
 | dead code / orphan / unused export | `coder-workflow:architecture-auditor` |
 | UI / frontend / component / CSS / a11y | `coder-workflow:ui-engineer` |
 | diagram / graph / architecture visualization | `diagram-engineer` (skill) |
-| DB / schema / migration / prisma / SQL | `coder-workflow:db-architect` |
+| DB / schema / migration / prisma / SQL / db-schema | `coder-workflow:db-architect` |
 | quality / smell / consistency / lint | `quality-guardian` (skill) |
 | memory / store / recall | `coder-workflow:memory-librarian` |
 | rollback / bisect / timetravel / revert | `coder-workflow:rollback-engineer` |
 | multi-repo / cross-service / microservice | `coder-workflow:multi-repo-orchestrator` |
-| brainstorm / ideas / design / spec / unclear request | `Skill(brainstorming)` — **foreground skill load, NOT an agent()** |
+| brainstorm / ideas / design / spec / unclear request | `Skill(brainstorming)` |
 | think / sequential / reason / plan complex | built-in planner (`workflow-planner` skill) |
 | todo / FIXME / HACK / tech debt | `todo-checker` (skill) |
-| sprint / metrics / benchmark / ops | `coder-workflow:devops-engineer` |
+| logs / log analysis / parse logs | `coder-workflow:debugging-engineer` |
+| bughunt / bug hunt / proactive scan | `coder-workflow:debugging-engineer` |
+| performance / perf / bundle / lighthouse / slow | `coder-workflow:explore-codebase` |
+| semantic search / search by meaning | `coder-workflow:explore-codebase` |
+| i18n / internationalization / translations | `coder-workflow:explore-codebase` |
+| licenses / license check / compliance | `coder-workflow:explore-codebase` |
+| api contract / openapi / swagger / breaking change | `coder-workflow:explore-codebase` |
+| config validation / validate env / validate json | `coder-workflow:explore-codebase` |
+| doctor / health / environment / diagnostics | `coder-workflow:explore-codebase` |
+| stats / codebase stats / lines of code | `coder-workflow:explore-codebase` |
+| git hooks / scaffold hooks | `coder-workflow:explore-codebase` |
+| code complexity / complexity / cyclomatic | `coder-workflow:explore-codebase` |
 
-**Ambiguous request?** Default to parallel `[architecture-auditor, codebase-qa-agent]` inside a Tier 2 Workflow. Still no deliberation.
-
----
-
-## Headroom Feature-Agent Mapping
-
-| Feature | CLI command | MCP tool | Best Agent |
-|---|---|---|---|
-| Dead Code | `dead-code` | `find_dead_code` | `coder-workflow:architecture-auditor` |
-| Semantic Search | `semantic-search` | `semantic_search` | `coder-workflow:explore-codebase` |
-| PR Description | `pr` | `generate_pr` | `coder-workflow:docs-engineer` |
-| Changelog | `changelog` | `generate_changelog` | `coder-workflow:docs-engineer` |
-| Release | `release` | `create_release` | `coder-workflow:devops-engineer` |
-| Secrets Scan | `secrets` | `scan_secrets` | `secret-scanner` (skill) |
-| ADR | `adr` | `adr_new/list/get/graph` | `coder-workflow:docs-engineer` |
-| Vuln Scan | `vuln-scan` | `scan_vulnerabilities` | `vulnerability-scanner` (skill) |
-| SBOM | `sbom` | `generate_sbom` | `vulnerability-scanner` (skill) |
-| Codebase QA | `qa` | `answer_question` | `codebase-qa-agent` (skill) |
-| Onboarding Docs | `onboarding-docs` | `generate_onboarding_docs` | `coder-workflow:docs-engineer` |
-| Sprint Report | `sprint` | `sprint_report` | `coder-workflow:devops-engineer` |
-| Team Metrics | `team-metrics` | `team_metrics` | `coder-workflow:devops-engineer` |
-| Benchmark | `benchmark` | `record_benchmark` | `coder-workflow:devops-engineer` |
-| API Contract | `api-contract` | `compare_api_specs` | `coder-workflow:explore-codebase` |
-| Config Validation | `validate` | `validate_env_file` | `coder-workflow:explore-codebase` |
-| License Check | `licenses` | `check_licenses` | `coder-workflow:explore-codebase` |
-| Code Complexity | `complexity` | `analyze_complexity` | `coder-workflow:explore-codebase` |
-| Log Analysis | `logs` | `analyze_logs` | `coder-workflow:debugging-engineer` |
-| Coverage | `coverage` | `aggregate_coverage` | `coder-workflow:test-engineer` |
-| Git Hooks | `hooks` | `scaffold_git_hooks` | `coder-workflow:explore-codebase` |
-| TODO Tracker | `todos` | `scan_todos` | `todo-checker` (skill) |
-| Performance | `perf` | `analyze_bundle` | `coder-workflow:explore-codebase` |
-| i18n Helper | `i18n` | `extract_i18n_strings` | `coder-workflow:explore-codebase` |
-| DB Schema | `db-schema` | `parse_prisma_schema` | `coder-workflow:db-architect` |
-| Doctor | `doctor` | `doctor` | `coder-workflow:explore-codebase` |
-| Codebase Stats | `stats` | `codebase_stats` | `coder-workflow:explore-codebase` |
-| Architecture Diagram | `diagram` | `export_graph` | `diagram-engineer` (skill) |
-| Quality Gate | `quality` | `quality_gate` | `quality-guardian` (skill) |
-| Consistency | `consistency` | — | `quality-guardian` (skill) |
-| Bug Hunt | `bughunt` | — | `coder-workflow:debugging-engineer` |
-| Doc Generator | `docs-gen` | `generate_onboarding_docs` | `coder-workflow:docs-generator` |
-| Rollback/Bisect | `timetravel` | — | `coder-workflow:rollback-engineer` |
-| Memory | `memory` | `store_memory` / `query_memory` | `coder-workflow:memory-librarian` |
-| Refactoring | `refraktor` | — | `coder-workflow:refactoring-engineer` |
-| Multi-Repo | `multirepo` | — | `coder-workflow:multi-repo-orchestrator` |
+**Ambiguous request?** Default to parallel `[architecture-auditor, codebase-qa]` inside a Tier 2 Workflow. Still no deliberation.
 
 ---
 

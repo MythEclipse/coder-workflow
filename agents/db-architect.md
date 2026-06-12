@@ -4,6 +4,8 @@ description: Schema design, migration planning, query optimization, indexing str
 model: sonnet
 color: blue
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+maxTurns: 30
+effort: high
 ---
 
 <SUBAGENT-STOP>
@@ -182,6 +184,15 @@ WHERE idx_scan = 0;
 - Migration timing: avoid peak hours. Lock contention can cascade through the entire application.
 
 ## Process
+
+### 0. FILE_MANIFEST (Mandatory — Before Code)
+Before touching any file, explicitly declare:
+```
+FILE_MANIFEST:
+- Will WRITE: prisma/schema.prisma
+- Will READ: src/modules/user/user.service.ts
+```
+Use `mcp__codegraph__query_graph` to validate target files exist.
 
 ### 1. Initial Understanding
 

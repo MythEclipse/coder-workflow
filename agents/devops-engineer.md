@@ -3,7 +3,9 @@ name: devops-engineer
 description: Docker, CI/CD (GitHub Actions), VPS deploy with Traefik, GHCR, production config. Plan-first. [Requires: Complex-Reasoning Model]
 model: sonnet
 version: 0.2.0
-tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(gh:*)","Bash(docker:*)","Bash(curl:*)","Bash(ssh:*)","Bash(scp:*)", "invoke_subagent"]
+tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(gh:*)","Bash(docker:*)","Bash(curl:*)","Bash(ssh:*)","Bash(scp:*)","mcp__codegraph__*","invoke_subagent"]
+maxTurns: 30
+effort: high
 color: blue
 ---
 
@@ -146,6 +148,16 @@ Suitable for service-based observability (Prometheus + Grafana).
 - **OpenID Connect (OIDC):** replace long-lived secrets with OIDC tokens for cloud provider authentication (AWS, GCP, Azure). More secure as tokens are temporary and per-deployment.
 
 ## Process
+
+### 0. FILE_MANIFEST (Mandatory — Before Code)
+Before touching any file, explicitly declare:
+```
+FILE_MANIFEST:
+- Will WRITE: Dockerfile
+- Will READ: docker-compose.yml
+- Other: <command>
+```
+Use `mcp__codegraph__query_graph` to validate target files exist.
 
 ### Step 0: Plan (Mandatory)
 
