@@ -101,17 +101,13 @@ const ENTRIES_FILE = "entries.jsonl";
 // Storage helpers
 // ---------------------------------------------------------------------------
 
-/** Ensure the storage directory exists, creating it if needed. Returns absolute path. */
-function ensureStorageDir(): string {
-  return ensureDir(join(process.cwd(), STORAGE_DIR));
-}
 
 /**
  * Load all entries from the JSONL file. Corrupt lines are silently skipped.
  * Returns an empty array if the file does not exist or cannot be read.
  */
 export function loadEntries(): TradeoffEntry[] {
-  const dir = ensureStorageDir();
+  const dir = ensureDir(join(process.cwd(), STORAGE_DIR));
   const filePath = join(dir, ENTRIES_FILE);
 
   if (!existsSync(filePath)) return [];
@@ -139,7 +135,7 @@ export function loadEntries(): TradeoffEntry[] {
  * Append a single entry as a new line in the JSONL file.
  */
 export function saveEntry(entry: TradeoffEntry): void {
-  const dir = ensureStorageDir();
+  const dir = ensureDir(join(process.cwd(), STORAGE_DIR));
   const filePath = join(dir, ENTRIES_FILE);
 
   try {
@@ -154,7 +150,7 @@ export function saveEntry(entry: TradeoffEntry): void {
  * Used when updating an existing entry (e.g. recording an outcome).
  */
 function writeAllEntries(entries: TradeoffEntry[]): void {
-  const dir = ensureStorageDir();
+  const dir = ensureDir(join(process.cwd(), STORAGE_DIR));
   const filePath = join(dir, ENTRIES_FILE);
 
   try {
@@ -169,10 +165,6 @@ function writeAllEntries(entries: TradeoffEntry[]): void {
 // Utility
 // ---------------------------------------------------------------------------
 
-/** Generate a unique ID: tradeoff-{ms}-{random-6-chars} */
-function generateId(): string {
-  return `tradeoff-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 /**
  * Compute a numeric score for an approach.
@@ -311,7 +303,7 @@ export function generateMatrix(
     : `${recommendedName} scored highest among ${approaches.length} approaches.`;
 
   const entry: TradeoffEntry = {
-    id: generateId(),
+    id: `tradeoff-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     timestamp: new Date().toISOString(),
     context: context.trim(),
     approaches,
@@ -483,19 +475,6 @@ export function querySimilar(context: string, limit?: number): SimilarEntry[] {
   return scored.slice(0, maxResults);
 }
 
-/**
- * Aggregate statistics across all stored trade-off entries.
- *
- * @returns A `Stats` object with `total`, `byOutcome` breakdown, and
- *   `bestPatterns` (approach names ranked by validated accuracy).
- *
- * @example
- * ```ts
- * const s = getStats();
- * console.log(s.total);            // 42
- * console.log(s.bestPatterns[0]);  // { approach: "Monolith", accuracy: 0.88, ... }
- * ```
- */
 export function getStats(): Stats {
   const entries = loadEntries();
 
@@ -630,19 +609,6 @@ export function formatMatrix(entry: TradeoffEntry): string {
   return lines.join("\n");
 }
 
-/**
- * Render a `TradeoffEntry` as a complete Markdown report, including the
- * matrix, the recommendation with reasoning, and optional outcome section.
- *
- * @param entry - The entry to format.
- * @returns A Markdown string suitable for writing to a file or printing.
- *
- * @example
- * ```ts
- * const report = formatReport(entry);
- * fs.writeFileSync("report.md", report);
- * ```
- */
 export function formatReport(entry: TradeoffEntry): string {
   const lines: string[] = [];
 
@@ -712,12 +678,6 @@ export function formatReport(entry: TradeoffEntry): string {
 // Stats formatter
 // ---------------------------------------------------------------------------
 
-/**
- * Render a `Stats` object as a readable Markdown report.
- *
- * @param stats - The stats object from `getStats()`.
- * @returns A Markdown string.
- */
 export function formatStats(stats: Stats): string {
   const lines: string[] = [];
 

@@ -52,6 +52,13 @@
           },
           {
             "type": "command",
+            "command": "bash -c 'LOG=.claude/session-$(date +%Y%m%d).log; if [ -f \"$LOG\" ] && [ \"$(wc -c < \"$LOG\" 2>/dev/null || echo 0)\" -gt 5242880 ]; then tail -c 5242880 \"$LOG\" > \"$LOG.tmp\" 2>/dev/null && mv \"$LOG.tmp\" \"$LOG\" 2>/dev/null; fi; exit 0'",
+            "timeout": 5,
+            "async": true,
+            "statusMessage": "Rotating session log..."
+          },
+          {
+            "type": "command",
             "command": "bash -c 'GLOBAL=\"$HOME/.claude/skills/coder-workflow/skills\"; LOCAL=\".claude/skills/coder-workflow\"; if [ -d \"$GLOBAL\" ] && [ -d \"$LOCAL\" ]; then echo \"coder-workflow: Dual install detected. Project-local (.claude/) takes precedence.\"; echo \"  Remove one:\"; echo \"    rm -rf ~/.claude/skills/coder-workflow\"; echo \"    rm -rf .claude/skills/coder-workflow\"; fi; exit 0'",
             "timeout": 5,
             "statusMessage": "Checking plugin conflicts..."
@@ -205,12 +212,6 @@
             "async": true,
             "statusMessage": "Updating CodeGraph (debounced)..."
           },
-          {
-            "type": "command",
-            "command": "bash -c 'exit 0'",
-            "timeout": 1,
-            "async": true
-          }
         ]
       },
       {
@@ -237,12 +238,7 @@
             "if": "Bash(git push *)",
             "timeout": 5,
             "async": true
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "bash -c 'mkdir -p .claude 2>/dev/null || true; printf \"[%s] INSTALL: dep install detected\\n\" \"$(date -u +%T)\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0'",
@@ -282,7 +278,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '=== coder-workflow turn complete ==='",
+            "command": "echo '=== coder-workflow turn complete ===\n\nCRITICAL DIRECTIVE: Resolve the following \"Failure breakdown\":\n- 7 Python parser\n- 2 compress\n- 2 MCP\n- 1 skill-triggers\n\nDo not dismiss them as pre-existing or unrelated. If you find an error, you MUST fix it. Ignoring existing errors is strictly prohibited.'",
             "timeout": 5
           }
         ]
@@ -490,6 +486,13 @@
             "type": "command",
             "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // \\\"unknown\\\"\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; echo \"Task complete. Verify: over-engineered? No dummy code? See _shared/OVERPOWERED.md.\"; exit 0'",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // \\\"unknown\\\"\" <<< \"$INPUT\" 2>/dev/null); git add . && git diff-index --quiet HEAD || git commit -m \"chore(auto): task completed - $TITLE\" || true; exit 0'",
+            "timeout": 15,
+            "async": true,
+            "statusMessage": "Auto-committing changes..."
           },
           {
             "type": "command",

@@ -25,7 +25,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
-import { blameAuthor, blameDate, daysSince, escapeMarkdown } from "./utils/index.js";
+import { blameAuthor, blameDate, daysSince, escapeMarkdown, ensureStorageDir, walkFiles } from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -224,23 +224,11 @@ const SKIP_DIRS = new Set([
 // ─── Storage ─────────────────────────────────────────────────────────────
 
 /**
- * Ensures the storage directory exists, creates it if it doesn't.
- * @returns Absolute path to the storage directory
- */
-function ensureStorageDir(): string {
-  const dir = join(process.cwd(), DEBT_DIR);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
-}
-
-/**
  * Loads debt items from storage.
  * @returns List of stored DebtEntry
  */
 function loadItems(): DebtEntry[] {
-  const dir = ensureStorageDir();
+  const dir = ensureStorageDir(DEBT_DIR);
   const filePath = join(dir, ITEMS_FILE);
   if (!existsSync(filePath)) return [];
   try {
@@ -256,7 +244,7 @@ function loadItems(): DebtEntry[] {
  * @param items List of DebtEntry to be saved
  */
 function saveItems(items: DebtEntry[]): void {
-  const dir = ensureStorageDir();
+  const dir = ensureStorageDir(DEBT_DIR);
   writeFileSync(join(dir, ITEMS_FILE), JSON.stringify(items, null, 2), "utf-8");
 }
 
@@ -266,7 +254,7 @@ function saveItems(items: DebtEntry[]): void {
  */
 function appendHistory(event: Record<string, unknown>): void {
   try {
-    const dir = ensureStorageDir();
+    const dir = ensureStorageDir(DEBT_DIR);
     appendFileSync(
       join(dir, HISTORY_FILE),
       JSON.stringify({ ...event, _timestamp: new Date().toISOString() }) + "\n",
@@ -437,45 +425,6 @@ export function classifyDebt(text: string): ClassificationResult {
 }
 
 // ─── File Scanning ────────────────────────────────────────────────────
-
-/**
- * Walks the directory tree recursively and
- * collects files with recognized extensions.
- *
- * @param root Root directory path
- * @returns List of absolute file paths found
- */
-function walkFiles(root: string): string[] {
-  const result: string[] = [];
-
-  function walk(dir: string): void {
-    let entries: string[];
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (entry.startsWith(".") && entry !== ".env.example" && entry !== ".eslintrc.js") continue;
-      const full = join(dir, entry);
-      let st: ReturnType<typeof statSync>;
-      try {
-        st = statSync(full);
-      } catch {
-        continue;
-      }
-      if (st.isDirectory()) {
-        if (SKIP_DIRS.has(entry)) continue;
-        walk(full);
-      } else if (st.isFile() && SCAN_EXTENSIONS.has(extname(full))) {
-        result.push(full);
-      }
-    }
-  }
-
-  walk(resolve(root));
-  return result;
-}
 
 /**
  * Extracts description text from a comment, stripping comment markers.
@@ -1133,7 +1082,7 @@ export function cleanResolvedDebts(daysOld: number = 90): number {
  */
 export function resetAllDebts(): boolean {
   try {
-    const dir = ensureStorageDir();
+    const dir = ensureStorageDir(DEBT_DIR);
     writeFileSync(join(dir, ITEMS_FILE), "[]", "utf-8");
     appendHistory({ event: "reset" });
     return true;

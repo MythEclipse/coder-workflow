@@ -15,7 +15,7 @@ import type {
   DecisionRecord,
   Stats,
 } from "./experience-types.js";
-import { ensureDir } from "./utils/index.js";
+import { ensureDir, generateId } from "./utils/index.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -44,16 +44,6 @@ const DEFAULT_QUERY_LIMIT = 10;
  */
 function ensureJournalDir(): string {
   return ensureDir(resolve(join(process.cwd(), JOURNAL_DIR)));
-}
-
-/**
- * Generates a unique ID.
- *
- * @param {string} prefix — ID prefix
- * @returns {string} Unique ID
- */
-function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /**
@@ -421,25 +411,20 @@ export function getInsights(): Array<{
 }
 
 // ---------------------------------------------------------------------------
-// Public Functions: Statistics
+// Public Functions: Stats & Report
 // ---------------------------------------------------------------------------
 
 /**
- * Gets summary statistics from the journal.
- * Includes total entries, per-outcome breakdown, top patterns, and recent decisions.
- *
- * @returns {Stats} Statistics object
- *
- * @example
- * ```ts
- * const stats = getStats();
- * console.log(`Total: ${stats.total}, Failed: ${stats.byOutcome.failure}`);
- * ```
+ * Calculate summary statistics from the journal.
+ * Returns total entries, breakdown by outcome, top patterns, and recent decisions.
  */
 export function getStats(): Stats {
   const dir = ensureJournalDir();
-  const allEntries = readJsonl<ExperienceEntry>(join(dir, ENTRIES_FILE));
-  const allDecisions = readJsonl<DecisionRecord>(join(dir, DECISIONS_FILE));
+  const entriesFile = join(dir, ENTRIES_FILE);
+  const decisionsFile = join(dir, DECISIONS_FILE);
+
+  const allEntries = readJsonl<ExperienceEntry>(entriesFile);
+  const allDecisions = readJsonl<DecisionRecord>(decisionsFile);
 
   const byOutcome: Record<ExperienceOutcome, number> = {
     success: 0,
@@ -449,13 +434,15 @@ export function getStats(): Stats {
 
   for (const entry of allEntries) {
     if (byOutcome[entry.outcome] !== undefined) {
-      byOutcome[entry.outcome] += 1;
+      byOutcome[entry.outcome]++;
     }
   }
 
-  const topPatterns = getInsights().slice(0, 10);
+  // Reuse getInsights for top patterns
+  const topPatterns = getInsights().slice(0, 5);
 
-  const recentDecisions = [...allDecisions]
+  // Most recent 10 decisions
+  const recentDecisions = allDecisions
     .sort((a, b) => parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp))
     .slice(0, 10);
 
@@ -467,71 +454,29 @@ export function getStats(): Stats {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Public Functions: Format
-// ---------------------------------------------------------------------------
-
 /**
- * Formats journal statistics into a human-readable Markdown string.
- *
- * @param {Stats} stats — Statistics object from getStats()
- * @returns {string} Markdown formatted report string
- *
- * @example
- * ```ts
- * const stats = getStats();
- * console.log(formatReport(stats));
- * ```
+ * Format journal stats as a human-readable string.
  */
 export function formatReport(stats: Stats): string {
   const lines: string[] = [];
-
-  lines.push("# Experience Journal Report");
+  lines.push("Experience Journal Report");
+  lines.push("=".repeat(24));
+  lines.push(`Total entries: ${stats.total}`);
   lines.push("");
-  lines.push(`**Total entries:** ${stats.total}`);
-  lines.push("");
-
-  // Breakdown per outcome
-  lines.push("## Breakdown per Outcome");
-  lines.push("| Outcome | Count |");
-  lines.push("|---------|--------|");
-  const outcomeOrder: ExperienceOutcome[] = ["success", "partial", "failure"];
-  for (const outcome of outcomeOrder) {
-    const count = stats.byOutcome[outcome] ?? 0;
-    const pct = stats.total > 0 ? ((count / stats.total) * 100).toFixed(1) : "0.0";
-    lines.push(`| ${outcome} | ${count} (${pct}%) |`);
+  lines.push("By outcome:");
+  for (const [outcome, count] of Object.entries(stats.byOutcome)) {
+    lines.push(`  ${outcome}: ${count}`);
   }
   lines.push("");
-
-  // Top patterns
-  if (stats.topPatterns.length > 0) {
-    lines.push("## Top Patterns");
-    lines.push("| Pattern | Frequency | Avg Success Rate |");
-    lines.push("|------|-----------|------------------|");
-    for (const p of stats.topPatterns) {
-      const pct = (p.avgSuccessRate * 100).toFixed(0);
-      lines.push(`| ${p.pattern} | ${p.frequency}x | ${pct}% |`);
-    }
-    lines.push("");
+  lines.push("Top patterns:");
+  for (const p of stats.topPatterns) {
+    lines.push(`  ${p.pattern} — freq: ${p.frequency}, success: ${(p.avgSuccessRate * 100).toFixed(0)}%`);
   }
-
-  // Recent decisions
-  if (stats.recentDecisions.length > 0) {
-    lines.push("## Recent Decisions");
-    lines.push("| Context | Selected | Date |");
-    lines.push("|---------|---------|---------|");
-    for (const d of stats.recentDecisions) {
-      const date = new Date(d.timestamp).toLocaleDateString("id-ID", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-      const context = d.context.replace(/\|/g, "\\|");
-      const selected = d.selected.replace(/\|/g, "\\|");
-      lines.push(`| ${context} | ${selected} | ${date} |`);
-    }
-    lines.push("");
+  lines.push("");
+  lines.push("Recent decisions:");
+  for (const d of stats.recentDecisions) {
+    lines.push(`  [${d.id}] ${d.context} → ${d.selected}`);
   }
-
   return lines.join("\n");
 }
+

@@ -15,15 +15,13 @@
  */
 
 import {
-  appendFileSync,
   existsSync,
-  mkdirSync,
   readdirSync,
   readFileSync,
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { basename, extname, join, resolve } from "node:path";
 import ts from "typescript";
 import { escapeRegExp, escapeMarkdown, ensureDir } from "./utils/index.js";
 
@@ -192,41 +190,6 @@ const SKIP_DIRS = new Set([
   ".claude",
 ]);
 
-// ─── Internal Helpers ───────────────────────────────────────────────────────
-
-/**
- * Ensures the storage directory exists, creates it if not.
- */
-function ensureStorageDir(): string {
-  return ensureDir(join(process.cwd(), STORAGE_DIR));
-}
-
-/**
- * Reads a JSON file with error handling.
- */
-function readJSON<T>(filePath: string, fallback: T): T {
-  try {
-    if (!existsSync(filePath)) return fallback;
-    const raw = readFileSync(filePath, "utf-8").trim();
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch (error: any) {
-    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
-    return fallback;
-  }
-}
-
-/**
- * Writes a JSON file with formatting.
- */
-function writeJSON(filePath: string, data: unknown): void {
-  const dir = dirname(filePath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-}
-
 /**
  * Determines the naming style of a string.
  * Returns "PascalCase", "camelCase", "snake_case", "kebab-case", "UPPER_CASE", or "unknown".
@@ -249,60 +212,6 @@ function readFileSafe(filePath: string): string {
   } catch (error: any) {
     console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return "";
-  }
-}
-
-/**
- * Appends a violation to the violations.log file.
- */
-function appendViolationLog(violation: ConsistencyViolation): void {
-  try {
-    const dir = ensureStorageDir();
-    const logPath = join(dir, VIOLATIONS_LOG);
-    appendFileSync(logPath, JSON.stringify(violation) + "\n", "utf-8");
-  } catch (error: any) {
-    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
-    // logging failed — non-critical
-  }
-}
-
-/**
- * Resets the violation log (overwrites with new content).
- */
-function resetViolationLog(violations: ConsistencyViolation[]): void {
-  try {
-    const dir = ensureStorageDir();
-    const logPath = join(dir, VIOLATIONS_LOG);
-    const lines = violations.map((v) => JSON.stringify(v)).join("\n");
-    writeFileSync(logPath, lines + (lines ? "\n" : ""), "utf-8");
-  } catch (error: any) {
-    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
-    // non-critical
-  }
-}
-
-/**
- * Reads the stored violation log.
- */
-function readViolationLog(): ConsistencyViolation[] {
-  try {
-    const dir = ensureStorageDir();
-    const logPath = join(dir, VIOLATIONS_LOG);
-    if (!existsSync(logPath)) return [];
-    const raw = readFileSync(logPath, "utf-8");
-    const violations: ConsistencyViolation[] = [];
-    for (const line of raw.split("\n").filter(Boolean)) {
-      try {
-        violations.push(JSON.parse(line) as ConsistencyViolation);
-      } catch (error: any) {
-    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
-        // skip corrupt entries
-      }
-    }
-    return violations;
-  } catch (error: any) {
-    console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
-    return [];
   }
 }
 
@@ -810,8 +719,9 @@ function detectTestPattern(content: string): {
  */
 function saveProfile(profile: ProjectPatternProfile): void {
   try {
-    const dir = ensureStorageDir();
-    writeJSON(join(dir, PROFILE_FILE), profile);
+    const dir = ensureDir(join(process.cwd(), STORAGE_DIR));
+    const filePath = join(dir, PROFILE_FILE);
+    writeFileSync(filePath, JSON.stringify(profile, null, 2), "utf-8");
   } catch (error: any) {
     console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     // non-critical
@@ -825,9 +735,11 @@ function saveProfile(profile: ProjectPatternProfile): void {
  */
 export function loadProfile(): ProjectPatternProfile | null {
   try {
-    const dir = ensureStorageDir();
-    const filePath = join(dir, PROFILE_FILE);
-    return readJSON<ProjectPatternProfile | null>(filePath, null);
+    const filePath = join(ensureDir(join(process.cwd(), STORAGE_DIR)), PROFILE_FILE);
+    if (!existsSync(filePath)) return null;
+    const raw = readFileSync(filePath, "utf-8").trim();
+    if (!raw) return null;
+    return JSON.parse(raw) as ProjectPatternProfile;
   } catch (error: any) {
     console.warn(`[Consistency Enforcer] Warning: ${error.message}`);
     return null;
@@ -841,8 +753,7 @@ export function loadProfile(): ProjectPatternProfile | null {
  */
 export function clearProfile(): boolean {
   try {
-    const dir = ensureStorageDir();
-    const filePath = join(dir, PROFILE_FILE);
+    const filePath = join(ensureDir(join(process.cwd(), STORAGE_DIR)), PROFILE_FILE);
     if (!existsSync(filePath)) return false;
     writeFileSync(filePath, JSON.stringify(null), "utf-8");
     return true;
@@ -938,11 +849,6 @@ export function validateFileAgainstProfile(
       id: `violation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       detectedAt: now,
     }));
-
-    // Log violations for history
-    for (const v of enrichedViolations) {
-      appendViolationLog(v);
-    }
 
     return enrichedViolations;
   } catch (error) {
@@ -2107,7 +2013,19 @@ export function getViolationLog(options?: {
   severity?: string;
 }): ConsistencyViolation[] {
   try {
-    let violations = readViolationLog();
+    // Read violation log inlined
+    const logPath = join(ensureDir(join(process.cwd(), STORAGE_DIR)), VIOLATIONS_LOG);
+    let violations: ConsistencyViolation[] = [];
+    if (existsSync(logPath)) {
+      const raw = readFileSync(logPath, "utf-8");
+      for (const line of raw.split("\n").filter(Boolean)) {
+        try {
+          violations.push(JSON.parse(line) as ConsistencyViolation);
+        } catch {
+          // skip corrupt entries
+        }
+      }
+    }
 
     // Filter berdasarkan kategori
     if (options?.category) {
@@ -2141,8 +2059,7 @@ export function getViolationLog(options?: {
  */
 export function clearViolationLog(): boolean {
   try {
-    const dir = ensureStorageDir();
-    const logPath = join(dir, VIOLATIONS_LOG);
+    const logPath = join(ensureDir(join(process.cwd(), STORAGE_DIR)), VIOLATIONS_LOG);
     if (!existsSync(logPath)) return false;
     writeFileSync(logPath, "", "utf-8");
     return true;
@@ -2204,7 +2121,19 @@ export function getConsistencySummary(root: string): {
 } {
   try {
     const profile = loadProfile();
-    const violations = readViolationLog();
+    // Read violation log inlined
+    const logPath2 = join(ensureDir(join(process.cwd(), STORAGE_DIR)), VIOLATIONS_LOG);
+    let violationsLog: ConsistencyViolation[] = [];
+    if (existsSync(logPath2)) {
+      const raw = readFileSync(logPath2, "utf-8");
+      for (const line of raw.split("\n").filter(Boolean)) {
+        try {
+          violationsLog.push(JSON.parse(line) as ConsistencyViolation);
+        } catch {
+          // skip corrupt entries
+        }
+      }
+    }
     const files = collectSourceFiles(resolve(root));
 
     // Check when the profile was last scanned
@@ -2215,7 +2144,7 @@ export function getConsistencySummary(root: string): {
       stats: {
         totalFiles: files.length,
         lastScan,
-        violationsCount: violations.length,
+        violationsCount: violationsLog.length,
       },
     };
   } catch (error) {
