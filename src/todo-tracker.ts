@@ -9,7 +9,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
-import { blameAuthor, blameDate, daysSince, escapeMarkdown, escapeRegExp, globMatch, globToRegExp } from "./utils/index.js";
+import { blameAuthor, blameDate, daysSince, escapeMarkdown, escapeRegExp, globMatch, globToRegExp, walkFiles } from "./utils/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,41 +105,6 @@ function extractMessage(text: string): string {
 // ---------------------------------------------------------------------------
 // Core scanning
 // ---------------------------------------------------------------------------
-
-/**
- * Recursively walk the directory tree collecting files whose extension matches.
- */
-function walkFiles(root: string): string[] {
-  const result: string[] = [];
-
-  function walk(dir: string) {
-    let entries: string[];
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (entry.startsWith(".") && entry !== ".env.example") continue; // skip dotfiles (except example)
-      const full = join(dir, entry);
-      let st: ReturnType<typeof statSync>;
-      try {
-        st = statSync(full);
-      } catch {
-        continue;
-      }
-      if (st.isDirectory()) {
-        if (SKIP_DIRS.has(entry)) continue;
-        walk(full);
-      } else if (st.isFile() && DEFAULT_EXTENSIONS.has(extname(full))) {
-        result.push(full);
-      }
-    }
-  }
-
-  walk(resolve(root));
-  return result;
-}
 
 /**
  * Recursively scan `root` for TODO/FIXME/HACK/NOTE/XXX comments.

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Dreaming Phase (Memory Consolidation)
  *

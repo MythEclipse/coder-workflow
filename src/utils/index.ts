@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { dirname, extname, join, resolve } from "node:path";
 
 // ─── Text ───────────────────────────────────────────────────────────────────
 
@@ -164,4 +164,72 @@ export function daysSince(isoDate: string): number {
   const now = Date.now();
   const diffMs = now - then;
   return Math.floor(diffMs / 86_400_000);
+}
+
+// ─── Duplicated utilities consolidated from across codebase ─────────────────────
+
+/**
+ * Recursively walk a directory collecting files with recognized extensions.
+ * Default extensions: .ts, .tsx, .js, .jsx, .mjs, .cjs, .json, .md, .css, .html
+ */
+export function walkFiles(root: string): string[] {
+  const result: string[] = [];
+  const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.md', '.css', '.html']);
+  function walk(dir: string) {
+    let entries: string[];
+    try { entries = readdirSync(dir); } catch { return; }
+    for (const entry of entries) {
+      const full = join(dir, entry);
+      try {
+        if (entry.startsWith('.')) continue;
+        const s = statSync(full);
+        if (s.isDirectory()) walk(full);
+        else if (s.isFile() && EXTENSIONS.has(extname(full))) result.push(full);
+      } catch { continue; }
+    }
+  }
+  walk(root);
+  return result;
+}
+
+/**
+ * Ensure a storage directory exists and return its absolute path.
+ */
+export function ensureStorageDir(storageDir: string, root?: string): string {
+  const base = root ? resolve(root) : process.cwd();
+  return ensureDir(join(base, storageDir));
+}
+
+/**
+ * Generate a unique ID with the given prefix.
+ */
+export function generateId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Format a Stats object or stats-like record as a Markdown report block.
+ */
+export function formatReport(stats: { total: number; byOutcome?: Record<string, number>; [key: string]: unknown }): string {
+  const lines: string[] = ['## Report', ''];
+  lines.push(`**Total:** ${stats.total}`);
+  if (stats.byOutcome) {
+    lines.push('', '### Breakdown', '| Outcome | Count |', '|---------|-------|');
+    for (const [k, v] of Object.entries(stats.byOutcome)) {
+      const pct = stats.total > 0 ? ((v as number / stats.total) * 100).toFixed(1) : '0.0';
+      lines.push(`| ${k} | ${v} (${pct}%) |`);
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Format bytes as a human-readable string.
+ */
+export function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const val = bytes / (1024 ** i);
+  return `${val.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }

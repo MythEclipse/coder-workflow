@@ -24,7 +24,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
-import { ensureDir } from "./utils/index.js";
+import { ensureDir, ensureStorageDir, walkFiles } from "./utils/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 /**
@@ -424,22 +424,12 @@ export function getBugPatterns(): BugPattern[] {
 // ─── Storage Functions ────────────────────────────────────────────────────
 
 /**
- * Ensures the bug-hunter storage directory exists.
- * Creates the directory if it does not exist.
- *
- * @returns {string} Absolute path to the storage directory
- */
-function ensureStorageDir(): string {
-  return ensureDir(join(process.cwd(), STORAGE_DIR));
-}
-
-/**
  * Loads the list of suppressed pattern IDs from storage.
  *
  * @returns {string[]} List of disabled pattern IDs
  */
 function loadSuppressedPatterns(): string[] {
-  const dir = ensureStorageDir();
+  const dir = ensureStorageDir(STORAGE_DIR);
   const filePath = join(dir, SUPPRESSED_FILE);
 
   if (!existsSync(filePath)) return [];
@@ -459,7 +449,7 @@ function loadSuppressedPatterns(): string[] {
  * @param {string[]} ids - List of disabled pattern IDs
  */
 function saveSuppressedPatterns(ids: string[]): void {
-  const dir = ensureStorageDir();
+  const dir = ensureStorageDir(STORAGE_DIR);
   writeFileSync(join(dir, SUPPRESSED_FILE), JSON.stringify(ids, null, 2), "utf-8");
 }
 
@@ -723,45 +713,6 @@ export function scanDirectoryForBugs(dirPath: string): BugFinding[] {
   return allFindings;
 }
 
-/**
- * Recursively collects supported files from a directory.
- *
- * @param {string} root - Root directory path
- * @returns {string[]} List of discovered file paths
- */
-function walkFiles(root: string): string[] {
-  const result: string[] = [];
-
-  try {
-    const entries = readdirSync(root);
-
-    for (const entry of entries) {
-      // Skip dotfiles
-      if (entry.startsWith(".")) continue;
-
-      const full = join(root, entry);
-      let stats;
-
-      try {
-        stats = statSync(full);
-      } catch {
-        continue;
-      }
-
-      if (stats.isDirectory()) {
-        if (SKIP_DIRS.has(entry)) continue;
-        result.push(...walkFiles(full));
-      } else if (stats.isFile() && isSupportedFile(full)) {
-        result.push(full);
-      }
-    }
-  } catch {
-    // Return results collected so far
-  }
-
-  return result;
-}
-
 // ─── Storage ──────────────────────────────────────────────────────────────
 
 /**
@@ -770,7 +721,7 @@ function walkFiles(root: string): string[] {
  * @param {BugFinding[]} findings - List of findings to save
  */
 function appendFindings(findings: BugFinding[]): void {
-  const dir = ensureStorageDir();
+  const dir = ensureStorageDir(STORAGE_DIR);
   const filePath = join(dir, FINDINGS_FILE);
 
   try {
@@ -794,7 +745,7 @@ export function getStoredFindings(options?: {
   severity?: BugSeverity;
   limit?: number;
 }): BugFinding[] {
-  const dir = ensureStorageDir();
+  const dir = ensureStorageDir(STORAGE_DIR);
   const filePath = join(dir, FINDINGS_FILE);
 
   if (!existsSync(filePath)) return [];
@@ -868,6 +819,7 @@ export function buildReport(findings: BugFinding[], filesScanned: number = 0): B
 
 // ─── Format Functions ─────────────────────────────────────────────────────
 
+// @dead — unused; find callers: formatBugReport references it inline.
 /**
  * Formats a single bug finding as a human-readable string.
  *
@@ -984,6 +936,7 @@ function getSeverityTag(severity: BugSeverity): string {
   return tags[severity] ?? "[UNKNOWN]";
 }
 
+// @dead — unused; find callers: formatBugReport references it inline.
 /**
  * Gets a more descriptive severity label.
  *

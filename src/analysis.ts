@@ -1,18 +1,21 @@
-export { findCycles } from "./analysis/cycles.js";
-export type { ImpactAnalysisResult } from "./analysis/impact.js";
-export { analyzeImpact } from "./analysis/impact.js";
-export type { OrphanNode } from "./analysis/orphans.js";
-export { findOrphans } from "./analysis/orphans.js";
+// Analysis barrel — re-exports from consolidated analysis-impl.ts
+export {
+  analyzeGraphQuality,
+  analyzeImpact,
+  evaluateQualityGate,
+  findCycles,
+  findOrphans,
+  queryGraph,
+  summarizeArchitecture,
+} from "./analysis-impl.js";
 export type {
-  GraphQualityCategory,
   GraphQualityIssue,
   GraphQualityReport,
   GraphQualitySeverity,
+  GraphQualityCategory,
   QualityGateResult,
   QualityGateThreshold,
-} from "./analysis/quality.js";
-export { analyzeGraphQuality, evaluateQualityGate } from "./analysis/quality.js";
-export type { QueryGraphResult } from "./analysis/query.js";
-export { queryGraph } from "./analysis/query.js";
-export type { ArchitectureSummary } from "./analysis/summary.js";
-export { summarizeArchitecture } from "./analysis/summary.js";
+} from "./analysis-impl.js";
+export type { ImpactAnalysisResult } from "./analysis-impl.js";
+export type { QueryGraphResult } from "./analysis-impl.js";
+export type { ArchitectureSummary } from "./analysis-impl.js";
