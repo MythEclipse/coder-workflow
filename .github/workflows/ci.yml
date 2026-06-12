@@ -49,14 +49,7 @@ jobs:
       - name: Build, Typecheck & Test
         run: npm test
       - name: Coverage check
-        shell: bash
-        run: |
-          if [ -f .codegraph/coverage-summary.json ]; then
-            COV=$(node -e "const c=require('./.codegraph/coverage-summary.json'); const r=c.total?.lines?.pct||0; console.log(r); if(r<30){process.exit(1)}")
-            echo "Coverage: ${COV}% (threshold: 30%)"
-          else
-            echo "No coverage report found, skipping threshold check"
-          fi
+        run: node scripts/coverage-check.js
       - name: Verify CLI help
         run: node dist/cli.js help
 
