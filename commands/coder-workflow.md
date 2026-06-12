@@ -37,6 +37,7 @@ Write a simple Dynamic Workflow script that spawns a targeted subagent for the s
 ## Core Rules
 
 - **Native Dynamic Workflows** — You must write and run a native workflow script. Do not write custom orchestration logic in your conversational response.
+- **External Research First** — For any new feature, library, or API request, ALWAYS search external sources (Context7, web, official docs) FIRST to understand how it works. NEVER search the local codebase for examples before reading the official external documentation.
 - **1 task = 1 subagent** — never batch tasks into one subagent
 - **No worktrees** — all agents run in the same shared workspace
 - **Tasks before tools** — Run `TaskCreate` before any tool call

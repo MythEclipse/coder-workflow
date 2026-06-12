@@ -60,7 +60,7 @@ See `commands/` directory (40+ commands) or `docs/plugin-reference.md` for full 
 - **Tasks tracking**: Use TaskCreate to track all work. Initial read-only exploration permitted before task creation.
 - **Prefer sequential execution** when modifying shared state (config, core modules). Use parallel subagents only for strictly independent tasks.
 - **Track every discovered bug** as low-priority tasks to fix at end of session.
-- **Use skills and MCP tools before guessing** — Context7 for framework docs, CodeGraph for code search.
+- **EXTERNAL RESEARCH FIRST**: For any new feature, library, or API (e.g. Claude Code features, third-party libraries), you MUST search external sources FIRST (using Context7 MCP, searching the web, or reading official docs). DO NOT assume its behavior or search the codebase for examples of how it works until you have read the official external documentation. Do not guess.
 - **No Excuses for Pre-existing Issues**: Never ignore warnings/errors. Fix underlying logic.
 
 ## Plugin Surface

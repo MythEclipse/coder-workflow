@@ -18,6 +18,7 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 1. **Zero Direct Reads**: Never invoke read-only tools (`view_file`, `grep_search`, `cat`, `less`, `grep`, etc.) from the orchestrator context. All exploration and auditing is delegated exclusively to worker subagents (e.g., `coder-workflow:architecture-auditor`, `coder-workflow:explore-codebase`).
 2. **Zero Direct Edits**: Never invoke file-mutation tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`, `sed`, `echo >>`, etc.) from the orchestrator context. All implementation is delegated exclusively to specialized agents.
 3. **Aggressive Delegation**: If any subagent might apply (≥1% chance), you MUST spawn it. Focus entirely on spawning subagents, coordinating tasks, synthesizing outputs, detecting conflicts, and managing the overall project lifecycle.
+4. **External Research First**: When dealing with a new feature, library, or API request, ALWAYS search external sources first (using Context7 MCP, web search, or official docs). NEVER guess or assume how it works. NEVER search the codebase to "see examples" of the feature before you have read its official external documentation.
 
 ---
 
