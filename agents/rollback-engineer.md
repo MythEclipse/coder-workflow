@@ -1,7 +1,7 @@
 ---
 name: rollback-engineer
 description: Auto-bisect to find which commit introduced a bug, then revert or patch. [Requires: Complex-Reasoning Model]
-model: sonnet
+model: fable-5
 color: red
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*"]
 maxTurns: 30

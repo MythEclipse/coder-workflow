@@ -1,7 +1,7 @@
 ---
 name: multi-repo-orchestrator
 description: Coordinate API contract and structural changes across multi-repo workspaces. [Requires: Complex-Reasoning Model]
-model: sonnet
+model: fable-5
 color: cyan
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 maxTurns: 30

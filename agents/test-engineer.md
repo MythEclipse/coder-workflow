@@ -1,7 +1,7 @@
 ---
 name: test-engineer
 description: TDD-first test generation, coverage gap detection, exhaustive test suites. [Requires: Complex-Reasoning Model]
-model: sonnet
+model: fable-5
 color: purple
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 maxTurns: 30

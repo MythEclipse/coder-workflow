@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 description: Security audits, adversarial code review, edge-case detection before merge. Zero-trust, verify-first. [Requires: Fast-Exploration Model]
-model: haiku
+model: fable-5
 color: yellow
 tools: ["Read", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 disallowedTools: ["Edit", "Write"]

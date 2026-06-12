@@ -190,7 +190,7 @@ export function getBugPatterns(): BugPattern[] {
       languages: ["ts", "js", "kt", "swift"],
       category: "null-safety",
       suggestedFix: "Use optional chaining (?.) or add a null guard (if/guard) before access",
-      active: true,
+      active: false,
     },
     {
       id: "null-bang-without-guard",
@@ -239,7 +239,7 @@ export function getBugPatterns(): BugPattern[] {
       languages: ["ts", "js"],
       category: "error-handling",
       suggestedFix: "Add a .catch() handler at the end of the Promise chain to handle rejection",
-      active: true,
+      active: false,
     },
     {
       id: "err-async-without-try",
@@ -251,7 +251,7 @@ export function getBugPatterns(): BugPattern[] {
       languages: ["ts", "js", "py"],
       category: "error-handling",
       suggestedFix: "Wrap the code in a try/catch block to handle potential rejection",
-      active: true,
+      active: false,
     },
     {
       id: "err-throw-literal",
@@ -277,7 +277,7 @@ export function getBugPatterns(): BugPattern[] {
       category: "boundary",
       suggestedFix:
         "Check the array length (array.length) before accessing an index, or use optional chaining with array.at()",
-      active: true,
+      active: false,
     },
     {
       id: "bnd-division-without-zero-guard",
@@ -288,7 +288,7 @@ export function getBugPatterns(): BugPattern[] {
       languages: ["ts", "js", "java", "kt", "go", "rs", "cpp", "py", "rb", "php"],
       category: "boundary",
       suggestedFix: "Add a guard clause to ensure the divisor is not zero before dividing",
-      active: true,
+      active: false,
     },
     {
       id: "bnd-substring-without-length",

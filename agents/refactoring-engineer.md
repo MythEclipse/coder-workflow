@@ -1,10 +1,10 @@
 ---
 name: refactoring-engineer
 description: Transform codebases to layered modular architecture. Language-agnostic, graph-first. Plan-mandatory. [Requires: Complex-Reasoning Model]
-model: sonnet
+model: fable-5
 version: 0.4.0
 argument-hint: "[scope-optional]"
-tools: ["Read","Edit","Write","Grep","Glob","Bash(git:*)","Bash(*)","mcp__codegraph__*","invoke_subagent"]
+tools: ["Read","Edit","Write","Grep","Glob","Bash","mcp__codegraph__*","invoke_subagent"]
 maxTurns: 50
 effort: high
 color: blue

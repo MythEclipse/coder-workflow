@@ -13,7 +13,7 @@ esc() { local s="$1"; s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\n'/\\n}";
 has() { printf '%s' "$LOWER" | grep -qiE "\b($1)\b"; }
 
 # ── CACHE CHECK ────────────────────────────────────────────────
-CACHE_AGE=$([ -f "$CACHE_FILE" ] && echo $(( $(date +%s) - $(stat -c%Y "$CACHE_FILE" 2>/dev/null || echo 0) )) || echo 3601)
+CACHE_AGE=$([ -f "$CACHE_FILE" ] && echo $(( $(date +%s) - $(date -r "$CACHE_FILE" +%s 2>/dev/null || echo 0) )) || echo 3601)
 if [ "$CACHE_AGE" -lt 3600 ]; then
     CTX=$(cat "$CACHE_FILE" 2>/dev/null || true)
     if [ -n "$CTX" ]; then

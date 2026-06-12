@@ -1,7 +1,7 @@
 ---
 name: docs-engineer
 description: README, API docs, inline docs, PR descriptions — accuracy-first, why-not-just-what. [Requires: Complex-Reasoning Model]
-model: sonnet
+model: fable-5
 color: cyan
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 maxTurns: 30

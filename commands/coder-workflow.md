@@ -6,111 +6,38 @@ argument-hint: [task-optional]
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
 ---
 
-Always execute via the Workflow engine. Never dispatch raw agents without a Workflow context.
+You MUST execute this task by writing and running a native Dynamic Workflow script. (Treat this as a direct request for a workflow, functionally equivalent to using the `ultracode` keyword).
 
-Determine Tier first (see coder-orchestrator SKILL.md Complexity Gate), then run the matching template.
+Never dispatch raw agents manually or write custom parallel loops in the conversation. Build the orchestration as a proper workflow script.
+
+1. Determine Tier first (see coder-orchestrator SKILL.md Complexity Gate).
 
 ---
 
 ## Tier 2 — Full Orchestration (default for broad/cross-cutting tasks)
 
-```
-∴ coder-orchestrator [T2] → Workflow(<kebab-task-name>): <one-sentence goal>
+Write a native Dynamic Workflow script that implements the following phases. Ensure that intermediate results are kept in script variables.
 
-∴ Workflow({
-  name: '<kebab-task-name>',
-  description: '<one-sentence goal>',
-  phases: [
-    { title: 'Brainstorm', detail: 'clarify intent if underspecified (skip if clear)' },
-    { title: 'Discover',   detail: 'CodeGraph scan — map structure, find gaps' },
-    { title: 'Plan',       detail: 'use built-in planner skill to decompose into atomic tasks' },
-    { title: 'Swarm',      detail: '1 agent per task, all in parallel' },
-    { title: 'Verify',     detail: 'architecture-auditor post-check' },
-    { title: 'Synthesize', detail: 'collect outputs, resolve conflicts, produce report' },
-  ],
-})
-
-phase('Brainstorm')  // only if request is underspecified — invoke Skill(brainstorming), NEVER as background agent
-// → blocks until user approves design spec
-
-phase('Discover')
-const [exploration, context] = await parallel([
-  () => agent(
-    `Map codebase: trace data flows, identify module boundaries, find duplication, detect gaps relevant to: $ARGUMENTS`,
-    { label: 'explore', phase: 'Discover', agent: 'coder-workflow:explore-codebase' }
-  ),
-  () => agent(
-    `Query cross-agent memory for prior context on this task domain`,
-    { label: 'memory-check', phase: 'Discover', agent: 'coder-workflow:memory-librarian' }
-  ),
-])
-
-phase('Plan')
-const plan = await pipeline([
-  () => agent(
-    `Decompose task into atomic units with FILE_MANIFEST per task. Each task targets ≤3 files.
-Input: ${exploration}
-User goal: $ARGUMENTS`,
-    { label: 'decompose', phase: 'Plan', skill: 'workflow-planner' }
-  ),
-])
-
-phase('Swarm')
-// Spawn 1 agent per task from plan output — ALL concurrent inside parallel()
-const swarmResults = await parallel(
-  plan.tasks.map(task => () => agent(
-    task.prompt,
-    { label: task.label, phase: 'Swarm', agent: task.agent }
-  ))
-)
-
-phase('Verify')
-const audit = await agent(
-  `Post-execution audit: confirm no new layer violations, no circular deps, no dead imports.
-  Swarm results summary: ${swarmResults.map(r => r.label).join(', ')}`,
-  { label: 'post-audit', phase: 'Verify', agent: 'coder-workflow:architecture-auditor' }
-)
-
-phase('Synthesize')
-const report = await agent(
-  `Synthesize all results into a final report. Detect file conflicts, resolve merges.
-  Inputs:\n${swarmResults.map(r => JSON.stringify(r)).join('\n---\n')}
-  Audit: ${audit}`,
-  { label: 'synthesize', phase: 'Synthesize' }
-)
-
-return { report, taskCount: plan.tasks.length, audit }
-```
+Phases:
+1. Brainstorm: clarify intent if underspecified (ask the user first before finalizing the script if needed).
+2. Discover: Spawn discovery subagents to map codebase (trace data flows, module boundaries, gaps) and query cross-agent memory for prior context.
+3. Plan: Decompose task into atomic units with FILE_MANIFEST per task (target ≤3 files).
+4. Swarm: Spawn 1 subagent per task from the plan output concurrently to leverage native swarming capabilities.
+5. Verify: Spawn an architecture-auditor subagent to run a post-execution audit (confirm no layer violations, no circular deps, no dead imports).
+6. Synthesize: Collect outputs, resolve conflicts, produce a final report.
 
 ---
 
 ## Tier 1 — Scoped Fast-Path (≤3 explicit files/functions)
 
-```
-∴ coder-orchestrator [T1] → Workflow(<kebab-task-name>): <one-sentence goal>
-
-∴ Workflow({
-  name: '<kebab-task-name>',
-  description: '<one-sentence goal>',
-  phases: [
-    { title: 'Execute', detail: 'targeted agent on named scope' },
-  ],
-})
-
-phase('Execute')
-const result = await agent(
-  `$ARGUMENTS`,
-  { label: 'execute', phase: 'Execute', agent: 'coder-workflow:<specialist-from-routing-table>' }
-)
-
-return result
-```
+Write a simple Dynamic Workflow script that spawns a targeted subagent for the specific named scope to execute the task.
 
 ---
 
 ## Core Rules
 
-- **1 task = 1 agent() call** — never batch tasks into one agent
+- **Native Dynamic Workflows** — You must write and run a native workflow script. Do not write custom orchestration logic in your conversational response.
+- **1 task = 1 subagent** — never batch tasks into one subagent
 - **No worktrees** — all agents run in the same shared workspace
 - **Tasks before tools** — Run `TaskCreate` before any tool call
 - **Fix every discovered bug** — no "not related to my changes"

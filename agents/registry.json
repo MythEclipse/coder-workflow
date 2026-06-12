@@ -13,7 +13,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "code-implementer": {
       "file": "agents/code-implementer.md",
@@ -29,7 +29,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "code-reviewer": {
       "file": "agents/code-reviewer.md",
@@ -45,7 +45,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "debugging-engineer": {
       "file": "agents/debugging-engineer.md",
@@ -60,7 +60,7 @@
         "Bash",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "test-engineer": {
       "file": "agents/test-engineer.md",
@@ -76,7 +76,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "refactoring-engineer": {
       "file": "agents/refactoring-engineer.md",
@@ -88,12 +88,11 @@
         "Write",
         "Grep",
         "Glob",
-        "Bash(git:*)",
-        "Bash(*)",
+        "Bash",
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "devops-engineer": {
       "file": "agents/devops-engineer.md",
@@ -105,15 +104,10 @@
         "Write",
         "Grep",
         "Glob",
-        "Bash(git:*)",
-        "Bash(gh:*)",
-        "Bash(docker:*)",
-        "Bash(curl:*)",
-        "Bash(ssh:*)",
-        "Bash(scp:*)",
+        "Bash",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "docs-engineer": {
       "file": "agents/docs-engineer.md",
@@ -129,7 +123,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "ui-engineer": {
       "file": "agents/ui-engineer.md",
@@ -145,7 +139,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "db-architect": {
       "file": "agents/db-architect.md",
@@ -161,7 +155,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
 
     "rollback-engineer": {
@@ -176,10 +170,9 @@
         "Glob",
         "Bash",
         "invoke_subagent",
-        "mcp__codegraph__*",
-        "mcp__code-review-graph__*"
+        "mcp__codegraph__*"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "memory-librarian": {
       "file": "agents/memory-librarian.md",
@@ -193,10 +186,9 @@
         "Glob",
         "Bash",
         "invoke_subagent",
-        "mcp__codegraph__*",
-        "mcp__code-review-graph__*"
+        "mcp__codegraph__*"
       ],
-      "model": "haiku"
+      "model": "fable-5"
     },
     "multi-repo-orchestrator": {
       "file": "agents/multi-repo-orchestrator.md",
@@ -210,7 +202,7 @@
         "Bash",
         "invoke_subagent"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
 
     "docs-generator": {
@@ -225,7 +217,7 @@
         "Glob",
         "Bash"
       ],
-      "model": "sonnet"
+      "model": "fable-5"
     },
     "explore-codebase": {
       "file": "agents/explore-codebase.md",
@@ -238,7 +230,7 @@
         "mcp__codegraph__*",
         "invoke_subagent"
       ],
-      "model": "haiku"
+      "model": "fable-5"
     }
   }
 }

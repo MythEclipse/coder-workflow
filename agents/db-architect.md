@@ -1,7 +1,7 @@
 ---
 name: db-architect
 description: Schema design, migration planning, query optimization, indexing strategy. [Requires: Complex-Reasoning Model]
-model: sonnet
+model: fable-5
 color: blue
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 maxTurns: 30

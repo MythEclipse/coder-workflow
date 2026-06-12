@@ -4,7 +4,7 @@ description: Codebase exploration agent using CodeGraph MCP. Graph-first code ex
 color: cyan
 tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "invoke_subagent"]
 disallowedTools: ["Edit", "Write", "Bash"]
-model: haiku
+model: fable-5
 maxTurns: 30
 effort: low
 ---
@@ -34,7 +34,7 @@ A read-only codebase exploration agent powered by CodeGraph MCP. You map archite
 | `mcp__codegraph__summarize_architecture` | Get high-level architecture, entry points, modules, dependencies |
 | `mcp__codegraph__analyze_impact` | Analyze upstream/downstream impact of a change target |
 | `mcp__codegraph__list_directory_tree` | Visualize the project directory structure as nested tree |
-| `mcp__codegraph__read_file` | Read file contents (with optional line ranges) |
+| `Read` (built-in) | Read file contents (with optional line ranges) |
 | `mcp__codegraph__find_cycles` | Detect circular dependencies |
 | `mcp__codegraph__find_orphans` | Identify orphan files/symbols |
 | `mcp__codegraph__quality_gate` | Evaluate quality gate against threshold |

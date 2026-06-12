@@ -7,6 +7,7 @@
  * candidates and promoting repeated observations to durable memory.
  */
 
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { MemoryCandidate } from "./experience-types.js";
@@ -76,14 +77,17 @@ function extractTopic(text: string): string {
   return distinctWords.slice(0, 4).join("_");
 }
 
-function updateDurableMemory(candidate: MemoryCandidate, currentMemory: string): string {
+function updateDurableMemory(candidate: MemoryCandidate, currentMemory: string, seenHashes: Set<string>): string {
   const sectionHeader = `## Topic: ${candidate.topic}`;
   const cleanContext = candidate.context.replace(/\n/g, " ").trim();
-  const newFact = `- **Context:** ${cleanContext}\n  *First Seen:* ${candidate.firstSeen} | *Promoted:* ${new Date().toISOString()}`;
-  
-  if (currentMemory.includes(cleanContext)) {
-      return currentMemory; // Already exists, prevent duplication
+  const ctxHash = createHash("sha256").update(cleanContext).digest("hex").slice(0, 16);
+
+  if (seenHashes.has(ctxHash)) {
+    return currentMemory; // Already exists (content-hash dedup)
   }
+  seenHashes.add(ctxHash);
+
+  const newFact = `- **Context:** ${cleanContext}\n  *First Seen:* ${candidate.firstSeen} | *Promoted:* ${new Date().toISOString()}`;
   
   if (currentMemory.includes(sectionHeader)) {
     // Inject right after the section header
@@ -122,7 +126,7 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
         candidate.lastSeen = new Date().toISOString();
       } else {
         candidate = {
-          id: `cand-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `cand-${Date.now()}-${randomUUID().slice(0, 8)}`,
           topic,
           context: lesson,
           confidence: 1,
@@ -147,7 +151,7 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
       candidate.lastSeen = new Date().toISOString();
     } else {
       candidate = {
-        id: `cand-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: `cand-${Date.now()}-${randomUUID().slice(0, 8)}`,
         topic,
         context: `Failure observation: ${failure.error.substring(0, 300)}...`, // Truncate huge errors
         confidence: 1,
@@ -186,11 +190,12 @@ export function runRemSleep(): { promoted: number } {
 
   let promotedCount = 0;
   const remainingCandidates: MemoryCandidate[] = [];
+  const seenHashes = new Set<string>();
 
   for (const candidate of candidates) {
     if (candidate.confidence >= PROMOTION_THRESHOLD) {
       const prevMemoryLength = currentMemory.length;
-      currentMemory = updateDurableMemory(candidate, currentMemory);
+      currentMemory = updateDurableMemory(candidate, currentMemory, seenHashes);
       if (currentMemory.length > prevMemoryLength) {
         promotedCount++;
       }

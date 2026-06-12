@@ -1,7 +1,7 @@
 ---
 name: memory-librarian
 description: Long-term agentic memory management — read, write, synthesize, cross-reference. [Requires: Fast-Exploration Model]
-model: haiku
+model: fable-5
 color: yellow
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*"]
 maxTurns: 20

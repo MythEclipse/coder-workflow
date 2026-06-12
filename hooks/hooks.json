@@ -8,17 +8,11 @@
             "type": "command",
             "command": "bash",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-context"
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/skill-detector"
             ],
-            "timeout": 5,
+            "timeout": 10,
             "async": true,
             "statusMessage": "Detecting skills..."
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'INPUT=$(cat); PROMPT=$(jq -r \".prompt // empty\" <<< \"$INPUT\" 2>/dev/null | head -c 140); mkdir -p .claude 2>/dev/null || true; printf \"[%s] PROMPT: %s\\n\" \"$(date -u +%T)\" \"$PROMPT\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; exit 0'",
-            "timeout": 5,
-            "async": true
           }
         ]
       }
@@ -135,19 +129,19 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+reset\\s+--hard|git\\s+clean\\s+-[a-zA-Z]*f\"; then jq -n \"{systemMessage: \\\"coder-workflow: git reset --hard or clean -f destroys uncommitted work. Ensure nothing unsaved exists.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat 2>/dev/null || echo \"{}\"); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+reset\\s+--hard|git\\s+clean\\s+-[a-zA-Z]*f\"; then jq -n \"{systemMessage: \\\"coder-workflow: git reset --hard or clean -f destroys uncommitted work. Ensure nothing unsaved exists.\\\"}\"; fi; exit 0'",
             "if": "Bash(git reset *)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"DROP\\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\\s+TABLE\"; then jq -n \"{systemMessage: \\\"coder-workflow: Destructive SQL detected (DROP/TRUNCATE). Confirm dev/test, not production.\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat 2>/dev/null || echo \"{}\"); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"DROP\\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\\s+TABLE\"; then jq -n \"{systemMessage: \\\"coder-workflow: Destructive SQL detected (DROP/TRUNCATE). Confirm dev/test, not production.\\\"}\"; fi; exit 0'",
             "if": "Bash(psql *)|Bash(mysql *)|Bash(sqlite3 *)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+merge\"; then jq -n \"{systemMessage: \\\"coder-workflow: git merge detected. Check conflicts with: git diff --name-only --diff-filter=U\\\"}\"; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat 2>/dev/null || echo \"{}\"); CMD=$(jq -r \".tool_input.command // empty\" <<< \"$INPUT\" 2>/dev/null); if printf \"%s\" \"$CMD\" | grep -qE \"git\\s+merge\"; then jq -n \"{systemMessage: \\\"coder-workflow: git merge detected. Check conflicts with: git diff --name-only --diff-filter=U\\\"}\"; fi; exit 0'",
             "if": "Bash(git merge *)",
             "timeout": 5
           }
@@ -174,11 +168,21 @@
         ]
       },
       {
-        "matcher": "Explore|explore|explore-codebase",
+        "matcher": "^(Explore|explore)$",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"MANDATORY: Use ONLY the explore-codebase custom agent (coder-workflow:explore-codebase) for codebase exploration, powered by CodeGraph MCP tools (query_graph, search_code, analyze_impact). Do NOT use the built-in Explore agent. Use batch multi-pattern search_code with patterns:[...] for efficiency. Do NOT use bash find/grep.\\\"}\"'",
+            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PreToolUse\\\", permissionDecision: \\\"deny\\\", permissionDecisionReason: \\\"MANDATORY: Use ONLY the explore-codebase custom agent (coder-workflow:explore-codebase) for codebase exploration. Do NOT use the built-in Explore agent.\\\"}}\"'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "explore-codebase",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'jq -n \"{systemMessage: \\\"Reminder: Use batch multi-pattern search_code with patterns:[...] for efficiency. Do NOT use bash find/grep.\\\"}\"'",
             "timeout": 5
           }
         ]
@@ -190,7 +194,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null); LOG=.claude/session-$(date +%Y%m%d).log; mkdir -p .claude 2>/dev/null || true; [ -f \"$LOG\" ] && SIZE=$(stat -c%s \"$LOG\" 2>/dev/null || echo 0) && [ \"$SIZE\" -gt 10485760 ] && tail -n +500 \"$LOG\" > \"$LOG.tmp\" && mv \"$LOG.tmp\" \"$LOG\"; printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> \"$LOG\" 2>/dev/null; exit 0'",
+            "command": "bash -c 'INPUT=$(cat 2>/dev/null || echo \"{}\"); FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null); LOG=.claude/session-$(date +%Y%m%d).log; mkdir -p .claude 2>/dev/null || true; [ -f \"$LOG\" ] && SIZE=$(wc -c < \"$LOG\" 2>/dev/null || echo 0) && [ \"$SIZE\" -gt 10485760 ] && tail -n +500 \"$LOG\" > \"$LOG.tmp\" && mv \"$LOG.tmp\" \"$LOG\"; printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> \"$LOG\" 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
           },
@@ -203,10 +207,9 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'if command -v coder-workflow >/dev/null 2>&1; then FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null); if [ -n \"$FILE\" ] && [ -f \"$FILE\" ]; then coder-workflow bughunt scan-file --file \"$FILE\" >/dev/null 2>&1 & fi; fi; exit 0'",
-            "timeout": 15,
-            "async": true,
-            "statusMessage": "Running quality checks..."
+            "command": "bash -c 'exit 0'",
+            "timeout": 1,
+            "async": true
           }
         ]
       },
@@ -267,7 +270,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TOOL=$(jq -r \".tool_name // empty\" <<< \"$INPUT\" 2>/dev/null); ERR=$(jq -r \".tool_error // .error // empty\" <<< \"$INPUT\" 2>/dev/null | head -c 200); mkdir -p .claude 2>/dev/null || true; printf \"[%s] FAIL [%s]: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" \"$ERR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; if [ -n \"$TOOL\" ] && [ -n \"$ERR\" ]; then command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type tool_failure --tool \"$TOOL\" --error \"$ERR\" 2>/dev/null || true; fi; exit 0'",
+            "command": "bash -c 'INPUT=$(cat 2>/dev/null || echo \"{}\"); TOOL=$(jq -r \".tool_name // empty\" <<< \"$INPUT\" 2>/dev/null); ERR=$(jq -r \".tool_error // .error // empty\" <<< \"$INPUT\" 2>/dev/null | head -c 200); [ -z \"$TOOL\" ] && exit 0; [ -z \"$ERR\" ] && exit 0; mkdir -p .claude 2>/dev/null || true; printf \"[%s] FAIL [%s]: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" \"$ERR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type tool_failure --tool \"$TOOL\" --error \"$ERR\" 2>/dev/null || true; exit 0'",
             "timeout": 5,
             "async": true
           }
@@ -460,7 +463,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'DIR=$(pwd); printf \"[%s] CWD: %s\\n\" \"$(date -u +%T)\" \"$DIR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; test -f .codegraph/graph.json && echo \"CodeGraph available: $(stat -c%s .codegraph/graph.json 2>/dev/null || echo 0) bytes\" || echo \"No CodeGraph graph file in this directory.\"; exit 0'",
+            "command": "bash -c 'DIR=$(pwd); printf \"[%s] CWD: %s\\n\" \"$(date -u +%T)\" \"$DIR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; test -f .codegraph/graph.json && echo \"CodeGraph available: $(wc -c < .codegraph/graph.json 2>/dev/null || echo 0) bytes\" || echo \"No CodeGraph graph file in this directory.\"; exit 0'",
             "timeout": 5
           }
         ]
@@ -494,6 +497,17 @@
             "timeout": 15,
             "async": true,
             "statusMessage": "Dreaming and curating memory..."
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PermissionRequest\\\", systemMessage: \\\"coder-workflow active — tools include codegraph MCP, Bash, file edit. Grant if you trust this plugin.\\\"}}\"'",
+            "timeout": 3
           }
         ]
       }

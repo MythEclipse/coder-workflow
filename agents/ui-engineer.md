@@ -1,7 +1,7 @@
 ---
 name: ui-engineer
 description: UI components, state management, CSS/Tailwind, A11y — pixel-perfect, accessible, performant. [Requires: Complex-Reasoning Model]
-model: sonnet
+model: fable-5
 color: magenta
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 maxTurns: 30
