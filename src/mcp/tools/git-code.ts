@@ -10,6 +10,10 @@ function tryExec(cmd: string, fallback = ""): string {
   catch { return fallback; }
 }
 
+function sanitizeRef(ref: string): string {
+  return ref.replace(/[^a-zA-Z0-9_.\-\/]/g, "");
+}
+
 function listFiles(dir: string, predicate: (f: string) => boolean): string[] {
   const result: string[] = [];
   try {
@@ -30,7 +34,7 @@ export const ciCdMonitor: ToolEntry = {
     inputSchema: { type: "object", properties: { days: { type: "number" }, branch: { type: "string" } } },
     handler: async (args, root) => {
       const days = (args.days as number) ?? 1;
-      const branch = (args.branch as string) ?? "HEAD";
+      const branch = sanitizeRef((args.branch as string) ?? "HEAD");
       const since = `${days}.days.ago`;
       const log = tryExec(`git log ${branch} --since="${since}" --oneline --format="%H|%an|%ad|%s" --date=short`);
       const commits = log ? log.split("\n").filter(Boolean).map((l: string) => {
@@ -49,8 +53,8 @@ export const codebaseTimeMachine: ToolEntry = {
     description: "Generates diff summary between two git refs",
     inputSchema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" } }, required: ["from", "to"] },
     handler: async (args, root) => {
-      const from = args.from as string;
-      const to = args.to as string;
+      const from = sanitizeRef(args.from as string);
+      const to = sanitizeRef(args.to as string);
       const diff = tryExec(`git diff --numstat ${from}..${to} 2>/dev/null || git diff --numstat ${from}...${to}`);
       if (!diff) return { files: [], message: `No diff between ${from} and ${to}` };
       const files = diff.split("\n").filter(Boolean).map((l: string) => {
@@ -138,8 +142,8 @@ export const apiContractDrifter: ToolEntry = {
     description: "Compares API route definitions between two branches",
     inputSchema: { type: "object", properties: { baseBranch: { type: "string" }, headBranch: { type: "string" } } },
     handler: async (args, root) => {
-      const base = (args.baseBranch as string) || "main";
-      const head = (args.headBranch as string) || "HEAD";
+      const base = sanitizeRef((args.baseBranch as string) || "main");
+      const head = sanitizeRef((args.headBranch as string) || "HEAD");
       const baseStr = tryExec(`git show ${base}:src/mcp-server.ts 2>/dev/null || true`);
       const headStr = tryExec(`git show ${head}:src/mcp-server.ts 2>/dev/null || true`);
       const baseArr: string[] = baseStr.match(/['"](get|post|put|delete|patch)\s+[^'"]+['"]/gi) || [];
@@ -163,10 +167,13 @@ export const crossRepoSemanticSearch: ToolEntry = {
       if (!query) return { results: [] };
       const files = listFiles(dir, (f) => /\.(ts|tsx|js|jsx|py|go|rs|java|md)$/.test(f));
       const results: Array<{ file: string; line: number; content: string }> = [];
+      const MAX_RESULTS = 1000;
       for (const f of files) {
+        if (results.length >= MAX_RESULTS) break;
         try {
           const lines = readFileSync(f, "utf-8").split("\n");
           for (let i = 0; i < lines.length; i++) {
+            if (results.length >= MAX_RESULTS) break;
             if (lines[i].toLowerCase().includes(query.toLowerCase())) {
               results.push({ file: relative(root, f), line: i + 1, content: lines[i].trim().slice(0, 200) });
             }
