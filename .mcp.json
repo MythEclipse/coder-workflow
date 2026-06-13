@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "coder-workflow": {
+      "type": "stdio",
+      "command": "/usr/sbin/coder-workflow",
+      "args": ["mcp"]
+    }
+  }
+}

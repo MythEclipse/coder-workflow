@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "coder-workflow",
   "version": "0.3.0",
-  "description": "Orchestrator-driven coding workflow plugin — task decomposition, skill routing, coding agents, architecture audit, Docker deploy.",
+  "description": "Orchestrator-driven coding workflow plugin with 34 MCP tools — code analysis, team insights, testing, runtime, security, AI-native, DevOps.",
   "author": {
     "name": "Asep Haryana",
     "email": "asepharyana71@gmail.com"
@@ -25,5 +25,6 @@
   "repository": "https://github.com/MythEclipse/coder-workflow",
   "skills": "./skills/",
   "commands": "./commands/",
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
 }
