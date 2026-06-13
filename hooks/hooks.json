@@ -167,26 +167,6 @@
           }
         ]
       },
-      {
-        "matcher": "^(Explore|explore)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PreToolUse\\\", permissionDecision: \\\"deny\\\", permissionDecisionReason: \\\"MANDATORY: Use ONLY the explore-codebase custom agent (coder-workflow:explore-codebase) for codebase exploration. Do NOT use the built-in Explore agent.\\\"}}\"'",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "explore-codebase",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'jq -n \"{systemMessage: \\\"Reminder: Use batch multi-pattern search_code with patterns:[...] for efficiency. Do NOT use bash find/grep.\\\"}\"'",
-            "timeout": 5
-          }
-        ]
-      }
     ],
     "PostToolUse": [
       {
