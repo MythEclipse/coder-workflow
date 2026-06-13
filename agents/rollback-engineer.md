@@ -3,7 +3,7 @@ name: rollback-engineer
 description: Auto-bisect to find which commit introduced a bug, then revert or patch. [Requires: Complex-Reasoning Model]
 model: lite
 color: red
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 maxTurns: 30
 effort: high
 ---

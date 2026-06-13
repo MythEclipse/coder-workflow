@@ -3,7 +3,7 @@ name: db-architect
 description: Schema design, migration planning, query optimization, indexing strategy. [Requires: Complex-Reasoning Model]
 model: lite
 color: blue
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 maxTurns: 30
 effort: high
 ---
@@ -192,11 +192,11 @@ FILE_MANIFEST:
 - Will WRITE: prisma/schema.prisma
 - Will READ: src/modules/user/user.service.ts
 ```
-Use `mcp__codegraph__query_graph` to validate target files exist.
+Use your graph/mapping tools to validate target files exist.
 
 ### 1. Initial Understanding
 
-- Analyze existing schemas using `mcp__codegraph__parse_prisma_schema` or `mcp__codegraph__search_code` with multi-pattern `patterns: ["schema", "model", "table", "column"]`.
+- Analyze existing schemas using graph/mapping tools or graph/mapping tools with multi-pattern `patterns: ["schema", "model", "table", "column"]`.
 - If no schema exists: ask about entities, relationships, data volume, and access patterns (read-heavy vs write-heavy).
 - Determine approach: normalized relational (3NF) or document (JSONB) based on domain see *Core Taxonomy*.
 

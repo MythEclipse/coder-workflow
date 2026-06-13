@@ -3,7 +3,7 @@ name: devops-engineer
 description: Docker, CI/CD (GitHub Actions), VPS deploy with Traefik, GHCR, production config. Plan-first. [Requires: Complex-Reasoning Model]
 model: lite
 version: 0.2.0
-tools: ["Read","Edit","Write","Grep","Glob","Bash","mcp__codegraph__*","invoke_subagent"]
+tools: ["Read","Edit","Write","Grep","Glob","Bash","invoke_subagent"]
 maxTurns: 30
 effort: high
 color: blue
@@ -157,7 +157,7 @@ FILE_MANIFEST:
 - Will READ: docker-compose.yml
 - Other: <command>
 ```
-Use `mcp__codegraph__query_graph` to validate target files exist.
+Use your graph/mapping tools to validate target files exist.
 
 ### Step 0: Plan (Mandatory)
 

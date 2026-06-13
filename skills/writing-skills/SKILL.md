@@ -93,7 +93,6 @@ description: Use when executing plans - dispatches subagent per task with code r
 description: Use when executing implementation plans with independent tasks in the current session
 ```
 
-
 ---
 
 # ⚠️ OVERPOWERED ANTI-LAZY DIRECTIVE ⚠️

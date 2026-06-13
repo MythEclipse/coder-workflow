@@ -54,7 +54,7 @@ A subagent that needs help from another specialist uses `invoke_subagent` and **
 ### Predefined Agent Roles
 
 Use these specialist roles when relevant — each role handles **exactly 1 task**:
-- **explorer** — use `coder-workflow:explore-codebase` agent for CodeGraph-first codebase exploration (replaces built-in Explore agent)
+- **explorer** — use `coder-workflow:explore-codebase` agent for Graph-based MCP tools-first codebase exploration (replaces built-in Explore agent)
 - **implementer** — writes or edits code (1 task per implementer)
 - **test-writer** — writes unit/integration tests for changed code
 - **docs-updater** — updates README, inline docs, or API docs
@@ -105,8 +105,8 @@ When in doubt → parallelize with FILE_MANIFEST pre-check first. Only serialize
 ## Inter-Agent Communication (Swarm Chat)
 
 When multiple agents are running in parallel, you can communicate with each other using the MCP Swarm Chat tools to share discoveries, coordinate changes, or resolve conflicts:
-- Use `mcp__codegraph__send_swarm_message` to broadcast to 'all' or a specific agent.
-- Use `mcp__codegraph__read_swarm_messages` to check if other agents have sent you coordination messages.
+- Use your graph/mapping tools to broadcast to 'all' or a specific agent.
+- Use your graph/mapping tools to check if other agents have sent you coordination messages.
 
 ## Synthesis
 
@@ -118,7 +118,6 @@ After all subagents complete:
 
 ## Reminder
 Never say "I'll do this one at a time." Never batch tasks into a single agent. **N tasks = N subagents.** This is the default behavior, not the exception.
-
 
 ---
 

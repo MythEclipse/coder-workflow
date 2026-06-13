@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "coder-workflow": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/usr/lib/node_modules/coder-workflow/dist/mcp-server.js"]
-    }
-  }
-}

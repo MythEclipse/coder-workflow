@@ -3,7 +3,7 @@ name: multi-repo-orchestrator
 description: Coordinate API contract and structural changes across multi-repo workspaces. [Requires: Complex-Reasoning Model]
 model: lite
 color: cyan
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 maxTurns: 30
 effort: high
 ---

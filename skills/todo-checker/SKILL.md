@@ -95,7 +95,7 @@ Suppression lacking clear justification = policy violation. A TODO without a dat
 
 ## Process
 
-1. **Scan**: Utilize `mcp__codegraph__scan_todos` to pattern-match TODOs/FIXMEs/HACKs. Fallback to Grep if unavailable.
+1. **Scan**: Utilize graph/mapping tools to pattern-match TODOs/FIXMEs/HACKs. Fallback to Grep if unavailable.
 
 2. **Classify per finding**:
    - Determine the **quadrant** (Reckless/Prudent x Deliberate/Inadvertent) from the comment context

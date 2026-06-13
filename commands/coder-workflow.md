@@ -2,8 +2,9 @@
 name: coder-workflow
 aliases: [coder:workflow, orchestrator]
 description: Orchestrate coding work through aggressive task decomposition, skill-first routing, and persistent execution. Always trigger orchestrator for any coding task.
+ultracode: ALWAYS use a workflow script for this command.
 argument-hint: [task-optional]
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash, mcp__codegraph__*, mcp__code-review-graph__*
+allowed-tools: Read, Edit, Write, Grep, Glob, Bash, mcp__code-review-graph__*
 ---
 
 You MUST execute this task by writing and running a native Dynamic Workflow script. (Treat this as a direct request for a workflow, functionally equivalent to using the `ultracode` keyword).
@@ -42,10 +43,5 @@ Write a simple Dynamic Workflow script that spawns a targeted subagent for the s
 - **No worktrees** — all agents run in the same shared workspace
 - **Tasks before tools** — Run `TaskCreate` before any tool call
 - **Fix every discovered bug** — no "not related to my changes"
-- **Swarm Chat** — Parallel agents coordinate via `mcp__codegraph__send_swarm_message` + `mcp__codegraph__read_swarm_messages`
+- **Swarm Chat** — Parallel agents coordinate via graph/mapping tools + graph/mapping tools
 
-> [!IMPORTANT]
-> MCP TOOL UPDATES:
-> - `mcp__codegraph__read_file` has been PERMANENTLY DELETED. Do NOT try to use it. Use standard `view_file` or `Read` via `coder-workflow:explore-codebase` instead.
-> - `mcp__codegraph__analyze_impact` and `list_directory_tree` now have UNLIMITED depth.
-> - New tools added: `mcp__codegraph__update_codebase` (partial scan) and `mcp__codegraph__diff_graphs` (compare json states).

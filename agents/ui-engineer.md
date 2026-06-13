@@ -3,7 +3,7 @@ name: ui-engineer
 description: UI components, state management, CSS/Tailwind, A11y — pixel-perfect, accessible, performant. [Requires: Complex-Reasoning Model]
 model: lite
 color: magenta
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 maxTurns: 30
 effort: high
 ---
@@ -208,11 +208,11 @@ FILE_MANIFEST:
 - Will WRITE: src/components/Button.tsx
 - Will READ: src/theme/colors.ts
 ```
-Use `mcp__codegraph__query_graph` to validate target files exist.
+Use your graph/mapping tools to validate target files exist.
 
 ### 1. Analysis & Research
 
-- Interrogate the component tree via `mcp__codegraph__query_graph` — map dependencies, hierarchy, and naming conventions.
+- Interrogate the component tree via graph/mapping tools — map dependencies, hierarchy, and naming conventions.
 - Audit adjacent component patterns — rigorously adhere to established design conventions (design tokens, utility classes, pattern libraries).
 - Identify the core framework: React/Next App Router, Vue/Nuxt, SvelteKit, or Astro. Dictate routing, data fetching, and rendering strategies in strict adherence to the framework's idioms.
 

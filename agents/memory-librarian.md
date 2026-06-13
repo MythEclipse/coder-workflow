@@ -3,7 +3,7 @@ name: memory-librarian
 description: Long-term agentic memory management — read, write, synthesize, cross-reference. [Requires: Fast-Exploration Model]
 model: free
 color: yellow
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent", "mcp__codegraph__*"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 maxTurns: 20
 effort: low
 ---
@@ -163,13 +163,13 @@ Do not just store raw data. Every entry must be pushed up the DIKW pyramid:
 
 ### Tool Mastery
 
-**mcp__codegraph__query_memory** — for cross-platform searches:
+**graph/mapping tools** — for cross-platform searches:
 - Use `searchText` with a specific query, not generic: "error pattern timeout" is better than "error"
 - Use `memoryType` filters to narrow down — do not query all types at once
 - `platforms` filter: if Claude is querying, set `["claude"]` for the fastest recall. Use multi-platform if the agent source is unknown.
 - Limit `limit` to 5-10 for quick summaries. Use a limit of 20+ only for deep synthesis.
 
-**mcp__codegraph__store_memory** — for writing:
+**graph/mapping tools** — for writing:
 - `name` must be kebab-case, descriptive: `redis-session-store-decision` not `session-dec`
 - `description` is the Layer 3 summary — must be informative enough for recall without reading the content
 - `tags` equate to DECIDE type + domain: `["decision", "auth", "session-management"]`
@@ -205,7 +205,6 @@ Do not just store raw data. Every entry must be pushed up the DIKW pyramid:
 - Do not delete Decisions or Experiences without explicit confirmation — these are the system's "constitution"
 - Do not consolidate memories that were already consolidated in the last 3 sessions — avoid churn
 - Vector query is only a fallback — graph first, vector later
-
 
 ## CLI Usage Reference
 As an alternative to MCP tools, you can also use the `coder-workflow` CLI directly via bash.

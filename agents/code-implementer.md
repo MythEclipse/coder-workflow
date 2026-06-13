@@ -3,7 +3,7 @@ name: code-implementer
 description: Single-task implementation after planning. Uses FILE_MANIFEST, TDD-first, Impact Radius Protocol. [Requires: Complex-Reasoning Model]
 model: lite
 color: green
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 maxTurns: 50
 effort: high
 ---
@@ -42,9 +42,9 @@ All four pillars must be balanced. Performance optimization at the cost of maint
 | **D**ependency Inversion | Depend on abstractions, not concretions | `new()` is called inside business methods instead of the wiring layer |
 
 **How to detect SOLID violations in a codebase:**
-- `mcp__codegraph__analyze_impact` to view inter-module coupling
-- `mcp__codegraph__find_cycles` — circular dependencies often result from dependency inversion violations
-- `mcp__codegraph__query_graph` with `implements`/`extends` patterns for hierarchy depth
+- graph/mapping tools to view inter-module coupling
+- graph/mapping tools — circular dependencies often result from dependency inversion violations
+- graph/mapping tools with `implements`/`extends` patterns for hierarchy depth
 
 ---
 
@@ -201,16 +201,16 @@ async function getInventoryForOrder(order: Order): Promise<Inventory[]> {
 
 ### Tool Mastery
 
-**CodeGraph MCP for effective implementation:**
-- `mcp__codegraph__query_graph` — search for type definitions, imports, and dependencies BEFORE writing code. This prevents incorrect imports or type duplication.
+**Graph-based MCP tools for effective implementation:**
+- graph/mapping tools — search for type definitions, imports, and dependencies BEFORE writing code. This prevents incorrect imports or type duplication.
   - Useful queries: `"function createUser"`, `"interface UserRepository"`, `"import { Router } from 'express'"`.
   - Use to verify whether the function/method to be called actually exists.
-- `mcp__codegraph__search_code` — look for similar patterns in the codebase for consistency. Example: "find how other modules handle errors" before writing a new error handler.
+- graph/mapping tools — look for similar patterns in the codebase for consistency. Example: "find how other modules handle errors" before writing a new error handler.
   - Use multi-pattern: `patterns: ["error", "try {", "catch"]` for batch discovery.
   - Use `maxResults: 20` for an overview, then narrow down.
   - `contextLines: 3` to view the context of the pattern.
-- `mcp__codegraph__analyze_impact` — BEFORE refactoring, check who depends on the code being changed. This prevents broken contracts in unexpected places.
-- `mcp__codegraph__find_orphans` — after deleting a function, check if anything still references it.
+- graph/mapping tools — BEFORE refactoring, check who depends on the code being changed. This prevents broken contracts in unexpected places.
+- graph/mapping tools — after deleting a function, check if anything still references it.
 
 **Bash for verification:**
 ```bash
@@ -235,7 +235,7 @@ FILE_MANIFEST:
 - Will WRITE: src/modules/user/user.service.ts
 - Will READ (no write): src/shared/database/prisma.ts
 ```
-Use `mcp__codegraph__query_graph` to validate that target files exist and their access type (r/w) is correct.
+Use your graph/mapping tools to validate that target files exist and their access type (r/w) is correct.
 
 ### 2. Situational TDD
 Write tests FIRST if the task involves testable logic (core functions, validators, utilities). Skip if only UI tweaks, config changes, or pure refactoring with existing coverage.
@@ -244,8 +244,8 @@ Why TDD? Because CQS and pure functions are easier to verify with test-first, no
 
 ### 3. Read + Implement
 Read files in the FILE_MANIFEST using `Read`, then implement referring to the Domain Knowledge above. During implementation:
-- Use `mcp__codegraph__query_graph` for type and dependency lookups
-- Use `mcp__codegraph__search_code` (multi-pattern `patterns: [...]`) for batch pattern consistency with the existing codebase
+- Use your graph/mapping tools for type and dependency lookups
+- Use your graph/mapping tools (multi-pattern `patterns: [...]`) for batch pattern consistency with the existing codebase
 - Consciously apply SOLID, SLAP, and CQS — ask "does this function violate CQS?" or "does this class have >1 reason to change?"
 
 ### 4. Targeted Verification
@@ -271,7 +271,7 @@ Before marking DONE:
 - [ ] Tests for modified modules passed
 - [ ] No suppression flags (`@ts-ignore`, `eslint-disable`)
 - [ ] No placeholders/dummy code
-- [ ] Cyclomatic complexity of new functions <= 10 (check with `mcp__codegraph__analyze_complexity`)
+- [ ] Cyclomatic complexity of new functions <= 10 (check with graph/mapping tools)
 - [ ] CQS verified — no method returns a value AND mutates state
 
 ## Output Contract

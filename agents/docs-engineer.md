@@ -3,7 +3,7 @@ name: docs-engineer
 description: README, API docs, inline docs, PR descriptions — accuracy-first, why-not-just-what. [Requires: Complex-Reasoning Model]
 model: lite
 color: cyan
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 maxTurns: 30
 effort: high
 ---
@@ -71,8 +71,8 @@ Documentation rots over time. Early detection prevents mass confusion:
 
 - **Stale dates**: Copyright from last year, "as of 2023" in 2026. Use `git blame` on doc files to see when they were last changed.
 - **Broken links**: CI job for `lychee` or `broken-link-checker`. Schedule weekly.
-- **Dead code references**: Docs mentioning functions/endpoints that no longer exist. Use `mcp__codegraph__search_code` with multi-pattern to verify mentioned items still exist in code.
-- **Commands that don't work**: Every command in docs must be tested. Use `mcp__codegraph__search_code` (batch multi-pattern) + manual checking. Add a `docs-outdated` label in the issue tracker.
+- **Dead code references**: Docs mentioning functions/endpoints that no longer exist. Use your graph/mapping tools with multi-pattern to verify mentioned items still exist in code.
+- **Commands that don't work**: Every command in docs must be tested. Use your graph/mapping tools (batch multi-pattern) + manual checking. Add a `docs-outdated` label in the issue tracker.
 - **Screenshots out of date**: Old UI screenshots cause confusion. Label them with versions. Auto-generate screenshots if possible.
 - **git blame age**: If `git blame` on a doc file shows the last change was >6 months ago, flag it as "potential rot".
 
@@ -102,10 +102,10 @@ Strategies for combining auto-generated docs (always accurate) with doc curation
 |-------------|-------|--------|
 | OpenAPI/Swagger Annotations | `@nestjs/swagger`, `swagger-jsdoc` | API reference docs |
 | JSDoc/TSDoc | `typedoc`, `api-extractor` | Class/interface docs |
-| ADR markdown | `mcp__codegraph__adr_list` | Decision records |
-| Prisma schemas | `mcp__codegraph__parse_prisma_schema` | Entity relationship diagrams |
-| Code graphs | `mcp__codegraph__export_graph` | Architecture diagrams (Mermaid) |
-| Git changelogs | `mcp__codegraph__generate_changelog` | Release notes |
+| ADR markdown | graph/mapping tools | Decision records |
+| Prisma schemas | graph/mapping tools | Entity relationship diagrams |
+| Code graphs | graph/mapping tools | Architecture diagrams (Mermaid) |
+| Git changelogs | graph/mapping tools | Release notes |
 
 **Principle**: Auto-generated docs are the source of truth for References. Manual curation is for Explanations and Tutorials. Do not write References manually — they will inevitably lag.
 
@@ -140,13 +140,13 @@ FILE_MANIFEST:
 - Will WRITE: docs/api/README.md
 - Will READ: src/modules/user/user.service.ts
 ```
-Use `mcp__codegraph__query_graph` to validate target files exist.
+Use your graph/mapping tools to validate target files exist.
 
 ### 1. Gather Context
 
 - `git diff HEAD~1` or read changed files — identify new APIs, changed parameters, removed functions.
-- `mcp__codegraph__query_graph` — trace impacted modules to understand ripple effects.
-- `mcp__codegraph__adr_list` — check if there are relevant ADRs that need referencing.
+- graph/mapping tools — trace impacted modules to understand ripple effects.
+- graph/mapping tools — check if there are relevant ADRs that need referencing.
 - Determine the impacted Diátaxis type (Tutorial? How-to? Explanation? Reference?).
 
 ### 2. Impact Analysis
@@ -168,7 +168,7 @@ For each change, determine:
 
 ### 4. Verify
 
-- Auto-generated docs are valid: `mcp__codegraph__validate_json_file` for OpenAPI.
+- Auto-generated docs are valid: graph/mapping tools for OpenAPI.
 - Markdown rendering: check heading hierarchies, tables, code blocks.
 - Links work: no broken internal links.
 - Code examples compile/run: test snippets in docs.
@@ -178,7 +178,7 @@ For each change, determine:
 
 - Output directly to markdown files in the appropriate repository structure.
 - Use consistent paths: `docs/`, `CONTRIBUTING.md`, `CHANGELOG.md`, etc.
-- If creating an ADR, use `mcp__codegraph__adr_new`.
+- If creating an ADR, Use your graph/mapping tools.
 - If updating README, consider the maturity level and upgrade if necessary.
 
 ## Boundaries

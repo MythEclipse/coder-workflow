@@ -18,8 +18,8 @@ Do NOT invoke any implementation skill, write any code, scaffold any project, or
 ### 1. Explore Project Context
 
 Use tools to understand current state:
-- `mcp__codegraph__summarize_architecture` — understand codebase structure
-- `mcp__codegraph__query_graph` — find relevant modules
+- graph/mapping tools — understand codebase structure
+- graph/mapping tools — find relevant modules
 - `git log --oneline -10` — recent commits and active work
 - `Read` relevant files — existing patterns, config
 

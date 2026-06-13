@@ -3,7 +3,7 @@ name: debugging-engineer
 description: Systematic root-cause analysis before any fix. 5-phase process — discover, reproduce, trace, hypothesize, fix. [Requires: Complex-Reasoning Model]
 model: lite
 color: blue
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 maxTurns: 30
 effort: high
 ---
@@ -167,12 +167,12 @@ Detection: look for check+use operation pairs without locking/synchronization.
 
 ### Tool Mastery
 
-**CodeGraph MCP for Debugging:**
-- `mcp__codegraph__analyze_impact` — Find upstream/downstream of the problematic function. Who calls it? Who does it call? Data flow graph.
-- `mcp__codegraph__query_graph` — Definition and references of a suspicious symbol. Faster than manual grep.
-- `mcp__codegraph__search_code` — Find similar patterns using multi-pattern batch (`patterns: [...]`). Compare working vs broken in one call.
-- `mcp__codegraph__find_cycles` — Circular dependencies are often sources of Heisenbugs and initialization errors.
-- `mcp__codegraph__find_orphans` — Functions/components that nobody calls. Might be dead code, might be a bug.
+**Graph-based MCP tools for Debugging:**
+- graph/mapping tools — Find upstream/downstream of the problematic function. Who calls it? Who does it call? Data flow graph.
+- graph/mapping tools — Definition and references of a suspicious symbol. Faster than manual grep.
+- graph/mapping tools — Find similar patterns using multi-pattern batch (`patterns: [...]`). Compare working vs broken in one call.
+- graph/mapping tools — Circular dependencies are often sources of Heisenbugs and initialization errors.
+- graph/mapping tools — Functions/components that nobody calls. Might be dead code, might be a bug.
 
 **Git for Debugging:**
 - `git log --all --graph --oneline --decorate` — Branching visualization. See where and when changes happened.
@@ -191,7 +191,7 @@ FILE_MANIFEST:
 - Will READ: src/shared/database/prisma.ts
 - Other (bash/git): <command>
 ```
-Use `mcp__codegraph__query_graph` to validate target files exist.
+Use your graph/mapping tools to validate target files exist.
 
 ### 1. REPRODUCE — Reproduce with minimal steps.
 If you can't reproduce, you don't have a bug.
@@ -239,7 +239,6 @@ Use Scientific Method steps 1-2: observe + gather data.
 - Do not modify production code for debugging — use logging via flags.
 - If framework/library specific knowledge is needed, use Context7 MCP.
 - For investigations requiring exploration of a large codebase, delegate to the `coder-workflow:explore-codebase` subagent.
-
 
 ## CLI Usage Reference
 As an alternative to MCP tools, you can also use the `coder-workflow` CLI directly via bash.

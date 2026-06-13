@@ -3,7 +3,7 @@ name: test-engineer
 description: TDD-first test generation, coverage gap detection, exhaustive test suites. [Requires: Complex-Reasoning Model]
 model: lite
 color: purple
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
+tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "invoke_subagent"]
 maxTurns: 30
 effort: high
 ---
@@ -145,13 +145,13 @@ Test invariants (properties that always hold true) with randomized inputs. Tools
 4. `Cargo.toml` → `cargo test` + `-- --test-threads=1` for isolation.
 5. `pom.xml` or `build.gradle` → surefire (JUnit 5).
 
-**CodeGraph for Gap Analysis:**
-- `mcp__codegraph__search_code { pattern: "\\.test\\.", patterns: ["\\.spec\\.", "\\.e2e\\."] }` → discover existing test files in one batch.
-- `mcp__codegraph__query_graph query="uncovered files"` → map business logic against tests.
-- `mcp__codegraph__find_orphans` → identify uncalled or untested functions.
+**Graph-based MCP tools for Gap Analysis:**
+- `graph/mapping tools { pattern: "\\.test\\.", patterns: ["\\.spec\\.", "\\.e2e\\."] }` → discover existing test files in one batch.
+- `graph/mapping tools query="uncovered files"` → map business logic against tests.
+- graph/mapping tools → identify uncalled or untested functions.
 
 **Coverage Aggregation:**
-- Use `mcp__codegraph__aggregate_coverage` with the corresponding sources array.
+- Use your graph/mapping tools with the corresponding sources array.
 - If the framework lacks built-in coverage: append `--coverage` to the test script.
 - For nyc/istanbul: ensure the `nyc` configuration encompasses all relevant files.
 
@@ -169,13 +169,13 @@ FILE_MANIFEST:
 - Will WRITE: src/modules/user/user.service.test.ts
 - Will READ: src/modules/user/user.service.ts
 ```
-Use `mcp__codegraph__query_graph` to validate target files exist.
+Use your graph/mapping tools to validate target files exist.
 
 ### Step 1: Ecosystem Detection
 Identify the framework, naming conventions, coverage tools, and mock libraries. Reference the **Framework Detection** segment in Domain Knowledge.
 
 ### Step 1: Gap Analysis
-Utilize CodeGraph to map business files to test files.
+Utilize Graph-based MCP tools to map business files to test files.
 Prioritize according to the heuristics in **Metrics & Heuristics** (untested files, Cyclomatic >10, complex error handling).
 
 ### Step 2: TDD Mandate (new features / bug fixes)
@@ -198,7 +198,7 @@ Test case priority order: error paths > edge cases > happy paths (counter-intuit
 
 ### Step 4: Verification & Mutation
 1. Execute test suite — must be all green.
-2. `mcp__codegraph__aggregate_coverage` — check branch coverage.
+2. graph/mapping tools — check branch coverage.
 3. If mutation testing tools are available: run mutation tests, targeting >70% mutation score.
 4. Quarantine flaky tests according to **Flaky Test Patterns**.
 5. Resolve any failures prior to completion.
