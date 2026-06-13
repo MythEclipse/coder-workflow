@@ -5,23 +5,13 @@ import { Command } from "commander";
 import {
   createADR,
   formatADRList,
-  generateADRGraph,
   getADR,
   initADR,
   listADRs,
   updateADRStatus,
 } from "./adr.js";
-import {
-  analyzeGraphQuality,
-  analyzeImpact,
-  evaluateQualityGate,
-  findCycles,
-  findOrphans,
-  queryGraph,
-  summarizeArchitecture,
-} from "./analysis.js";
 import { compareOpenApiSpecs, diffOpenApiFromGit, formatContractReport } from "./api-contract.js";
-import { readFailOnThreshold, readFlag, readSearchOptions } from "./args.js";
+import { readFailOnThreshold, readFlag } from "./args.js";
 import {
   formatBugReport,
   getBugHunterStats,
@@ -29,7 +19,6 @@ import {
   scanDirectoryForBugs,
   scanFileForBugs,
 } from "./bug-hunter.js";
-import { answerQuestion, formatQAResult, generateOnboardingDocs } from "./codebase-qa.js";
 import {
   compareStats,
   formatStats,
@@ -82,7 +71,6 @@ import {
   formatSchemaReport,
   parsePrismaSchema,
 } from "./db-schema.js";
-import { detectDeadCodeFromGraph } from "./deadcode.js";
 import { formatDoctorReport, generateDoctorReport } from "./doctor.js";
 import { runDreamingCycle } from "./dreaming.js";
 import {
@@ -94,15 +82,12 @@ import {
   queryDecisions,
   queryRecent,
 } from "./experience-journal.js";
-import { exportGraph } from "./exporters.js";
-import { diffGraphs, formatGraphDiff } from "./git-diff.js";
 import {
   detectExistingHooks,
   formatHookError,
   scaffoldHooks,
   validateCommitMessage,
 } from "./git-hooks.js";
-import { graphExists, readGraph, scanCodebase, writeGraph } from "./graph.js";
 import {
   checkMissingTranslation,
   extractHardcodedStrings,
@@ -144,9 +129,7 @@ import {
   generateChangelog,
   generatePRDescription,
 } from "./release.js";
-import { searchCodebase } from "./search.js";
 import { formatSecretsReport, scanForSecrets } from "./secrets.js";
-import { buildEmbeddings, getEmbeddingStats, semanticSearch } from "./semantic-search.js";
 import { loadSettings } from "./settings.js";
 import { pruneStaleSkills, scaffoldNewSkill } from "./skill-curator.js";
 import {
@@ -168,7 +151,6 @@ import {
 } from "./tier3.js";
 import { formatTodoReport, getTodoHistory, scanForTodos } from "./todo-tracker.js";
 import { getStats as getTradeoffStats, querySimilar } from "./trade-off-analyzer.js";
-import { openGraphUi } from "./ui.js";
 import { formatVulnReport, generateSBOM, scanVulnerabilities } from "./vuln-sbom.js";
 
 const root = cwd();
@@ -178,7 +160,7 @@ async function main() {
   const program = new Command();
   program
     .name("coder-workflow")
-    .description("Orchestrator-driven coding workflow with graph-first codebase understanding")
+    .description("Orchestrator-driven coding workflow plugin")
     .allowUnknownOption(true)
     .helpOption("-h, --help", "Display help for command");
 
@@ -187,204 +169,7 @@ async function main() {
     process.exitCode = 1;
   });
 
-  program
-    .command("search [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        const options = readSearchOptions(args);
-        console.log(JSON.stringify(searchCodebase(root, settings, options), null, 2));
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("scan [args...]")
-    .alias("update")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        const dryRun = args.includes("--dry-run");
-        const graph = await scanCodebase(root, settings);
-        if (dryRun) {
-          console.log(
-            JSON.stringify(
-              {
-                dryRun: true,
-                wouldWrite: ".codegraph/graph.json",
-                nodes: graph.nodes.length,
-                edges: graph.edges.length,
-                filesScanned: graph.metadata.filesScanned,
-                languages: graph.metadata.languages,
-              },
-              null,
-              2,
-            ),
-          );
-        } else {
-          await writeGraph(root, graph);
-          console.log(
-            JSON.stringify(
-              {
-                graph: ".codegraph/graph.json",
-                nodes: graph.nodes.length,
-                edges: graph.edges.length,
-                filesScanned: graph.metadata.filesScanned,
-              },
-              null,
-              2,
-            ),
-          );
-        }
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("query [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        await ensureGraph();
-        const query = args.join(" ").trim();
-        if (!query) {
-          console.error("Query string is required and must not be empty.");
-          process.exitCode = 1;
-          return;
-        }
-        console.log(JSON.stringify(queryGraph(await readGraph(root), query), null, 2));
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("impact [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        await ensureGraph();
-        const target = args.join(" ").trim();
-        if (!target) {
-          console.error("Target string is required and must not be empty.");
-          process.exitCode = 1;
-          return;
-        }
-        console.log(
-          JSON.stringify(analyzeImpact(await readGraph(root), target, settings.maxDepth), null, 2),
-        );
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("cycles [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        await ensureGraph();
-        console.log(JSON.stringify(findCycles(await readGraph(root)), null, 2));
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("orphans [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        await ensureGraph();
-        console.log(JSON.stringify(findOrphans(await readGraph(root)), null, 2));
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("summary [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        await ensureGraph();
-        console.log(JSON.stringify(summarizeArchitecture(await readGraph(root)), null, 2));
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("export [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        await ensureGraph();
-        const formats = args.length ? args : settings.exports;
-        console.log(
-          JSON.stringify({ written: exportGraph(root, await readGraph(root), formats) }, null, 2),
-        );
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("ui [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        await ensureGraph();
-        const url = await openGraphUi(root, settings);
-        console.log(JSON.stringify({ url }, null, 2));
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("diff [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      if (args.length < 2) {
-        console.error("Usage: codegraph-mapper diff <before.json> <after.json>");
-        process.exitCode = 1;
-        return;
-      }
-      try {
-        const before = JSON.parse(readFileSync(args[0], "utf8"));
-        const after = JSON.parse(readFileSync(args[1], "utf8"));
-        console.log(formatGraphDiff(diffGraphs(before, after)));
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("mcp [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      {
-        // Start the MCP server using the bundled server entrypoint.
-        // Importing the compiled mcp-server module will run its top-level startup logic.
-        await import("./mcp-server.js");
-        return;
-      }
-      // ─── Headroom: CCR ────────────────────────────────────────────────
-    });
+  // ─── Headroom: CCR ────────────────────────────────────────────────
   program
     .command("compress [args...]")
     .allowUnknownOption(true)
@@ -442,9 +227,9 @@ async function main() {
         console.log(JSON.stringify({ purged: cleanCCR(maxAge) }, null, 2));
         return;
       }
-
-      // ─── Headroom: CacheAligner ───────────────────────────────────────
     });
+
+  // ─── Headroom: CacheAligner ───────────────────────────────────────
   program
     .command("align-cache [args...]")
     .allowUnknownOption(true)
@@ -478,9 +263,9 @@ async function main() {
         console.log(JSON.stringify(getCacheAlignment(), null, 2));
         return;
       }
-
-      // ─── Headroom: Learn ──────────────────────────────────────────────
     });
+
+  // ─── Headroom: Learn ──────────────────────────────────────────────
   program
     .command("learn-analyze [args...]")
     .allowUnknownOption(true)
@@ -561,9 +346,9 @@ async function main() {
         );
         return;
       }
-
-      // ─── Headroom: Cross-Agent Memory ─────────────────────────────────
     });
+
+  // ─── Headroom: Cross-Agent Memory ─────────────────────────────────
   program
     .command("memory-store [args...]")
     .allowUnknownOption(true)
@@ -664,9 +449,9 @@ async function main() {
         console.log(JSON.stringify({ platforms: getSupportedPlatforms() }, null, 2));
         return;
       }
-
-      // ─── New Features: Self-Learning & Dreaming ───────────────────────
     });
+
+  // ─── New Features: Self-Learning & Dreaming ───────────────────────
   program
     .command("dream [args...]")
     .allowUnknownOption(true)
@@ -702,70 +487,9 @@ async function main() {
         }
         return;
       }
+    });
 
-      // ─── New Features: Dead Code ─────────────────────────────────────
-    });
-  program
-    .command("dead-code [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      {
-        try {
-          const result = await detectDeadCodeFromGraph(root);
-          console.log(JSON.stringify(result, null, 2));
-        } catch (error) {
-          console.error(error instanceof Error ? error.message : String(error));
-          process.exitCode = 1;
-        }
-        return;
-      }
-
-      // ─── New Features: Semantic Search ────────────────────────────────
-    });
-  program
-    .command("semantic-search [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      try {
-        const query = args.join(" ").trim();
-        if (!query && !args.includes("--build")) {
-          console.error(
-            "Usage: coder-workflow semantic-search <query> [--max-results 20] or coder-workflow semantic-search --build",
-          );
-          process.exitCode = 1;
-          return;
-        }
-        if (args.includes("--build")) {
-          const result = buildEmbeddings(root, settings);
-          console.log(JSON.stringify(result, null, 2));
-        } else {
-          const result = semanticSearch(root, settings, {
-            query,
-            maxResults: parseInt(readFlag(args, "--max-results") ?? "20", 10),
-            include: readFlag(args, "--include")?.split(",").filter(Boolean),
-            exclude: readFlag(args, "--exclude")?.split(",").filter(Boolean),
-          });
-          console.log(JSON.stringify(result, null, 2));
-        }
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 1;
-      }
-    });
-  program
-    .command("embedding-stats [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      {
-        console.log(JSON.stringify(getEmbeddingStats(root), null, 2));
-        return;
-      }
-
-      // ─── New Features: PR & Changelog ─────────────────────────────────
-    });
+  // ─── PR & Changelog ───────────────────────────────────────────────
   program
     .command("pr [args...]")
     .allowUnknownOption(true)
@@ -803,9 +527,9 @@ async function main() {
         console.log(JSON.stringify(release, null, 2));
         return;
       }
-
-      // ─── New Features: Secrets Scanner ────────────────────────────────
     });
+
+  // ─── Secrets Scanner ──────────────────────────────────────────────
   program
     .command("secrets [args...]")
     .allowUnknownOption(true)
@@ -818,9 +542,9 @@ async function main() {
         console.log(formatSecretsReport(report));
         return;
       }
-
-      // ─── New Features: ADR Manager ────────────────────────────────────
     });
+
+  // ─── ADR Manager ──────────────────────────────────────────────────
   program
     .command("adr [args...]")
     .allowUnknownOption(true)
@@ -829,7 +553,7 @@ async function main() {
       {
         const sub = args[0];
         if (!sub) {
-          console.error("Usage: coder-workflow adr <new|list|get|status|graph|init> [args...]");
+          console.error("Usage: coder-workflow adr <new|list|get|status|init> [args...]");
           process.exitCode = 1;
           return;
         }
@@ -888,18 +612,15 @@ async function main() {
             console.log(`ADR ${id} status updated to: ${status}`);
             return;
           }
-          case "graph":
-            console.log(generateADRGraph());
-            return;
           default:
-            console.error("Unknown adr subcommand. Use: new, list, get, status, graph, init");
+            console.error("Unknown adr subcommand. Use: new, list, get, status, init");
             process.exitCode = 1;
         }
         return;
       }
-
-      // ─── New Features: Vulnerability Scanner ──────────────────────────
     });
+
+  // ─── Vulnerability Scanner ────────────────────────────────────────
   program
     .command("vuln-scan [args...]")
     .allowUnknownOption(true)
@@ -919,40 +640,9 @@ async function main() {
         console.log(sbom.content);
         return;
       }
+    });
 
-      // ─── New Features: Codebase Q&A ───────────────────────────────────
-    });
-  program
-    .command("qa [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      const question = args.join(" ");
-      if (!question) {
-        console.error("Usage: coder-workflow qa <question>");
-        process.exitCode = 1;
-        return;
-      }
-      const result = await answerQuestion(root, { question });
-      console.log(formatQAResult(result));
-    });
-  program
-    .command("onboarding-docs [args...]")
-    .allowUnknownOption(true)
-    .action(async (commandArgs, options, cmdObj) => {
-      const args = cmdObj.args || [];
-      {
-        const docs = await generateOnboardingDocs(root);
-        for (const doc of docs.files) {
-          console.log(`--- ${doc.path} ---`);
-          console.log(doc.content);
-          console.log("");
-        }
-        return;
-      }
-
-      // ─── New Features: Tier 3 ─────────────────────────────────────────
-    });
+  // ─── Tier 3 / Ops ─────────────────────────────────────────────────
   program
     .command("sprint [args...]")
     .allowUnknownOption(true)
@@ -1032,9 +722,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── API Contract Tester ──────────────────────────────────────────
     });
+
+  // ─── API Contract Tester ──────────────────────────────────────────
   program
     .command("api-contract [args...]")
     .allowUnknownOption(true)
@@ -1070,9 +760,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Config Validator ─────────────────────────────────────────────
     });
+
+  // ─── Config Validator ─────────────────────────────────────────────
   program
     .command("config-validator [args...]")
     .alias("validate")
@@ -1127,9 +817,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── License Checker ──────────────────────────────────────────────
     });
+
+  // ─── License Checker ──────────────────────────────────────────────
   program
     .command("license-check [args...]")
     .alias("licenses")
@@ -1147,9 +837,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Complexity Tracker ───────────────────────────────────────────
     });
+
+  // ─── Complexity Tracker ───────────────────────────────────────────
   program
     .command("complexity [args...]")
     .allowUnknownOption(true)
@@ -1175,9 +865,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Log Analyzer ─────────────────────────────────────────────────
     });
+
+  // ─── Log Analyzer ─────────────────────────────────────────────────
   program
     .command("log-analyze [args...]")
     .alias("logs")
@@ -1200,9 +890,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Coverage Aggregator ──────────────────────────────────────────
     });
+
+  // ─── Coverage Aggregator ──────────────────────────────────────────
   program
     .command("coverage [args...]")
     .allowUnknownOption(true)
@@ -1242,9 +932,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Git Hook Scaffolder ──────────────────────────────────────────
     });
+
+  // ─── Git Hook Scaffolder ──────────────────────────────────────────
   program
     .command("hooks [args...]")
     .alias("git-hooks")
@@ -1292,9 +982,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Todo/Fixme Tracker ───────────────────────────────────────────
     });
+
+  // ─── Todo/Fixme Tracker ───────────────────────────────────────────
   program
     .command("todos [args...]")
     .alias("todo")
@@ -1330,9 +1020,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Performance Audit ────────────────────────────────────────────
     });
+
+  // ─── Performance Audit ────────────────────────────────────────────
   program
     .command("perf [args...]")
     .alias("performance")
@@ -1369,9 +1059,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── i18n Helper ──────────────────────────────────────────────────
     });
+
+  // ─── i18n Helper ──────────────────────────────────────────────────
   program
     .command("i18n [args...]")
     .alias("locale")
@@ -1400,9 +1090,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── DB Schema Reporter ───────────────────────────────────────────
     });
+
+  // ─── DB Schema Reporter ───────────────────────────────────────────
   program
     .command("db-schema [args...]")
     .allowUnknownOption(true)
@@ -1430,9 +1120,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Doctor (Environment Reporter) ────────────────────────────────
     });
+
+  // ─── Doctor (Environment Reporter) ────────────────────────────────
   program
     .command("doctor [args...]")
     .allowUnknownOption(true)
@@ -1448,9 +1138,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Codebase Stats Dashboard ─────────────────────────────────────
     });
+
+  // ─── Codebase Stats Dashboard ─────────────────────────────────────
   program
     .command("stats [args...]")
     .alias("codebase-stats")
@@ -1489,9 +1179,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Sequential Thinking ──────────────────────────────────────────
     });
+
+  // ─── Sequential Thinking ──────────────────────────────────────────
   program
     .command("think [args...]")
     .allowUnknownOption(true)
@@ -1521,8 +1211,9 @@ async function main() {
         }
         return;
       }
-      // ─── Experience Journal ───────────────────────────────────────────
     });
+
+  // ─── Experience Journal ───────────────────────────────────────────
   program
     .command("experience [args...]")
     .allowUnknownOption(true)
@@ -1546,8 +1237,6 @@ async function main() {
             const stats = getExpStats();
             console.log(JSON.stringify(stats, null, 2));
           } else if (sub === "record") {
-            // Write a task completion entry to the experience journal.
-            // Required: --task-type and --desc. --outcome defaults to "success".
             const taskType = readFlag(args, "--task-type");
             const taskDesc = readFlag(args, "--desc");
             if (!taskType || !taskDesc) {
@@ -1585,7 +1274,6 @@ async function main() {
             });
             console.log(JSON.stringify(entry, null, 2));
           } else if (sub === "record-failure") {
-            // Quick-log a failure without full completion context.
             const taskType = readFlag(args, "--task-type");
             const error = readFlag(args, "--error");
             const context = readFlag(args, "--context");
@@ -1599,7 +1287,6 @@ async function main() {
             const entry = expRecordFailure(taskType, error, context);
             console.log(JSON.stringify(entry, null, 2));
           } else if (sub === "record-decision") {
-            // Record an architectural/technical decision for future reference.
             const context = readFlag(args, "--context");
             const selected = readFlag(args, "--selected");
             const rationale = readFlag(args, "--rationale");
@@ -1632,9 +1319,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Quality Guardian ─────────────────────────────────────────────
     });
+
+  // ─── Quality Guardian ─────────────────────────────────────────────
   program
     .command("quality [args...]")
     .allowUnknownOption(true)
@@ -1656,27 +1343,8 @@ async function main() {
           } else if (sub === "modules") {
             const map = getModuleMap();
             console.log(JSON.stringify(map, null, 2));
-          } else if (sub === "graph") {
-            // Merged from the original graph-based quality route
-            await ensureGraph();
-            const report = analyzeGraphQuality(await readGraph(root), root);
-            const threshold = readFailOnThreshold(args);
-            if (threshold === "invalid") {
-              console.error("Invalid --fail-on threshold. Use high, medium, or low.");
-              process.exitCode = 1;
-              return;
-            }
-            if (threshold) {
-              const gate = evaluateQualityGate(report.issues, threshold);
-              console.log(JSON.stringify({ ...report, ...gate }, null, 2));
-              if (gate.wouldFail) {
-                process.exitCode = 1;
-              }
-            } else {
-              console.log(JSON.stringify(report, null, 2));
-            }
           } else {
-            console.error("Usage: coder-workflow quality <check|snapshot|gate|modules|graph>");
+            console.error("Usage: coder-workflow quality <check|snapshot|gate|modules>");
             process.exitCode = 1;
           }
         } catch (error) {
@@ -1685,9 +1353,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Trade-Off Analyzer ───────────────────────────────────────────
     });
+
+  // ─── Trade-Off Analyzer ───────────────────────────────────────────
   program
     .command("tradeoff [args...]")
     .allowUnknownOption(true)
@@ -1716,9 +1384,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Consistency Enforcer ─────────────────────────────────────────
     });
+
+  // ─── Consistency Enforcer ─────────────────────────────────────────
   program
     .command("consistency [args...]")
     .allowUnknownOption(true)
@@ -1754,9 +1422,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Tech Debt Tracker ────────────────────────────────────────────
     });
+
+  // ─── Tech Debt Tracker ────────────────────────────────────────────
   program
     .command("debt [args...]")
     .allowUnknownOption(true)
@@ -1798,9 +1466,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Bug Hunter ───────────────────────────────────────────────────
     });
+
+  // ─── Bug Hunter ───────────────────────────────────────────────────
   program
     .command("bughunt [args...]")
     .allowUnknownOption(true)
@@ -1838,9 +1506,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Knowledge Integrator ─────────────────────────────────────────
     });
+
+  // ─── Knowledge Integrator ─────────────────────────────────────────
   program
     .command("knowledge [args...]")
     .allowUnknownOption(true)
@@ -1876,9 +1544,9 @@ async function main() {
         }
         return;
       }
-
-      // ─── Pre-Flight Checklist ─────────────────────────────────────────
     });
+
+  // ─── Pre-Flight Checklist ─────────────────────────────────────────
   program
     .command("preflight [args...]")
     .allowUnknownOption(true)
@@ -1895,10 +1563,6 @@ async function main() {
         }
         return;
       }
-
-      /**
-       * usage() called below this case.
-       */
     });
 
   program.parseAsync(process.argv).catch((error) => {
@@ -1911,12 +1575,6 @@ main().catch((err) => {
   console.error(err instanceof Error ? err.message : String(err));
   process.exitCode = 1;
 });
-
-async function ensureGraph(): Promise<void> {
-  if (!(await graphExists(root))) {
-    throw new Error("Missing .codegraph/graph.json. Run scan first.");
-  }
-}
 
 /**
  * Read stdin as a string. Returns null if stdin is a TTY.

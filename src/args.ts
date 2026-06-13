@@ -2,7 +2,6 @@
  * Shared argument parsing utilities for CLI and MCP.
  */
 
-import type { QualityGateThreshold } from "./analysis.js";
 
 export function readFlag(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);

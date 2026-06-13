@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { copyFileSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { chmod } from "node:fs/promises";
-import { dirname, extname, join } from "node:path";
+import { extname, join } from "node:path";
 import { build } from "esbuild";
 
 const shared = {
@@ -11,7 +11,7 @@ const shared = {
   target: "es2022",
   sourcemap: false,
   logLevel: "info",
-  external: ["node:*", "typescript"],
+  external: ["typescript"],
 };
 
 await build({
@@ -22,26 +22,7 @@ await build({
 
 await build({
   ...shared,
-  entryPoints: ["src/mcp-server.ts"],
-  outfile: "dist/mcp-server.js",
-});
-
-await build({
-  ...shared,
   entryPoints: [
-    "test/cli-quality-gate.test.ts",
-    "test/git-diff.test.ts",
-    "test/graph.test.ts",
-    "test/mcp-quality-gate.test.ts",
-    "test/search.test.ts",
-    "test/fs-tools.test.ts",
-    "test/parsers/java.test.ts",
-    "test/parsers/kotlin.test.ts",
-    "test/parsers/javascript.test.ts",
-    "test/parsers/python.test.ts",
-    "test/parsers/go.test.ts",
-    "test/parsers/rust.test.ts",
-    "test/sequential-thinking.test.ts",
     "test/complexity-tracker.test.ts",
     "test/todo-tracker.test.ts",
     "test/performance-audit.test.ts",
@@ -63,7 +44,6 @@ await build({
     "test/secrets.test.ts",
     "test/release.test.ts",
     "test/adr.test.ts",
-    "test/codebase-qa.test.ts",
     "test/tier3.test.ts",
   ],
   outdir: "dist/test",
@@ -71,11 +51,6 @@ await build({
 });
 
 await chmod("dist/cli.js", 0o755);
-await chmod("dist/mcp-server.js", 0o755);
-
-// Copy python worker
-copyFileSync("src/graph/parsers/python-worker.py", "dist/python-worker.py");
-copyFileSync("src/graph/parsers/python-worker.py", "dist/test/python-worker.py");
 
 // ── Build manifest with SHA-256 checksums ──
 function collectFiles(dir) {

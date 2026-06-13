@@ -1,34 +1,18 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { CodeGraphSettings } from "./types.js";
 
-export const defaultSettings: CodeGraphSettings = {
-  languages: ["javascript", "typescript", "python", "go", "rust", "java", "kotlin"],
-  ignorePaths: [
-    "node_modules",
-    ".git",
-    "dist",
-    "build",
-    ".next",
-    "vendor",
-    ".codegraph/cache",
-    // Gradle / Android
-    ".gradle",
-    "generated",
-    ".idea",
-    "out",
-    "captures",
-  ],
-  updateOnStop: true,
-  updateOnEdit: false,
-  commitGraphJson: false,
+export interface PluginSettings {
+  maxDepth: number;
+  uiPort: number;
+}
+
+export const defaultSettings: PluginSettings = {
   maxDepth: 4,
   uiPort: Number(process.env.CODEGRAPH_DEFAULT_UI_PORT ?? 3737),
-  exports: ["json", "mermaid", "dot", "markdown"],
 };
 
-export function loadSettings(root: string): CodeGraphSettings {
-  const path = join(root, ".claude", "codegraph-mapper.local.md");
+export function loadSettings(root: string): PluginSettings {
+  const path = join(root, ".claude", "coder-workflow.local.md");
   if (!existsSync(path)) return defaultSettings;
 
   const raw = readFileSync(path, "utf8");
@@ -37,14 +21,8 @@ export function loadSettings(root: string): CodeGraphSettings {
 
   return {
     ...defaultSettings,
-    languages: readList(frontmatter, "languages") ?? defaultSettings.languages,
-    ignorePaths: readList(frontmatter, "ignorePaths") ?? defaultSettings.ignorePaths,
-    updateOnStop: readBool(frontmatter, "updateOnStop") ?? defaultSettings.updateOnStop,
-    updateOnEdit: readBool(frontmatter, "updateOnEdit") ?? defaultSettings.updateOnEdit,
-    commitGraphJson: readBool(frontmatter, "commitGraphJson") ?? defaultSettings.commitGraphJson,
     maxDepth: readNumber(frontmatter, "maxDepth") ?? defaultSettings.maxDepth,
     uiPort: readNumber(frontmatter, "uiPort") ?? defaultSettings.uiPort,
-    exports: readList(frontmatter, "exports") ?? defaultSettings.exports,
   };
 }
 
