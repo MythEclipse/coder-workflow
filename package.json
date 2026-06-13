@@ -33,6 +33,7 @@
     "install:link": "./install.sh --link"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^15.0.0"
   },
   "devDependencies": {

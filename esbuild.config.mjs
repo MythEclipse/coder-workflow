@@ -22,6 +22,12 @@ await build({
 
 await build({
   ...shared,
+  entryPoints: ["src/mcp-server.ts"],
+  outfile: "dist/mcp-server.js",
+});
+
+await build({
+  ...shared,
   entryPoints: [
     "test/complexity-tracker.test.ts",
     "test/todo-tracker.test.ts",
