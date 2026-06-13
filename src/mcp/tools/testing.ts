@@ -212,7 +212,7 @@ export const flakyTestHistorian: ToolEntry = {
       ];
 
       const testMap = new Map<string, number>();
-      const seen = new Set<string>();
+      const seenLines = new Set<string>();
 
       for (const logDir of logDirs) {
         if (!existsSync(logDir)) continue;
@@ -222,6 +222,7 @@ export const flakyTestHistorian: ToolEntry = {
           if (![".log", ".txt", ".json", ".xml"].includes(ext)) continue;
           const content = tryReadFile(file);
           if (!content) continue;
+          const fileName = basename(file);
 
           for (const line of content.split("\n")) {
             for (const pattern of retryPatterns) {
@@ -231,11 +232,12 @@ export const flakyTestHistorian: ToolEntry = {
                 );
                 const testName = testMatch
                   ? (testMatch[1] ?? testMatch[2] ?? "").trim()
-                  : `line-${seen.size + 1}`;
-                const key = `${basename(file)}::${testName}`;
-                if (!seen.has(key)) {
-                  seen.add(key);
-                  testMap.set(key, (testMap.get(key) ?? 0) + 1);
+                  : `line-${seenLines.size + 1}`;
+                const lineKey = `${fileName}::${testName}::${line.slice(0, 80)}`;
+                // Dedup same line across files; count unique match sites per test
+                if (!seenLines.has(lineKey)) {
+                  seenLines.add(lineKey);
+                  testMap.set(testName, (testMap.get(testName) ?? 0) + 1);
                 }
               }
             }
@@ -244,7 +246,7 @@ export const flakyTestHistorian: ToolEntry = {
       }
 
       const potentialFlaky = Array.from(testMap.entries())
-        .map(([key, count]) => ({ test: key, failureCount: count }))
+        .map(([test, failureCount]) => ({ test, failureCount }))
         .sort((a, b) => b.failureCount - a.failureCount)
         .slice(0, 100);
 
