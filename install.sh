@@ -182,8 +182,9 @@ install_mcp() {
     echo -e "${GREEN}✓ Global install complete${NC}"
   fi
 
-  BIN=$(which coder-workflow)
-  echo -e "${BLUE}Using coder-workflow: $BIN${NC}"
+  # Build output path — the MCP server is a standalone bundle, NOT a CLI subcommand
+  MCP_SERVER="$PLUGIN_SRC/dist/mcp-server.js"
+  echo -e "${BLUE}Using MCP server: $MCP_SERVER${NC}"
 
   # Determine MCP config file and scope
   if $PROJECT; then
@@ -202,13 +203,10 @@ install_mcp() {
     cat > "$MCP_CONFIG_FILE" << EOF
 {
   "mcpServers": {
-    "codegraph": {
+    "coder-workflow": {
       "type": "stdio",
-      "command": "$BIN",
-      "args": ["mcp"],
-      "env": {
-        "CODEGRAPH_DEFAULT_UI_PORT": "3737"
-      }
+      "command": "node",
+      "args": ["$MCP_SERVER"]
     }
   }
 }
@@ -218,7 +216,7 @@ EOF
 
     if command -v jq &> /dev/null; then
       echo -e "${BLUE}Updating MCP configuration with jq...${NC}"
-      jq ".mcpServers.codegraph = {\"type\": \"stdio\", \"command\": \"$BIN\", \"args\": [\"mcp\"], \"env\": {\"CODEGRAPH_DEFAULT_UI_PORT\": \"3737\"}}" "$MCP_CONFIG_FILE" > "$MCP_CONFIG_FILE.tmp"
+      jq ".mcpServers[\"coder-workflow\"] = {\"type\": \"stdio\", \"command\": \"node\", \"args\": [\"$MCP_SERVER\"]}" "$MCP_CONFIG_FILE" > "$MCP_CONFIG_FILE.tmp"
       mv "$MCP_CONFIG_FILE.tmp" "$MCP_CONFIG_FILE"
     else
       echo -e "${YELLOW}jq not found, please manually add MCP configuration${NC}"
@@ -226,13 +224,10 @@ EOF
       cat << EOF
 {
   "mcpServers": {
-    "codegraph": {
+    "coder-workflow": {
       "type": "stdio",
-      "command": "$BIN",
-      "args": ["mcp"],
-      "env": {
-        "CODEGRAPH_DEFAULT_UI_PORT": "3737"
-      }
+      "command": "node",
+      "args": ["$MCP_SERVER"]
     }
   }
 }
@@ -250,7 +245,7 @@ if $MCP_ONLY; then
   echo ""
   echo -e "${GREEN}Installation complete!${NC}"
   echo "  CLI: $(which coder-workflow 2>/dev/null || echo 'not yet installed')"
-  echo "  MCP: Available via 'coder-workflow mcp'"
+  echo "  MCP: Available via node dist/mcp-server.js"
   echo ""
   echo "Restart Claude Code to use the MCP server."
   exit 0
@@ -312,8 +307,6 @@ fi
 if [[ $SKILLS_ONLY -eq 0 && $AGENTS_ONLY -eq 0 && $HOOKS_ONLY -eq 0 && $COMMANDS_ONLY -eq 0 ]] && ! $PROJECT; then
   install_item "$PLUGIN_SRC/.claude-plugin/plugin.json" "$DEST/.claude-plugin/plugin.json"
   install_item "$PLUGIN_SRC/.cursor-plugin/plugin.json" "$DEST/.cursor-plugin/plugin.json"
-  install_item "$PLUGIN_SRC/gemini-extension.json" "$DEST/gemini-extension.json"
-  # Also copy .mcp.json for reference
   install_item "$PLUGIN_SRC/.mcp.json" "$DEST/.mcp.json"
 fi
 
@@ -331,7 +324,7 @@ if $PROJECT; then
 else
   echo "  Scope:   user (~/.claude/skills/coder-workflow + ~/.claude.json)"
 fi
-echo "  MCP:     codegraph (stdio) → coder-workflow mcp"
+echo "  MCP:     coder-workflow (stdio) → node dist/mcp-server.js"
 echo "  CLI:     $(command -v coder-workflow 2>/dev/null || echo 'not on PATH — re-run install or add npm global bin to PATH')"
 echo ""
 echo -e "${BLUE}Active hooks (36 entries across 15 events):${NC}"
@@ -361,5 +354,5 @@ echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo "1. Restart Claude Code (or run /reload-plugins)"
 echo "2. Start any coding task — /coder-workflow:coder-orchestrator is your entry point"
-echo "3. To verify MCP: coder-workflow mcp  (Ctrl+C to stop)"
+echo "3. To verify MCP: node dist/mcp-server.js  (Ctrl+C to stop)"
 echo ""
