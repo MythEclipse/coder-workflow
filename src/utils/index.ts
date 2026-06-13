@@ -168,6 +168,8 @@ export function daysSince(isoDate: string): number {
 
 // ─── Duplicated utilities consolidated from across codebase ─────────────────────
 
+const WALK_SKIP_DIRS = new Set(["node_modules", "dist", ".git", "build", ".next", "vendor", ".gradle", "generated", "coverage", ".nyc_output", ".turbo", ".codegraph"]);
+
 /**
  * Recursively walk a directory collecting files with recognized extensions.
  * Default extensions: .ts, .tsx, .js, .jsx, .mjs, .cjs, .json, .md, .css, .html
@@ -198,8 +200,10 @@ export function walkFiles(root: string): string[] {
       try {
         if (entry.startsWith(".")) continue;
         const s = statSync(full);
-        if (s.isDirectory()) walk(full);
-        else if (s.isFile() && EXTENSIONS.has(extname(full))) result.push(full);
+        if (s.isDirectory()) {
+          if (WALK_SKIP_DIRS.has(entry)) continue;
+          walk(full);
+        } else if (s.isFile() && EXTENSIONS.has(extname(full))) result.push(full);
       } catch {
         continue;
       }

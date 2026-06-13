@@ -11,6 +11,8 @@ export interface ToolEntry {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const WALK_SKIP_DIRS = new Set(["node_modules", "dist", ".git", "build", ".next", "vendor", ".gradle", "generated", "coverage"]);
+
 function walkFiles(root: string): string[] {
   const result: string[] = [];
   function walk(dir: string): void {
@@ -25,7 +27,10 @@ function walkFiles(root: string): string[] {
       const full = join(dir, entry);
       try {
         const s = statSync(full);
-        if (s.isDirectory()) walk(full);
+        if (s.isDirectory()) {
+          if (WALK_SKIP_DIRS.has(entry)) continue;
+          walk(full);
+        }
         else if (s.isFile()) result.push(full);
       } catch {
         continue;
