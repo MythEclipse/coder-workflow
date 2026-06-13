@@ -188,7 +188,8 @@ export const dependencyVulnerabilityScanner: ToolEntry = {
 // ---------------------------------------------------------------------------
 
 function sanitizeId(label: string): string {
-  return label.replace(/[^a-zA-Z0-9_]/g, "_");
+  const clean = label.replace(/[^a-zA-Z0-9_]/g, "_");
+  return /^\d/.test(clean) ? `_${clean}` : clean;
 }
 
 export const architectureDiagramSync: ToolEntry = {
