@@ -1,98 +1,159 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, statSync, readFileSync, existsSync } from "node:fs";
+import { join, relative } from "node:path";
 import type { McpTool } from "./types.js";
 
-export interface ToolEntry { name: string; tool: McpTool }
+export interface ToolEntry {
+  name: string;
+  tool: McpTool;
+}
 
-// ─── 1. Prompt Version Control ────────────────────────────────────────
+const CHARS_PER_TOKEN = 4;
+const COST_PER_TOKEN = 0.000003;
+
+function collectFiles(root: string, ext?: string): string[] {
+  const files: string[] = [];
+  if (!existsSync(root)) return files;
+  try {
+    const entries = readdirSync(root, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = join(root, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...collectFiles(full, ext));
+      } else if (!ext || entry.name.endsWith(ext)) {
+        files.push(full);
+      }
+    }
+  } catch {
+    // skip unreadable dirs
+  }
+  return files;
+}
+
+function extractVersion(filePath: string): string {
+  const semver = filePath.match(/v?(\d+\.\d+\.\d+)/);
+  if (semver) return semver[1];
+  const name = filePath.match(/[\\/]([^\\/]+?)\.md$/);
+  if (name) return `1.0.0-${name[1].toLowerCase().replace(/\s+/g, "-")}`;
+  return "1.0.0-unversioned";
+}
+
 export const promptVersionControl: ToolEntry = {
   name: "prompt-version-control",
   tool: {
-    description: "Scans .claude/ directory for prompt/skill/agent files and tracks versions",
-    inputSchema: { type: "object", properties: {} },
-    handler: async (args, root) => {
-      const dirs = [join(root, ".claude"), join(root, "agents"), join(root, "skills")];
-      const files: Array<{ path: string; version: string; lastModified: string }> = [];
-      for (const dir of dirs) {
-        if (!existsSync(dir)) continue;
-        const scan = (p: string) => {
-          try {
-            for (const e of readdirSync(p, { withFileTypes: true })) {
-              const full = join(p, e.name);
-              if (e.isDirectory() && !e.name.startsWith(".")) scan(full);
-              else if (e.isFile() && e.name.endsWith(".md")) {
-                const content = readFileSync(full, "utf-8");
-                const v = content.match(/version:\s*(.+)/i)?.[1]?.trim() || "unknown";
-                const lm = statSync(full).mtime.toISOString();
-                files.push({ path: full.replace(root, "").replace(/^\//, ""), version: v, lastModified: lm });
-              }
-            }
-          } catch { /* skip */ }
-        };
-        scan(dir);
-      }
-      return { files: files.sort((a, b) => b.lastModified.localeCompare(a.lastModified)) };
+    description: "Scan .claude/ directory for prompt, skill, and agent files and track versions",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+    handler: async (_args: Record<string, unknown>, root: string) => {
+      const claudeDir = join(root, ".claude");
+      const mdFiles = collectFiles(claudeDir, ".md");
+      const files = mdFiles
+        .filter(
+          (f) =>
+            f.includes("prompt") ||
+            f.includes("skill") ||
+            f.includes("agent") ||
+            f.includes("CLAUDE"),
+        )
+        .map((f) => ({
+          path: relative(root, f),
+          version: extractVersion(f),
+          lastModified: statSync(f).mtime.toISOString(),
+        }));
+      return { files };
     },
   },
 };
 
-// ─── 2. LLM Cost Attribution ──────────────────────────────────────────
 export const llmCostAttribution: ToolEntry = {
   name: "llm-cost-attribution",
   tool: {
-    description: "Estimates token usage from session logs and calculates approximate cost",
-    inputSchema: { type: "object", properties: { days: { type: "number" } } },
-    handler: async (args, root) => {
-      const days = (args.days as number) ?? 7;
-      const logDir = join(root, ".claude");
-      if (!existsSync(logDir)) return { sessions: 0, estimatedTokens: 0, estimatedCost: "$0.00" };
-      const logs = readdirSync(logDir).filter((f) => f.startsWith("session-") && f.endsWith(".log"));
-      const recentLogs = logs.filter(() => true).slice(0, 10);
-      let totalBytes = 0;
-      for (const l of recentLogs) {
-        try { totalBytes += statSync(join(logDir, l)).size; } catch { /* skip */ }
+    description:
+      "Estimate token usage from session logs and calculate approximate cost",
+    inputSchema: {
+      type: "object",
+      properties: {
+        days: {
+          type: "number",
+          description: "Number of days to look back (default: 30)",
+        },
+      },
+      required: [],
+    },
+    handler: async (args: Record<string, unknown>, root: string) => {
+      const days = (args.days as number) ?? 30;
+      const cutoff = Date.now() - days * 86_400_000;
+      const logDirs = [join(root, ".claude", "logs"), join(root, "logs")];
+      const logFiles: string[] = [];
+      for (const dir of logDirs) {
+        if (existsSync(dir)) {
+          logFiles.push(...collectFiles(dir, ".md"));
+          logFiles.push(...collectFiles(dir, ".log"));
+          logFiles.push(...collectFiles(dir, ".json"));
+        }
       }
-      const estimatedTokens = Math.round(totalBytes / 4); // rough estimate
-      const costPer1KTokens = 0.003; // Claude Haiku pricing
-      const cost = (estimatedTokens / 1000) * costPer1KTokens * days;
-      return { sessions: recentLogs.length, estimatedTokens, estimatedCost: `$${cost.toFixed(2)}` };
+      let totalChars = 0;
+      let sessions = 0;
+      for (const f of logFiles) {
+        try {
+          const st = statSync(f);
+          if (st.mtimeMs < cutoff) continue;
+          const content = readFileSync(f, "utf-8");
+          totalChars += content.length;
+          sessions++;
+        } catch {
+          // skip unreadable files
+        }
+      }
+      const estimatedTokens = Math.round(totalChars / CHARS_PER_TOKEN);
+      const cost = (estimatedTokens * COST_PER_TOKEN).toFixed(6);
+      return {
+        sessions,
+        estimatedTokens,
+        estimatedCost: `$${cost}`,
+      };
     },
   },
 };
 
-// ─── 3. Context Window Optimizer ──────────────────────────────────────
 export const contextWindowOptimizer: ToolEntry = {
   name: "context-window-optimizer",
   tool: {
-    description: "Analyzes CLAUDE.md and agent files for size and recommends splitting",
-    inputSchema: { type: "object", properties: {} },
-    handler: async (args, root) => {
-      const files: Array<{ path: string; size: number; lines: number; suggestion: string }> = [];
-      const targets = ["CLAUDE.md", "README.md", "CONTRIBUTING.md"];
-      for (const t of targets) {
-        const p = join(root, t);
-        if (existsSync(p)) {
-          const content = readFileSync(p, "utf-8");
-          const size = content.length;
-          const lines = content.split("\n").length;
-          let suggestion = "ok";
-          if (size > 10000) suggestion = "split into multiple files";
-          else if (size > 5000) suggestion = "consider splitting";
-          files.push({ path: t, size, lines, suggestion });
-        }
-      }
-      const agentsDir = join(root, "agents");
-      if (existsSync(agentsDir)) {
-        for (const f of readdirSync(agentsDir).filter((f) => f.endsWith(".md"))) {
-          const p = join(agentsDir, f);
-          const content = readFileSync(p, "utf-8");
-          const size = content.length;
-          const lines = content.split("\n").length;
-          let suggestion = "ok";
-          if (size > 5000) suggestion = "consider splitting agent instructions";
-          files.push({ path: `agents/${f}`, size, lines, suggestion });
-        }
-      }
+    description:
+      "Analyze CLAUDE.md and agent files for size and recommend splitting",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+    handler: async (_args: Record<string, unknown>, root: string) => {
+      const targets = [
+        join(root, "CLAUDE.md"),
+        ...collectFiles(join(root, ".claude", "agents"), ".md"),
+        ...collectFiles(join(root, ".claude", "skills"), ".md"),
+        ...collectFiles(join(root, ".claude", "prompts"), ".md"),
+      ];
+      const files = targets
+        .filter((f) => existsSync(f))
+        .map((f) => {
+          const st = statSync(f);
+          const sizeKB = Math.round(st.size / 1024);
+          let suggestion: string;
+          if (sizeKB < 5) {
+            suggestion = "OK — file is small";
+          } else if (sizeKB < 15) {
+            suggestion = "Consider splitting into smaller focused files";
+          } else {
+            suggestion = "Split recommended — large file reduces context efficiency";
+          }
+          return {
+            path: relative(root, f),
+            size: `${sizeKB} KB`,
+            suggestion,
+          };
+        });
       return { files };
     },
   },

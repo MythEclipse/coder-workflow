@@ -1,254 +1,575 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve, extname } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { extname, join, resolve } from "node:path";
 import type { McpTool } from "./types.js";
 
-export interface ToolEntry { name: string; tool: McpTool }
+export interface ToolEntry {
+  name: string;
+  tool: McpTool;
+}
 
-function listFiles(dir: string, predicate: (f: string) => boolean): string[] {
+// ─── Shared helpers ──────────────────────────────────────────────────────────
+
+const COMMON_IGNORE = new Set([".git", "node_modules", ".codegraph", "dist", "build"]);
+
+function walkFiles(root: string, predicate: (file: string) => boolean): string[] {
   const result: string[] = [];
-  try {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, e.name);
-      if (e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules") result.push(...listFiles(full, predicate));
-      else if (e.isFile() && predicate(full)) result.push(full);
+  function walk(dir: string) {
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
     }
-  } catch { /* skip */ }
+    for (const entry of entries) {
+      if (entry.startsWith(".")) continue;
+      const full = join(dir, entry);
+      try {
+        const s = statSync(full);
+        if (s.isDirectory()) {
+          if (COMMON_IGNORE.has(entry)) continue;
+          walk(full);
+        } else if (s.isFile() && predicate(full)) {
+          result.push(full);
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+  walk(root);
   return result;
 }
 
-// ─── 1. Feature Flag Brain ────────────────────────────────────────────
+function readLines(file: string): string[] {
+  try {
+    return readFileSync(file, "utf-8").split("\n");
+  } catch {
+    return [];
+  }
+}
+
+// ─── 1. feature-flag-brain ───────────────────────────────────────────────────
+
+const FEATURE_FLAG_PATTERNS = [
+  /(?:feature|flag|toggle|experiment|FF)_[A-Z0-9_]+/gi,
+  /featureFlag\[['"]?([^'"\]]+)['"]?\]/g,
+  /flags?\.(?:isEnabled|isActive|getValue)\(['"]([^'"]+)['"]\)/g,
+  /process\.env\.(?:NEXT_PUBLIC_)?FF_/g,
+  /LaunchDarkly|Unleash|Flagsmith|splitio/gi,
+];
+
 export const featureFlagBrain: ToolEntry = {
   name: "feature-flag-brain",
   tool: {
-    description: "Scans for feature flag patterns in code (process.env, feature flags, config flags)",
-    inputSchema: { type: "object", properties: { directory: { type: "string" } } },
+    description:
+      "Scan source files for feature-flag patterns (env vars, toggle libraries, inline checks). Returns detected flags with file locations and enabled state.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        directory: {
+          type: "string",
+          description: "Root directory to scan (default: current working directory)",
+        },
+      },
+    },
     handler: async (args, root) => {
-      const dir = resolve(root, (args.directory as string) || root);
-      const files = listFiles(dir, (f) => /\.(ts|tsx|js|jsx)$/.test(f));
-      const flags: Array<{ name: string; locations: string[]; enabled: boolean }> = [];
-      const flagMap = new Map<string, { locations: string[]; values: string[] }>();
-      for (const f of files) {
-        try {
-          const content = readFileSync(f, "utf-8");
-          const envMatches = content.matchAll(/process\.env\.(\w+_FLAG|\w+_FEATURE|\w+_ENABLED)/g);
-          for (const m of envMatches) {
-            if (!flagMap.has(m[1])) flagMap.set(m[1], { locations: [], values: [] });
-            flagMap.get(m[1])!.locations.push(relative(root, f));
+      const dir = (args.directory as string) || root;
+      const target = resolve(dir);
+      const files = walkFiles(target, (f) => /\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(extname(f)));
+
+      const flagMap = new Map<string, { locations: string[]; enabled: boolean }>();
+
+      for (const file of files) {
+        const lines = readLines(file);
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          for (const pattern of FEATURE_FLAG_PATTERNS) {
+            pattern.lastIndex = 0;
+            let match: RegExpExecArray | null;
+            while ((match = pattern.exec(line)) !== null) {
+              const flagName = match[1] || match[0];
+              const enabled =
+                !/false|disabled|off|0/i.test(line) && /true|enabled|on|1/i.test(line);
+              const relative = file.replace(target, "").replace(/^\//, "");
+              if (!flagMap.has(flagName)) {
+                flagMap.set(flagName, { locations: [], enabled });
+              }
+              flagMap.get(flagName)!.locations.push(`${relative}:${i + 1}`);
+            }
           }
-          const boolMatches = content.matchAll(/(isFeatureEnabled|featureFlag|flagEnabled)\(['"](\w+)['"]\)/g);
-          for (const m of boolMatches) {
-            const name = m[2];
-            if (!flagMap.has(name)) flagMap.set(name, { locations: [], values: [] });
-            flagMap.get(name)!.locations.push(relative(root, f));
-          }
-        } catch { /* skip */ }
+        }
       }
-      for (const [name, data] of flagMap) {
-        const enabled = data.values.some((v) => v === "true" || v === "1");
-        flags.push({ name, locations: [...new Set(data.locations)], enabled });
-      }
+
+      const flags = Array.from(flagMap.entries()).map(([name, data]) => ({
+        name,
+        locations: data.locations,
+        enabled: data.enabled,
+      }));
+
       return { flags };
     },
   },
 };
 
-// ─── 2. Query Performance Whisperer ────────────────────────────────────
+// ─── 2. query-performance-whisperer ──────────────────────────────────────────
+
+const N_PLUS_ONE_PATTERNS = [
+  { pattern: /\.findMany\s*\(/g, label: "findMany" },
+  { pattern: /\.find\w*\s*\(/g, label: "find" },
+  { pattern: /\.query\s*\(/g, label: "query" },
+  { pattern: /\.aggregate\s*\(/g, label: "aggregate" },
+];
+
 export const queryPerformanceWhisperer: ToolEntry = {
   name: "query-performance-whisperer",
   tool: {
-    description: "Scans for ORM query patterns and reports potential N+1 risks",
-    inputSchema: { type: "object", properties: { directory: { type: "string" } } },
+    description:
+      "Scan source files for ORM query patterns that may indicate N+1 performance risks (findMany inside loops, repeated queries).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        directory: {
+          type: "string",
+          description: "Root directory to scan (default: current working directory)",
+        },
+      },
+    },
     handler: async (args, root) => {
-      const dir = resolve(root, (args.directory as string) || root);
-      const files = listFiles(dir, (f) => /\.(ts|tsx|js|jsx)$/.test(f));
+      const dir = (args.directory as string) || root;
+      const target = resolve(dir);
+      const files = walkFiles(target, (f) => /\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(extname(f)));
+
       const risks: Array<{ file: string; line: number; pattern: string }> = [];
-      const patterns = [
-        /\bfindMany\b/, /\b\.find\s*\(/, /\b\.findAll\s*\(/, /\b\.query\s*\(/,
-        /\b\.create\s*\(/, /\b\.update\s*\(/, /\b\.delete\s*\(/, /\b\.aggregate\s*\(/,
-        /\bprisma\.\w+\.findMany/, /\bprisma\.\w+\.findUnique/,
-        /\bfor\s*(?:const|let|var)\s+\w+\s+of\s+\w+\.\w+\s*\{[^}]*\bfind/
-      ];
-      for (const f of files) {
-        try {
-          const lines = readFileSync(f, "utf-8").split("\n");
-          for (let i = 0; i < lines.length; i++) {
-            for (const p of patterns) {
-              if (p.test(lines[i])) risks.push({ file: relative(root, f), line: i + 1, pattern: p.source.slice(0, 60) });
+
+      for (const file of files) {
+        const lines = readLines(file);
+        const relative = file.replace(target, "").replace(/^\//, "");
+        for (let i = 0; i < lines.length; i++) {
+          for (const { pattern, label } of N_PLUS_ONE_PATTERNS) {
+            pattern.lastIndex = 0;
+            if (pattern.test(lines[i])) {
+              const isInLoop = /(?:for|while|forEach|\.map\s*\(|Promise\.all)/i.test(lines[i]);
+              if (isInLoop) {
+                risks.push({ file: relative, line: i + 1, pattern: label });
+              }
             }
           }
-        } catch { /* skip */ }
+        }
       }
-      return { risks: risks.slice(0, 50) };
+
+      return { risks };
     },
   },
 };
 
-// ─── 3. Chaos Predictor ───────────────────────────────────────────────
+// ─── 3. chaos-predictor ──────────────────────────────────────────────────────
+
+const CATCH_PATTERNS = [/catch\s*\(/g, /\.catch\s*\(/g];
+
+const UNHANDLED_REJECTION_PATTERNS = [/Promise\s*\(/g, /new Promise/g, /\.then\s*\(/g];
+
 export const chaosPredictor: ToolEntry = {
   name: "chaos-predictor",
   tool: {
-    description: "Finds error-prone catch blocks and unchecked promise rejections",
-    inputSchema: { type: "object", properties: { directory: { type: "string" } } },
+    description:
+      "Scan source files for error-prone catch blocks (bare/empty catches) and unchecked promise rejections (promises without .catch()).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        directory: {
+          type: "string",
+          description: "Root directory to scan (default: current working directory)",
+        },
+      },
+    },
     handler: async (args, root) => {
-      const dir = resolve(root, (args.directory as string) || root);
-      const files = listFiles(dir, (f) => /\.(ts|tsx|js|jsx)$/.test(f));
+      const dir = (args.directory as string) || root;
+      const target = resolve(dir);
+      const files = walkFiles(target, (f) => /\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(extname(f)));
+
       const riskyCatches: Array<{ file: string; line: number }> = [];
-      const unhandled: Array<{ file: string; line: number }> = [];
-      for (const f of files) {
-        try {
-          const lines = readFileSync(f, "utf-8").split("\n");
-          const text = lines.join("\n");
-          // Empty catch blocks
-          const catchMatches = text.matchAll(/catch\s*\([^)]*\)\s*\{\s*\}/g);
-          for (const m of catchMatches) {
-            const lineNum = text.slice(0, m.index!).split("\n").length;
-            riskyCatches.push({ file: relative(root, f), line: lineNum });
+      const unhandledRejections: Array<{ file: string; line: number }> = [];
+
+      for (const file of files) {
+        const lines = readLines(file);
+        const relative = file.replace(target, "").replace(/^\//, "");
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+
+          for (const pattern of CATCH_PATTERNS) {
+            pattern.lastIndex = 0;
+            if (pattern.test(line) && (line.includes("{}") || /catch\s*\)/.test(line))) {
+              riskyCatches.push({ file: relative, line: i + 1 });
+            }
           }
-          // .catch without handler
-          const dotCatch = text.matchAll(/\.catch\s*\(\s*\)/g);
-          for (const m of dotCatch) {
-            const lineNum = text.slice(0, m.index!).split("\n").length;
-            unhandled.push({ file: relative(root, f), line: lineNum });
+
+          for (const pattern of UNHANDLED_REJECTION_PATTERNS) {
+            pattern.lastIndex = 0;
+            if (pattern.test(line) && !line.includes(".catch") && !line.includes("await")) {
+              const block = lines.slice(i, Math.min(i + 5, lines.length)).join("\n");
+              if (!block.includes(".catch")) {
+                unhandledRejections.push({ file: relative, line: i + 1 });
+              }
+            }
           }
-        } catch { /* skip */ }
+        }
       }
-      return { riskyCatches, unhandledRejections: unhandled };
+
+      return { riskyCatches, unhandledRejections };
     },
   },
 };
 
-// ─── 4. Distributed Trace Narrator ─────────────────────────────────────
+// ─── 4. distributed-trace-narrator ───────────────────────────────────────────
+
 export const distributedTraceNarrator: ToolEntry = {
   name: "distributed-trace-narrator",
   tool: {
-    description: "Reads structured log files and extracts trace/span patterns",
-    inputSchema: { type: "object", properties: { logPath: { type: "string" } } },
+    description:
+      "Read structured JSONL log files and extract trace/span information (trace IDs, span counts, durations).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        logPath: {
+          type: "string",
+          description: "Path to a .jsonl log file or directory containing .jsonl files",
+        },
+      },
+    },
     handler: async (args, root) => {
-      const logPath = (args.logPath as string) ? resolve(root, args.logPath as string) : join(root, "logs");
-      if (!existsSync(logPath)) return { traces: [], message: `Log path not found: ${logPath}` };
-      const stat = statSync(logPath);
-      if (stat.isFile()) {
-        const content = readFileSync(logPath, "utf-8");
-        const traceIds = [...new Set(content.match(/"trace_id"\s*:\s*"([^"]+)"/g) || [])];
-        return { traces: traceIds.map((t) => ({ traceId: t.replace(/"trace_id"\s*:\s*"/, "").replace(/"$/, ""), spans: 1, duration: 0 })), source: logPath };
+      const logPath = args.logPath as string | undefined;
+      if (!logPath) {
+        return {
+          message: "No logPath provided. Specify a path to a .jsonl log file or directory.",
+        };
       }
-      const logFiles = readdirSync(logPath).filter((f) => f.endsWith(".log") || f.endsWith(".jsonl")).slice(0, 5);
-      if (logFiles.length === 0) return { traces: [], message: "No log files found" };
-      return { traces: [], message: `Found ${logFiles.length} log files. Use logPath to specify one.`, files: logFiles };
+      const target = resolve(root, logPath);
+
+      let logFiles: string[];
+      if (existsSync(target) && statSync(target).isDirectory()) {
+        logFiles = readdirSync(target)
+          .filter((f) => f.endsWith(".jsonl"))
+          .map((f) => join(target, f));
+      } else if (existsSync(target) && target.endsWith(".jsonl")) {
+        logFiles = [target];
+      } else {
+        return { message: `Path does not exist or is not a .jsonl file: ${logPath}` };
+      }
+
+      if (logFiles.length === 0) {
+        return { message: "No .jsonl files found at the specified path." };
+      }
+
+      const traces: Array<{ traceId: string; spans: number; duration: number }> = [];
+      const traceMap = new Map<
+        string,
+        { spans: number; startTimes: number[]; endTimes: number[] }
+      >();
+
+      for (const lf of logFiles) {
+        const content = readFileSync(lf, "utf-8");
+        for (const line of content.split("\n").filter(Boolean)) {
+          try {
+            const entry = JSON.parse(line);
+            const traceId = entry.traceId || entry.trace_id || entry.trace?.id;
+            if (!traceId) continue;
+
+            if (!traceMap.has(traceId)) {
+              traceMap.set(traceId, { spans: 0, startTimes: [], endTimes: [] });
+            }
+            const record = traceMap.get(traceId)!;
+            record.spans++;
+
+            if (typeof entry.timestamp === "number") {
+              record.startTimes.push(entry.timestamp);
+              record.endTimes.push(entry.timestamp);
+            } else if (typeof entry.startTime === "number" || typeof entry.endTime === "number") {
+              if (typeof entry.startTime === "number") record.startTimes.push(entry.startTime);
+              if (typeof entry.endTime === "number") record.endTimes.push(entry.endTime);
+            } else if (typeof entry.duration === "number") {
+              record.startTimes.push(0);
+              record.endTimes.push(entry.duration);
+            }
+          } catch {
+            // skip malformed JSON lines
+          }
+        }
+      }
+
+      for (const [traceId, record] of traceMap) {
+        const minStart = record.startTimes.length > 0 ? Math.min(...record.startTimes) : 0;
+        const maxEnd = record.endTimes.length > 0 ? Math.max(...record.endTimes) : 0;
+        traces.push({ traceId, spans: record.spans, duration: maxEnd - minStart });
+      }
+
+      if (traces.length === 0) {
+        return { message: "No trace data found in the provided log files." };
+      }
+
+      return { traces };
     },
   },
 };
 
-// ─── 5. Schema Evolution Guardian ──────────────────────────────────────
+// ─── 5. schema-evolution-guardian ────────────────────────────────────────────
+
 export const schemaEvolutionGuardian: ToolEntry = {
   name: "schema-evolution-guardian",
   tool: {
-    description: "Compares current Prisma schema against a snapshot",
-    inputSchema: { type: "object", properties: { schemaPath: { type: "string" }, snapshotPath: { type: "string" } } },
+    description:
+      "Compare current DB schema (Prisma, TypeORM, raw SQL DDL) against a stored snapshot and report field-level changes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        schemaPath: {
+          type: "string",
+          description: "Path to the current schema file (e.g. prisma/schema.prisma)",
+        },
+        snapshotPath: {
+          type: "string",
+          description: "Path to a previously saved schema snapshot file",
+        },
+      },
+    },
     handler: async (args, root) => {
-      const schemaPath = resolve(root, (args.schemaPath as string) || "prisma/schema.prisma");
-      const snapshotPath = args.snapshotPath ? resolve(root, args.snapshotPath as string) : "";
-      if (!existsSync(schemaPath)) return { changes: [], message: "Schema file not found" };
-      const current = readFileSync(schemaPath, "utf-8");
-      const models = [...current.matchAll(/model\s+(\w+)\s*\{([^}]+)\}/g)].map((m) => ({
-        name: m[1], fields: [...m[2].matchAll(/(\w+)\s+(\w+)/g)].map((f) => ({ name: f[1], type: f[2] })),
-      }));
-      if (!snapshotPath || !existsSync(snapshotPath)) return { models, changes: [], message: "No snapshot to compare against" };
-      const snapshot = readFileSync(snapshotPath, "utf-8");
-      const oldModels = [...snapshot.matchAll(/model\s+(\w+)\s*\{([^}]+)\}/g)].map((m) => ({
-        name: m[1], fields: [...m[2].matchAll(/(\w+)\s+(\w+)/g)].map((f) => ({ name: f[1], type: f[2] })),
-      }));
+      const schemaPath = args.schemaPath as string | undefined;
+      const snapshotPath = args.snapshotPath as string | undefined;
+
+      if (!schemaPath || !snapshotPath) {
+        return { changes: [], message: "Both schemaPath and snapshotPath are required." };
+      }
+
+      const schemaFile = resolve(root, schemaPath);
+      const snapshotFile = resolve(root, snapshotPath);
+
+      if (!existsSync(schemaFile)) {
+        return { changes: [], message: `Schema file not found: ${schemaPath}` };
+      }
+      if (!existsSync(snapshotFile)) {
+        return { changes: [], message: `Snapshot file not found: ${snapshotPath}` };
+      }
+
+      const schemaLines = readLines(schemaFile);
+      const snapshotLines = readLines(snapshotFile);
       const changes: Array<{ field: string; type: string; change: string }> = [];
-      for (const m of models) {
-        const old = oldModels.find((o) => o.name === m.name);
-        if (!old) { changes.push({ field: m.name, type: "model", change: "added" }); continue; }
-        for (const f of m.fields) {
-          if (!old.fields.find((of) => of.name === f.name))
-            changes.push({ field: `${m.name}.${f.name}`, type: "field", change: "added" });
+
+      function parseSchema(lines: string[]): Map<string, Map<string, string>> {
+        const models = new Map<string, Map<string, string>>();
+        let currentModel: string | null = null;
+        for (const line of lines) {
+          const modelMatch = line.match(/^\s*(?:model|table|entity)\s+(\w+)\s*\{/i);
+          if (modelMatch) {
+            currentModel = modelMatch[1];
+            models.set(currentModel, new Map());
+            continue;
+          }
+          if (currentModel && /^\s*}\s*$/.test(line)) {
+            currentModel = null;
+            continue;
+          }
+          if (currentModel) {
+            const fieldMatch = line.match(/^\s+(\w+)\s+(\S+)/);
+            if (fieldMatch && !line.trim().startsWith("@@")) {
+              models.get(currentModel)!.set(fieldMatch[1], fieldMatch[2]);
+            }
+          }
         }
-        for (const of_ of old.fields) {
-          const cur = m.fields.find((cf) => cf.name === of_.name);
-          if (!cur) changes.push({ field: `${m.name}.${of_.name}`, type: "field", change: "removed" });
-          else if (cur.type !== of_.type) changes.push({ field: `${m.name}.${of_.name}`, type: "field", change: `type changed: ${of_.type} → ${cur.type}` });
+        return models;
+      }
+
+      const schemaModels = parseSchema(schemaLines);
+      const snapshotModels = parseSchema(snapshotLines);
+      const allModels = new Set([...schemaModels.keys(), ...snapshotModels.keys()]);
+
+      for (const model of allModels) {
+        const schemaFields = schemaModels.get(model);
+        const snapshotFields = snapshotModels.get(model);
+
+        if (!schemaFields) {
+          changes.push({ field: `${model} (model)`, type: "model", change: "removed" });
+          continue;
+        }
+        if (!snapshotFields) {
+          changes.push({ field: `${model} (model)`, type: "model", change: "added" });
+          continue;
+        }
+
+        const allFields = new Set([...schemaFields.keys(), ...snapshotFields.keys()]);
+        for (const field of allFields) {
+          const schemaType = schemaFields.get(field);
+          const snapshotType = snapshotFields.get(field);
+
+          if (schemaType && !snapshotType) {
+            changes.push({ field: `${model}.${field}`, type: schemaType, change: "added" });
+          } else if (!schemaType && snapshotType) {
+            changes.push({ field: `${model}.${field}`, type: snapshotType, change: "removed" });
+          } else if (schemaType !== snapshotType) {
+            changes.push({
+              field: `${model}.${field}`,
+              type: `${snapshotType} -> ${schemaType}`,
+              change: "modified",
+            });
+          }
         }
       }
-      for (const old of oldModels) {
-        if (!models.find((m) => m.name === old.name))
-          changes.push({ field: old.name, type: "model", change: "removed" });
-      }
+
       return { changes };
     },
   },
 };
 
-// ─── 6. Event Storm Mapper ────────────────────────────────────────────
+// ─── 6. event-storm-mapper ───────────────────────────────────────────────────
+
+const EMITTER_PATTERNS = [/\.emit\s*\(/g, /\.publish\s*\(/g, /EventEmitter/g];
+const LISTENER_PATTERNS = [
+  /\.on\s*\(/g,
+  /\.subscribe\s*\(/g,
+  /\.addListener\s*\(/g,
+  /\.once\s*\(/g,
+];
+
 export const eventStormMapper: ToolEntry = {
   name: "event-storm-mapper",
   tool: {
-    description: "Scans for event emitter patterns (emit, on, publish, subscribe)",
-    inputSchema: { type: "object", properties: { directory: { type: "string" } } },
+    description:
+      "Scan source files for event emitter patterns (emit, on, publish, subscribe) and map event names to their emitters and listeners.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        directory: {
+          type: "string",
+          description: "Root directory to scan (default: current working directory)",
+        },
+      },
+    },
     handler: async (args, root) => {
-      const dir = resolve(root, (args.directory as string) || root);
-      const files = listFiles(dir, (f) => /\.(ts|tsx|js|jsx)$/.test(f));
-      const events = new Map<string, { emitters: string[]; listeners: string[] }>();
-      for (const f of files) {
-        try {
-          const content = readFileSync(f, "utf-8");
-          const emits = content.matchAll(/\.emit\(['"]([^'"]+)['"]/g);
-          for (const m of emits) {
-            if (!events.has(m[1])) events.set(m[1], { emitters: [], listeners: [] });
-            events.get(m[1])!.emitters.push(relative(root, f));
+      const dir = (args.directory as string) || root;
+      const target = resolve(dir);
+      const files = walkFiles(target, (f) => /\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(extname(f)));
+
+      const eventMap = new Map<string, { emitters: string[]; listeners: string[] }>();
+
+      for (const file of files) {
+        const lines = readLines(file);
+        const relative = file.replace(target, "").replace(/^\//, "");
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const eventNameMatch = line.match(/['"]([^'"]+)['"]/);
+
+          for (const pattern of EMITTER_PATTERNS) {
+            pattern.lastIndex = 0;
+            if (pattern.test(line) && eventNameMatch) {
+              const eventName = eventNameMatch[1];
+              if (!eventMap.has(eventName)) {
+                eventMap.set(eventName, { emitters: [], listeners: [] });
+              }
+              eventMap.get(eventName)!.emitters.push(`${relative}:${i + 1}`);
+            }
           }
-          const listens = content.matchAll(/\.(on|subscribe)\(['"]([^'"]+)['"]/g);
-          for (const m of listens) {
-            if (!events.has(m[2])) events.set(m[2], { emitters: [], listeners: [] });
-            events.get(m[2])!.listeners.push(relative(root, f));
+
+          for (const pattern of LISTENER_PATTERNS) {
+            pattern.lastIndex = 0;
+            if (pattern.test(line) && eventNameMatch) {
+              const eventName = eventNameMatch[1];
+              if (!eventMap.has(eventName)) {
+                eventMap.set(eventName, { emitters: [], listeners: [] });
+              }
+              eventMap.get(eventName)!.listeners.push(`${relative}:${i + 1}`);
+            }
           }
-          const publishes = content.matchAll(/\bpublish\(['"]([^'"]+)['"]/g);
-          for (const m of publishes) {
-            if (!events.has(m[1])) events.set(m[1], { emitters: [], listeners: [] });
-            events.get(m[1])!.emitters.push(relative(root, f));
-          }
-        } catch { /* skip */ }
+        }
       }
-      const eventList = [...events.entries()].map(([eventName, data]) => ({
-        eventName, emitters: [...new Set(data.emitters)], listeners: [...new Set(data.listeners)],
+
+      const events = Array.from(eventMap.entries()).map(([eventName, data]) => ({
+        eventName,
+        emitters: data.emitters,
+        listeners: data.listeners,
       }));
-      return { events: eventList };
+
+      return { events };
     },
   },
 };
 
-// ─── 7. Migration Complexity Estimator ─────────────────────────────────
+// ─── 7. migration-complexity-estimator ───────────────────────────────────────
+
 export const migrationComplexityEstimator: ToolEntry = {
   name: "migration-complexity-estimator",
   tool: {
-    description: "Analyzes SQL/Prisma migration files for size and complexity",
-    inputSchema: { type: "object", properties: { migrationsDir: { type: "string" } } },
+    description:
+      "Analyze SQL migration files for size, statement count, and structural complexity, rating each as low/medium/high.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        migrationsDir: {
+          type: "string",
+          description:
+            "Directory containing SQL migration files (default: prisma/migrations or db/migrations)",
+        },
+      },
+    },
     handler: async (args, root) => {
-      const dir = resolve(root, (args.migrationsDir as string) || "prisma/migrations");
-      if (!existsSync(dir)) {
-        const altDirs = ["migrations", "db/migrations", "database/migrations"].map((d) => join(root, d)).filter(existsSync);
-        if (altDirs.length === 0) return { migrations: [], message: "No migrations directory found" };
-        return { migrations: [], message: `Try migrations directory: ${altDirs[0]}`, hint: altDirs[0] };
+      const migrationsDir = resolve(root, (args.migrationsDir as string) || "prisma/migrations");
+
+      if (!existsSync(migrationsDir)) {
+        return {
+          migrations: [],
+          message: `Migrations directory not found: ${migrationsDir}`,
+        };
       }
-      const entries = readdirSync(dir, { withFileTypes: true });
-      const migrations: Array<{ file: string; size: number; statements: number; complexity: "low" | "medium" | "high" }> = [];
-      for (const e of entries) {
-        if (!e.isDirectory()) continue;
-        const migrationDir = join(dir, e.name);
-        const sqlFiles = readdirSync(migrationDir).filter((f) => f.endsWith(".sql"));
-        for (const sf of sqlFiles) {
-          const fullPath = join(migrationDir, sf);
-          const content = readFileSync(fullPath, "utf-8");
-          const size = statSync(fullPath).size;
-          const statements = (content.match(/;/g) || []).length;
-          let complexity: "low" | "medium" | "high" = "low";
-          if (statements > 10 || content.length > 5000) complexity = "high";
-          else if (statements > 5 || content.length > 2000) complexity = "medium";
-          migrations.push({ file: join(e.name, sf), size, statements, complexity });
+
+      const migrationFiles: string[] = [];
+      function collectSqlFiles(dir: string) {
+        let entries: string[];
+        try {
+          entries = readdirSync(dir);
+        } catch {
+          return;
+        }
+        for (const entry of entries) {
+          const full = join(dir, entry);
+          try {
+            const s = statSync(full);
+            if (s.isDirectory()) {
+              collectSqlFiles(full);
+            } else if (s.isFile() && /\.sql$/i.test(entry)) {
+              migrationFiles.push(full);
+            }
+          } catch {
+            continue;
+          }
         }
       }
+      collectSqlFiles(migrationsDir);
+
+      const migrations = migrationFiles.map((file) => {
+        const content = readFileSync(file, "utf-8");
+        const size = content.length;
+        const stripped = content
+          .replace(/'(?:[^'\\]|\\.)*'/g, "")
+          .replace(/"(?:[^"\\]|\\.)*"/g, "");
+        const statements = (stripped.match(/;/g) || []).length;
+
+        let complexity: "low" | "medium" | "high";
+        const structuralScore =
+          statements +
+          (content.match(/ALTER\s+TABLE/gi) || []).length * 2 +
+          (content.match(/CREATE\s+(?:INDEX|TRIGGER|FUNCTION|PROCEDURE)/gi) || []).length * 3 +
+          (content.match(/DROP\s+(?:TABLE|INDEX|COLUMN)/gi) || []).length * 2 +
+          (content.match(/FOREIGN\s+KEY/gi) || []).length;
+
+        if (structuralScore <= 5 && size <= 2000) {
+          complexity = "low";
+        } else if (structuralScore <= 15 && size <= 10000) {
+          complexity = "medium";
+        } else {
+          complexity = "high";
+        }
+
+        const relative = file.replace(migrationsDir, "").replace(/^\//, "");
+        return { file: relative, size, statements, complexity };
+      });
+
       return { migrations };
     },
   },

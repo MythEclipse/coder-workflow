@@ -140,10 +140,12 @@ export const apiContractDrifter: ToolEntry = {
     handler: async (args, root) => {
       const base = (args.baseBranch as string) || "main";
       const head = (args.headBranch as string) || "HEAD";
-      const baseRoutes = (tryExec(`git show ${base}:src/mcp-server.ts 2>/dev/null || true`).match(/['"](get|post|put|delete|patch)\s+[^'"]+['"]/gi) || []);
-      const headRoutes = (tryExec(`git show ${head}:src/mcp-server.ts 2>/dev/null || true`).match(/['"](get|post|put|delete|patch)\s+[^'"]+['"]/gi) || []);
-      const added = headRoutes.filter((r: string) => !baseRoutes.includes(r));
-      const removed = baseRoutes.filter((r: string) => !headRoutes.includes(r));
+      const baseStr = tryExec(`git show ${base}:src/mcp-server.ts 2>/dev/null || true`);
+      const headStr = tryExec(`git show ${head}:src/mcp-server.ts 2>/dev/null || true`);
+      const baseArr: string[] = baseStr.match(/['"](get|post|put|delete|patch)\s+[^'"]+['"]/gi) || [];
+      const headArr: string[] = headStr.match(/['"](get|post|put|delete|patch)\s+[^'"]+['"]/gi) || [];
+      const added = headArr.filter((r) => !baseArr.includes(r));
+      const removed = baseArr.filter((r) => !headArr.includes(r));
       return { changes: [...added.map((r: string) => `+ ${r}`), ...removed.map((r: string) => `- ${r}`)] };
     },
   },

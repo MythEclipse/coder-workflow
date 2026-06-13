@@ -32,6 +32,9 @@
     "install:project": "./install.sh --project",
     "install:link": "./install.sh --link"
   },
+  "bin": {
+    "coder-workflow": "./dist/cli.js"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^15.0.0"
