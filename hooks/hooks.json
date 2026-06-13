@@ -166,7 +166,7 @@
             "statusMessage": "Checking env file..."
           }
         ]
-      },
+      }
     ],
     "PostToolUse": [
       {
@@ -177,7 +177,7 @@
             "command": "bash -c 'INPUT=$(cat 2>/dev/null || echo \"{}\"); FILE=$(jq -r \".tool_input.file_path // .tool_input.path // empty\" <<< \"$INPUT\" 2>/dev/null); LOG=.claude/session-$(date +%Y%m%d).log; mkdir -p .claude 2>/dev/null || true; [ -f \"$LOG\" ] && SIZE=$(wc -c < \"$LOG\" 2>/dev/null || echo 0) && [ \"$SIZE\" -gt 10485760 ] && tail -n +500 \"$LOG\" > \"$LOG.tmp\" && mv \"$LOG.tmp\" \"$LOG\"; printf \"[%s] WRITE: %s\\n\" \"$(date -u +%T)\" \"$FILE\" >> \"$LOG\" 2>/dev/null; exit 0'",
             "timeout": 5,
             "async": true
-          },
+          }
         ]
       },
       {
@@ -205,7 +205,7 @@
             "async": true
           }
         ]
-      },
+      }
     ],
     "PostToolUseFailure": [
       {
