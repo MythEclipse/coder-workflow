@@ -2,16 +2,15 @@
   "name": "coder-workflow",
   "version": "0.3.0",
   "type": "module",
-  "bin": {
-    "coder-workflow": "./dist/cli.js"
+  "description": "Orchestrator-driven coding workflow plugin — task decomposition, skill routing, architecture audit, Docker deploy.",
+  "author": {
+    "name": "Asep Haryana",
+    "email": "asepharyana71@gmail.com"
   },
+  "license": "MIT",
   "files": [
     "dist",
-    "src",
     ".claude-plugin",
-    ".cursor-plugin",
-    "gemini-extension.json",
-    ".mcp.json",
     "agents",
     "hooks",
     "skills",
@@ -25,12 +24,7 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
-    "prepack": "npm run build",
     "test": "npm run build && npm run typecheck && node --test-reporter=spec --test-reporter-destination=stdout --test \"dist/test/**/*.test.js\" \"dist/test/*.test.js\" \"test/**/*.test.mjs\" \"test/*.test.mjs\"",
-    "start:mcp": "node dist/mcp-server.js",
-    "scan": "node dist/cli.js scan",
-    "ui": "node dist/cli.js ui",
-    "dashboard": "node dist/cli.js dashboard",
     "lint": "biome check src test package.json tsconfig.json biome.json esbuild.config.mjs",
     "format": "biome format --write src test package.json tsconfig.json biome.json esbuild.config.mjs",
     "check": "biome check --write src test package.json tsconfig.json biome.json esbuild.config.mjs",
@@ -39,7 +33,6 @@
     "install:link": "./install.sh --link"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^15.0.0"
   },
   "devDependencies": {
@@ -49,12 +42,6 @@
     "esbuild": "^0.28.0",
     "typescript": "latest"
   },
-  "description": "Orchestrator-driven coding workflow with graph-first codebase understanding — task decomposition, skill routing, architecture audit, Docker deploy, and CodeGraph MCP server.",
-  "author": {
-    "name": "Asep Haryana",
-    "email": "asepharyana71@gmail.com"
-  },
-  "license": "MIT",
   "keywords": [
     "claude-code",
     "coding-workflow",
@@ -66,19 +53,6 @@
     "orchestrator",
     "task-decomposition",
     "skill-routing",
-    "mcp-first",
-    "learning-first",
-    "codegraph-first",
-    "codegraph",
-    "architecture",
-    "static-analysis",
-    "dependency-graph",
-    "visualization",
-    "code-search",
-    "codebase-understanding",
-    "impact-analysis",
-    "call-graph",
-    "graph-first",
-    "codebase-routing"
+    "mcp-first"
   ]
 }

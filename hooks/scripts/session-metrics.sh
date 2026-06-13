@@ -20,8 +20,7 @@ if [ ! -f "$LOG" ]; then
     agents_spawned: 0,
     failures: 0,
     prompts: 0,
-    deferred_bugs: 0,
-    graph_ops: 0
+    deferred_bugs: 0
   }' > "$METRICS"
   exit 0
 fi
@@ -33,7 +32,6 @@ COMMITS=$(grep -c "GIT COMMIT:" "$LOG" 2>/dev/null || true)
 FAILURES=$(grep -c "FAIL" "$LOG" 2>/dev/null || true)
 AGENTS=$(grep -c "AGENT START:" "$LOG" 2>/dev/null || true)
 PROMPTS=$(grep -c "PROMPT:" "$LOG" 2>/dev/null || true)
-GRAPH_OPS=$(grep -c "GRAPH:" "$LOG" 2>/dev/null || true)
 BRANCH_SWITCHES=$(grep -c "BRANCH SWITCH:" "$LOG" 2>/dev/null || true)
 
 # Count deferred bugs if file exists
@@ -56,7 +54,6 @@ jq -n \
   --argjson failures "$FAILURES" \
   --argjson prompts "$PROMPTS" \
   --argjson deferred_bugs "$DEFERRED_BUGS" \
-  --argjson graph_ops "$GRAPH_OPS" \
   --arg first_prompt "$FIRST_PROMPT" \
   --arg last_prompt "$LAST_PROMPT" \
   '{
@@ -69,7 +66,6 @@ jq -n \
     failures: $failures,
     prompts: $prompts,
     deferred_bugs: $deferred_bugs,
-    graph_ops: $graph_ops,
     branch_switches: (env.BRANCH_SWITCHES // 0),
     session_window: {
       first_prompt: $first_prompt,

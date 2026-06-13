@@ -16,27 +16,6 @@ RED='\033[31m'
 
 printf "${B}${C}↩  Session resumed — coder-workflow is active${R}\n"
 
-DB=".codegraph/graph.json"
-if [ -f "$DB" ]; then
-  if stat --version >/dev/null 2>&1; then
-    MTIME=$(stat -c %Y "$DB" 2>/dev/null || echo 0)
-  else
-    MTIME=$(stat -f %m "$DB" 2>/dev/null || echo 0)
-  fi
-  NOW=$(date +%s)
-  AGE_MINS=$(( (NOW - MTIME) / 60 ))
-
-  if [ "$AGE_MINS" -gt 60 ]; then
-    printf "${Y}  ⚠  CodeGraph DB is ${AGE_MINS}m old — stale. Refresh before deep analysis:${R}\n"
-    printf "${Y}     /coder-workflow:scan-codegraph${R}\n"
-  else
-    printf "${G}  ✔  CodeGraph DB is ${AGE_MINS}m old — recent${R}\n"
-  fi
-else
-  printf "${Y}  ✘  No .codegraph/graph.json. Graph tools unavailable until you run:${R}\n"
-  printf "${Y}     /coder-workflow:setup-codegraph${R}\n"
-fi
-
 # ============================================================
 # Crash Recovery Detection
 # ============================================================
@@ -86,7 +65,7 @@ fi
 printf "${Y}  →  Re-read active task state before next action. All bugs must be tracked.${R}\n"
 
 # Build additional context with crash recovery info
-ADDITIONAL_CONTEXT="[MANDATORY LOAD RULE]\\nYou are coder-workflow, an orchestrator-driven coding engine.\\n\\nUpon session resume, you MUST immediately load and invoke the 'coder-orchestrator' skill (Namespace: /coder-workflow:coder-orchestrator) before taking any other action or responding. This skill dictates how to plan, audit, refactor, and implement coding tasks. Do not attempt to run tools or answer without /coder-workflow:coder-orchestrator loaded.\\n\\nCRASH RECOVERY CHECKLIST:\\n1. Check if task.md exists — if so, read it and resume from the last unchecked item.\\n2. Check for in_progress tasks via TaskList — mark them appropriately (completed if done, or resume if interrupted).\\n3. Check .claude/deferred-bugs.json — review and fix any deferred bugs from prior session.\\n4. Check .claude/agent-depth.lock — if it exists with depth > 0, a subagent crashed. Delete the lock file.\\n5. Verify graph freshness before deep analysis.\\n\\nViolating this rule is strictly prohibited."
+ADDITIONAL_CONTEXT="[MANDATORY LOAD RULE]\\nYou are coder-workflow, an orchestrator-driven coding engine.\\n\\nUpon session resume, you MUST immediately load and invoke the 'coder-orchestrator' skill (Namespace: /coder-workflow:coder-orchestrator) before taking any other action or responding. This skill dictates how to plan, audit, refactor, and implement coding tasks. Do not attempt to run tools or answer without /coder-workflow:coder-orchestrator loaded.\\n\\nCRASH RECOVERY CHECKLIST:\\n1. Check if task.md exists — if so, read it and resume from the last unchecked item.\\n2. Check for in_progress tasks via TaskList — mark them appropriately (completed if done, or resume if interrupted).\\n3. Check .claude/deferred-bugs.json — review and fix any deferred bugs from prior session.\\n4. Check .claude/agent-depth.lock — if it exists with depth > 0, a subagent crashed. Delete the lock file.\\n\\nViolating this rule is strictly prohibited."
 
 # Restore stdout and return hookSpecificOutput JSON
 exec 1>&3

@@ -1,5 +1,5 @@
 {
-  "description": "coder-workflow hooks — safety guards, graph maintenance, task tracking, session intelligence. Optimized: deduplicated, lean session-context, added missing hooks.",
+  "description": "coder-workflow hooks — safety guards, task tracking, session intelligence.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -45,13 +45,6 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'DB=.codegraph/graph.json; if [ ! -f \"$DB\" ]; then touch .codegraph/scan.lock 2>/dev/null || true; (command -v coder-workflow >/dev/null 2>&1 && coder-workflow scan 2>/dev/null || true); rm -f .codegraph/scan.lock 2>/dev/null || true; fi; exit 0'",
-            "timeout": 180,
-            "async": true,
-            "statusMessage": "Auto-scanning codebase graph..."
-          },
-          {
-            "type": "command",
             "command": "bash -c 'LOG=.claude/session-$(date +%Y%m%d).log; if [ -f \"$LOG\" ] && [ \"$(wc -c < \"$LOG\" 2>/dev/null || echo 0)\" -gt 5242880 ]; then tail -c 5242880 \"$LOG\" > \"$LOG.tmp\" 2>/dev/null && mv \"$LOG.tmp\" \"$LOG\" 2>/dev/null; fi; exit 0'",
             "timeout": 5,
             "async": true,
@@ -84,7 +77,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Context was compacted then resumed. Skills, orchestrator, CodeGraph MCP tools still active. Re-read active task before proceeding.'",
+            "command": "echo 'Context was compacted then resumed. Skills still active. Re-read active task before proceeding.'",
             "timeout": 5
           }
         ]
@@ -205,26 +198,11 @@
             "timeout": 5,
             "async": true
           },
-          {
-            "type": "command",
-            "command": "bash -c 'DEBOUNCE_FILE=.codegraph/.update-debounce; LOCK_FILE=.codegraph/.update-debounce.lock; (flock -x 200; NOW=$(date +%s); LAST=0; [ -f \"$DEBOUNCE_FILE\" ] && LAST=$(cat \"$DEBOUNCE_FILE\" 2>/dev/null | grep -E \"^[0-9]+$\" || echo 0); ELAPSED=$((NOW - LAST)); if [ \"$ELAPSED\" -ge 5 ]; then mkdir -p .codegraph 2>/dev/null || true; printf \"%s\" \"$NOW\" > \"$DEBOUNCE_FILE\"; test -f .codegraph/graph.json && command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; fi) 200>\"$LOCK_FILE\"; exit 0'",
-            "timeout": 30,
-            "async": true,
-            "statusMessage": "Updating CodeGraph (debounced)..."
-          }
         ]
       },
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'test -f .codegraph/graph.json && command -v coder-workflow >/dev/null 2>&1 && coder-workflow update >/dev/null 2>&1 || true; exit 0'",
-            "if": "Bash(git checkout *)|Bash(git switch *)|Bash(git merge *)|Bash(git pull)|Bash(git rebase *)",
-            "timeout": 30,
-            "async": true,
-            "statusMessage": "Updating CodeGraph after git..."
-          },
           {
             "type": "command",
             "command": "bash -c 'printf \"[%s] GIT COMMIT: committed\\n\" \"$(date -u +%T)\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0'",
@@ -248,17 +226,6 @@
           }
         ]
       },
-      {
-        "matcher": "mcp__codegraph__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'TOOL=${1:-unknown}; mkdir -p .claude 2>/dev/null || true; printf \"[%s] GRAPH: %s\\n\" \"$(date -u +%T)\" \"$TOOL\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0' session-cw-graph-log",
-            "timeout": 5,
-            "async": true
-          }
-        ]
-      }
     ],
     "PostToolUseFailure": [
       {
@@ -418,7 +385,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'MCP config changed. Restart or reload plugins for new server config.'",
+            "command": "echo 'MCP config no longer used by coder-workflow.'",
             "timeout": 5
           }
         ]
@@ -476,7 +443,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Context was compacted. Skills, orchestrator, and CodeGraph tools are still active. Re-read task state before continuing.'",
+            "command": "echo 'Context was compacted. Skills and orchestrator still active. Re-read task state before continuing.'",
             "timeout": 5
           }
         ]
@@ -487,7 +454,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'DIR=$(pwd); printf \"[%s] CWD: %s\\n\" \"$(date -u +%T)\" \"$DIR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; test -f .codegraph/graph.json && echo \"CodeGraph available: $(wc -c < .codegraph/graph.json 2>/dev/null || echo 0) bytes\" || echo \"No CodeGraph graph file in this directory.\"; exit 0'",
+            "command": "bash -c 'DIR=$(pwd); printf \"[%s] CWD: %s\\n\" \"$(date -u +%T)\" \"$DIR\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; exit 0'",
             "timeout": 5
           }
         ]
@@ -544,7 +511,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PermissionRequest\\\", systemMessage: \\\"coder-workflow active — tools include codegraph MCP, Bash, file edit. Grant if you trust this plugin.\\\"}}\"'",
+            "command": "bash -c 'jq -n \"{hookSpecificOutput: {hookEventName: \\\"PermissionRequest\\\", systemMessage: \\\"coder-workflow active — tools include Bash, file edit, coder-workflow CLI. Grant if you trust this plugin.\\\"}}\"'",
             "timeout": 3
           }
         ]
