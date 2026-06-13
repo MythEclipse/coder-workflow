@@ -1,7 +1,7 @@
 ---
 name: architecture-auditor
 description: Read-only architecture and layer violation audit. Graph-first with robust fallback. [Requires: Fast-Exploration Model]
-model: fable-5
+model: free
 color: orange
 tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "invoke_subagent"]
 disallowedTools: ["Edit", "Write", "Bash"]

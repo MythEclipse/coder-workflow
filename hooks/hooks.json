@@ -517,7 +517,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // \\\"unknown\\\"\" <<< \"$INPUT\" 2>/dev/null); git add . && git diff-index --quiet HEAD || git commit -m \"chore(auto): task completed - $TITLE\" || true; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); git add . && git diff-index --quiet HEAD || echo \"$INPUT\" | bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/auto-commit-generator.sh || true; exit 0'",
             "timeout": 15,
             "async": true,
             "statusMessage": "Auto-committing changes..."

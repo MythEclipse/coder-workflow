@@ -1,8 +1,9 @@
 ---
 name: docs-generator
 description: Generate CONTRIBUTING.md, ARCHITECTURE.md, ADRs, PR descriptions, changelogs, releases.
+model: lite
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*"]
-model: fable-5
+
 color: green
 maxTurns: 15
 effort: high

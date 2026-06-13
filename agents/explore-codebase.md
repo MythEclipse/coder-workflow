@@ -1,10 +1,11 @@
 ---
 name: explore-codebase
 description: Codebase exploration agent using CodeGraph MCP. Graph-first code exploration — NEVER use bash find/grep for exploration. Use this for ANY codebase discovery, architecture understanding, search, or file-locating task.
+model: free
 color: cyan
 tools: ["Read", "Grep", "Glob", "mcp__codegraph__*", "invoke_subagent"]
 disallowedTools: ["Edit", "Write", "Bash"]
-model: fable-5
+
 maxTurns: 30
 effort: low
 ---

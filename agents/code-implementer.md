@@ -1,7 +1,7 @@
 ---
 name: code-implementer
 description: Single-task implementation after planning. Uses FILE_MANIFEST, TDD-first, Impact Radius Protocol. [Requires: Complex-Reasoning Model]
-model: fable-5
+model: lite
 color: green
 tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "mcp__codegraph__*", "invoke_subagent"]
 maxTurns: 50

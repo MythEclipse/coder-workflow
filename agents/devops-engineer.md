@@ -1,7 +1,7 @@
 ---
 name: devops-engineer
 description: Docker, CI/CD (GitHub Actions), VPS deploy with Traefik, GHCR, production config. Plan-first. [Requires: Complex-Reasoning Model]
-model: fable-5
+model: lite
 version: 0.2.0
 tools: ["Read","Edit","Write","Grep","Glob","Bash","mcp__codegraph__*","invoke_subagent"]
 maxTurns: 30
