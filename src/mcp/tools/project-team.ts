@@ -101,7 +101,11 @@ function collectFiles(root: string): string[] {
  */
 function git(args: string[], cwd?: string): string {
   try {
-    return execSync(`git ${args.join(" ")}`, {
+    // Shell-escape: wrap args containing | or space in single quotes
+    const escaped = args.map((a) =>
+      /[|\s]/.test(a) ? `'${a.replace(/'/g, "'\\''")}'` : a,
+    );
+    return execSync(`git ${escaped.join(" ")}`, {
       encoding: "utf-8",
       cwd: cwd ?? process.cwd(),
       timeout: 15_000,
@@ -273,7 +277,7 @@ export const busFactorCalculator: ToolEntry = {
         blameEntries.push({
           file: relPath,
           authors: [...authors],
-          totalLines: authors.size,
+          totalLines: authors.size, // number of unique authors = bus factor indicator
         });
       }
 

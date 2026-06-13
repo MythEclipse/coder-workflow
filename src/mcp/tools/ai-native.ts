@@ -57,6 +57,14 @@ export const promptVersionControl: ToolEntry = {
             f.includes("agent") ||
             f.includes("CLAUDE"),
         )
+        .filter((f) => {
+          try {
+            statSync(f);
+            return true;
+          } catch {
+            return false;
+          }
+        })
         .map((f) => ({
           path: relative(root, f),
           version: extractVersion(f),

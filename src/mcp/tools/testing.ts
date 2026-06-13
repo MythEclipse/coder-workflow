@@ -461,7 +461,7 @@ export const regressionRiskScorer: ToolEntry = {
 
         // Factor 5: File size (larger = riskier)
         try {
-          const fullPath = resolve(process.cwd(), file);
+          const fullPath = resolve(_root, file);
           if (existsSync(fullPath)) {
             const size = statSync(fullPath).size;
             if (size > 100_000) {

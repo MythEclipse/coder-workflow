@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import type { McpTool } from "./types.js";
 
 export interface ToolEntry {
@@ -221,22 +221,34 @@ export const architectureDiagramSync: ToolEntry = {
       }
 
       const topLevels = entries.filter((e) => {
-        try {
-          return statSync(join(targetDir, e)).isDirectory();
-        } catch {
-          return false;
-        }
+        try { return statSync(join(targetDir, e)).isDirectory(); } catch { return false; }
       });
 
-      if (topLevels.length === 0) {
+      // Collect all directories recursively (max 5 levels)
+      const allDirs = [...topLevels.map((d) => join(targetDir, d))];
+      function collectDirs(dir: string, depth: number) {
+        if (depth > 5) return;
+        try {
+          for (const e of readdirSync(dir, { withFileTypes: true })) {
+            const full = join(dir, e.name);
+            if (e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules") {
+              allDirs.push(full);
+              collectDirs(full, depth + 1);
+            }
+          }
+        } catch { /* skip unreadable */ }
+      }
+      for (const d of topLevels) collectDirs(join(targetDir, d), 0);
+
+      if (allDirs.length === 0) {
         return { mermaid: "graph TD\n  Empty[\"No subdirectories found\"]" };
       }
 
       const lines: string[] = ["graph TD"];
 
-      for (const subdir of topLevels.sort()) {
-        const subPath = join(targetDir, subdir);
-        lines.push(`  subgraph ${subdir}`);
+      for (const subPath of allDirs.sort()) {
+        const subdir = relative(targetDir, subPath);
+        lines.push(`  subgraph ${sanitizeId(subdir)}["${subdir}"]`);
 
         let fileNames: string[] = [];
         try {
