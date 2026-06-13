@@ -188,11 +188,21 @@ install_mcp() {
 
   # Determine MCP config file and scope
   if $PROJECT; then
+    MCP_SERVER="$(pwd)/dist/mcp-server.js"
+    SCOPE="local"
     MCP_CONFIG_FILE="$PLUGIN_SRC/.mcp.json"
-    SCOPE="project"
   else
-    MCP_CONFIG_FILE="${HOME}/.claude.json"
     SCOPE="user"
+    MCP_CONFIG_FILE="${HOME}/.claude.json"
+  fi
+
+  if command -v npx &> /dev/null; then
+    echo -e "${BLUE}Configuring MCP server via Claude CLI (scope: ${SCOPE})...${NC}"
+    if npx -y @anthropic-ai/claude-code mcp add --scope "$SCOPE" coder-workflow node "$MCP_SERVER"; then
+      echo -e "${GREEN}✓ MCP configuration updated${NC}"
+      return
+    fi
+    echo -e "${YELLOW}Claude CLI configuration failed, falling back to manual config...${NC}"
   fi
 
   mkdir -p "$(dirname "$MCP_CONFIG_FILE")"

@@ -85,10 +85,29 @@ function Install-McpAndBuild {
 
   if ($Project) {
     $McpConfig = Join-Path $PluginRoot ".mcp.json"
+    $Scope = "local"
   } else {
     $McpConfig = Join-Path $env:USERPROFILE ".claude.json"
+    $Scope = "user"
+  }
+
+  $McpServerPath = Join-Path $Dest "dist\mcp-server.js"
+  if ($Project) {
+    $McpServerPath = Join-Path (Get-Location) "dist\mcp-server.js"
   }
   
+  if (Get-Command npx -ErrorAction SilentlyContinue) {
+    Write-Host "Configuring MCP server via Claude CLI (scope: $Scope)..." -ForegroundColor Cyan
+    Invoke-Step {
+      $p = Start-Process -FilePath "npx" -ArgumentList "-y","@anthropic-ai/claude-code","mcp","add","--scope",$Scope,"coder-workflow","node",$McpServerPath -Wait -PassThru -NoNewWindow
+      if ($p.ExitCode -eq 0) {
+        Write-Host "MCP configuration updated using Claude CLI." -ForegroundColor Green
+        return
+      }
+    } "npx mcp add"
+    Write-Host "Claude CLI configuration failed, falling back to manual config..." -ForegroundColor Yellow
+  }
+
   $McpParent = Split-Path -Parent $McpConfig
   if (-not (Test-Path $McpParent)) {
     New-Item -ItemType Directory -Path $McpParent -Force | Out-Null
@@ -98,19 +117,16 @@ function Install-McpAndBuild {
     Write-Host "Creating new MCP configuration..." -ForegroundColor Cyan
     $ConfigContent = @{
       mcpServers = @{
-        codegraph = @{
+        "coder-workflow" = @{
           type = "stdio"
-          command = "coder-workflow"
-          args = @("mcp")
-          env = @{
-            CODEGRAPH_DEFAULT_UI_PORT = "3737"
-          }
+          command = "node"
+          args = @($McpServerPath)
         }
       }
     } | ConvertTo-Json -Depth 5
     Set-Content -Path $McpConfig -Value $ConfigContent
   } else {
-    Write-Host "Found existing MCP configuration. Please ensure codegraph is added to $McpConfig." -ForegroundColor Yellow
+    Write-Host "Found existing MCP configuration. Please ensure coder-workflow is added to $McpConfig." -ForegroundColor Yellow
   }
   Pop-Location
 }

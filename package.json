@@ -36,6 +36,7 @@
     "coder-workflow": "./dist/cli.js"
   },
   "dependencies": {
+    "@anthropic-ai/claude-code": "^2.1.177",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^15.0.0"
   },
