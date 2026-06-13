@@ -252,7 +252,7 @@ export const flakyTestHistorian: ToolEntry = {
 
       return {
         potentialFlaky,
-        totalLogsScanned: seen.size,
+        totalLinesScanned: seenLines.size,
         scannedDirectories: logDirs.filter((d) => existsSync(d)),
       };
     },
