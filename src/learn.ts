@@ -14,8 +14,13 @@
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import type { CorrectionEntry, FailureRecord, LearnReport } from "./experience-types.js";
+
+// In-process guard: prevents concurrent dreaming cycles from racing on the same file.
+// A simple boolean is sufficient because Node.js is single-threaded per process.
+let _dreamingInProgress = false;
 
 // ─── Constants ───────────────────────────────────────────────────────────
 
@@ -50,14 +55,20 @@ export async function logFailure(
 
   appendFileSync(join(dir, FAILURE_LOG), JSON.stringify(fullRecord) + "\n", "utf-8");
 
-  // Auto-trigger dreaming if backlog gets too large (dynamic import to avoid circular dep)
+  // Auto-trigger dreaming if backlog gets too large (dynamic import to avoid circular dep).
+  // Guard with _dreamingInProgress to prevent concurrent fire-and-forget races when
+  // multiple failures arrive in rapid succession (e.g., batch async hooks).
   try {
-    if (getUnprocessedFailures().length >= 5) {
+    if (!_dreamingInProgress && getUnprocessedFailures().length >= 5) {
+      _dreamingInProgress = true;
       const { runDreamingCycle } = await import("./dreaming.js");
-      runDreamingCycle();
+      Promise.resolve(runDreamingCycle()).finally(() => {
+        _dreamingInProgress = false;
+      });
     }
   } catch {
-    // Fail silently
+    _dreamingInProgress = false;
+    // Fail silently — dreaming is best-effort
   }
 
   return fullRecord;
@@ -165,10 +176,20 @@ function correctionReviver(_key: string, value: unknown): unknown {
     value !== null &&
     (value as Record<string, unknown>).__regexp === true
   ) {
-    return new RegExp(
-      (value as Record<string, unknown>).source as string,
-      (value as Record<string, unknown>).flags as string,
-    );
+    const raw = value as Record<string, unknown>;
+    // Guard: source and flags must be non-empty strings before constructing RegExp.
+    // A corrupted or manually-written corrections.json could omit these fields,
+    // leading to new RegExp(undefined) which silently compiles to /(?:)/.
+    if (typeof raw.source !== "string" || raw.source.length === 0) {
+      return /(?:)/; // safe no-op pattern instead of silent wrong behavior
+    }
+    const flags = typeof raw.flags === "string" ? raw.flags : "";
+    try {
+      return new RegExp(raw.source, flags);
+    } catch {
+      // If the stored source is syntactically invalid, return a no-op pattern.
+      return /(?:)/;
+    }
   }
   return value;
 }
@@ -188,6 +209,33 @@ function saveCorrections(corrections: CorrectionEntry[]): void {
   const dir = ensureLearnDir();
   writeFileSync(
     join(dir, CORRECTIONS_FILE),
+    JSON.stringify(corrections, correctionReplacer, 2),
+    "utf-8",
+  );
+}
+
+function getGlobalCorrectionsPath(): string {
+  if (process.env.TEST_GLOBAL_CORRECTIONS_PATH) {
+    return process.env.TEST_GLOBAL_CORRECTIONS_PATH;
+  }
+  const dir = join(homedir(), ".coder-workflow");
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return join(dir, "global-corrections.json");
+}
+
+function loadGlobalCorrections(): CorrectionEntry[] {
+  const filePath = getGlobalCorrectionsPath();
+  if (!existsSync(filePath)) return [];
+  try {
+    return JSON.parse(readFileSync(filePath, "utf-8"), correctionReviver);
+  } catch {
+    return [];
+  }
+}
+
+function saveGlobalCorrections(corrections: CorrectionEntry[]): void {
+  writeFileSync(
+    getGlobalCorrectionsPath(),
     JSON.stringify(corrections, correctionReplacer, 2),
     "utf-8",
   );
@@ -219,21 +267,98 @@ export function addCorrection(
 
 /**
  * Find a correction that matches a given error string.
+ * Also applies decay/punishment logic: if the correction was applied very recently
+ * and is matching again, it indicates the fix failed. If it fails > 3 times rapidly,
+ * it is revoked (deleted).
  */
 export function matchCorrection(error: string): CorrectionEntry | undefined {
-  const corrections = loadCorrections();
-  for (const corr of corrections) {
+  const local = loadCorrections();
+  const global = loadGlobalCorrections();
+  const all = [...local, ...global];
+
+  let matched: CorrectionEntry | undefined;
+  let isGlobal = false;
+
+  for (const corr of all) {
     try {
       if (corr.symptom.test(error)) {
-        corr.appliedCount++;
-        saveCorrections(corrections);
-        return corr;
+        matched = corr;
+        isGlobal = global.some((c) => c.id === corr.id);
+        break;
       }
     } catch {
       // bad regex, skip
     }
   }
-  return undefined;
+
+  if (matched) {
+    // Punishment logic
+    if (matched.lastAppliedAt) {
+      const msSince = Date.now() - new Date(matched.lastAppliedAt).getTime();
+      if (msSince < 120000) {
+        // 2 minutes
+        matched.failureCount = (matched.failureCount || 0) + 1;
+        if (matched.failureCount > 3) {
+          // Revoke correction
+          if (isGlobal) {
+            saveGlobalCorrections(loadGlobalCorrections().filter((c) => c.id !== matched!.id));
+          } else {
+            saveCorrections(loadCorrections().filter((c) => c.id !== matched!.id));
+          }
+          return undefined;
+        }
+      } else {
+        matched.failureCount = 0; // reset if enough time passed
+      }
+
+      // Save the updated failureCount
+      if (isGlobal) {
+        const globals = loadGlobalCorrections();
+        const idx = globals.findIndex((c) => c.id === matched!.id);
+        if (idx !== -1) {
+          globals[idx] = matched;
+          saveGlobalCorrections(globals);
+        }
+      } else {
+        const locals = loadCorrections();
+        const idx = locals.findIndex((c) => c.id === matched!.id);
+        if (idx !== -1) {
+          locals[idx] = matched;
+          saveCorrections(locals);
+        }
+      }
+    }
+  }
+
+  return matched;
+}
+
+/**
+ * Increment the applied count for a correction by id, and record lastAppliedAt.
+ * Call this after you have confirmed a correction was used, separate from lookup.
+ */
+export function incrementAppliedCount(correctionId: string): boolean {
+  let found = false;
+
+  const locals = loadCorrections();
+  const localIdx = locals.findIndex((c) => c.id === correctionId);
+  if (localIdx !== -1) {
+    locals[localIdx].appliedCount++;
+    locals[localIdx].lastAppliedAt = new Date().toISOString();
+    saveCorrections(locals);
+    found = true;
+  }
+
+  const globals = loadGlobalCorrections();
+  const globalIdx = globals.findIndex((c) => c.id === correctionId);
+  if (globalIdx !== -1) {
+    globals[globalIdx].appliedCount++;
+    globals[globalIdx].lastAppliedAt = new Date().toISOString();
+    saveGlobalCorrections(globals);
+    found = true;
+  }
+
+  return found;
 }
 
 // ─── Failure Analysis (Auto-Learn) ──────────────────────────────────────
@@ -249,7 +374,11 @@ export function analyzeFailures(): {
   analyzed: number;
   suggestions: Array<{ pattern: string; symptom: string; fix: string }>;
 } {
-  const failures = getFailures({ unresolved: true, limit: 50 });
+  // Use getUnprocessedFailures() — only failures not yet processed by the Dreaming
+  // phase. getFailures({unresolved:true}) was wrong: dreaming only sets `dreamedAt`,
+  // never `resolved`, so all failures would always appear as "unresolved",
+  // causing repetitive suggestions every time analyze runs.
+  const failures = getUnprocessedFailures().slice(0, 50);
   const suggestions: Array<{ pattern: string; symptom: string; fix: string }> = [];
 
   if (failures.length === 0) {
@@ -338,10 +467,30 @@ export function applyCorrections(
   let written = 0;
   const memoryFiles: string[] = [];
 
+  // Load existing corrections once to deduplicate by pattern name.
+  // Without this check, repeated `learn-analyze --apply` on the same failure set
+  // would append new CorrectionEntry objects with fresh IDs for identical patterns,
+  // growing corrections.json unboundedly.
+  const existingCorrections = loadCorrections();
+  const existingPatterns = new Set(existingCorrections.map((c) => c.pattern));
+
   for (const suggestion of suggestions) {
     if (!suggestion.pattern) continue;
 
-    const entry = addCorrection(suggestion.pattern, suggestion.symptom, suggestion.fix);
+    // Skip if a correction for this pattern already exists — update memory file only.
+    let entry: CorrectionEntry;
+    if (existingPatterns.has(suggestion.pattern)) {
+      // Reuse existing entry; update the fix in-place if it differs.
+      const existing = existingCorrections.find((c) => c.pattern === suggestion.pattern)!;
+      if (existing.fix !== suggestion.fix) {
+        existing.fix = suggestion.fix;
+        saveCorrections(existingCorrections);
+      }
+      entry = existing;
+    } else {
+      entry = addCorrection(suggestion.pattern, suggestion.symptom, suggestion.fix);
+      existingPatterns.add(suggestion.pattern);
+    }
     const filePath = join(memoryDir, `${suggestion.pattern}.md`);
     const content = [
       "---",
@@ -368,6 +517,38 @@ export function applyCorrections(
     writeFileSync(filePath, content, "utf-8");
     written++;
     memoryFiles.push(filePath);
+  }
+
+  // Sync to global corrections
+  if (written > 0) {
+    const globals = loadGlobalCorrections();
+    const globalPatterns = new Set(globals.map((c) => c.pattern));
+    let globalUpdated = false;
+
+    // Use loadCorrections to get the fully constructed local entries with regex objects
+    const locals = loadCorrections();
+
+    for (const suggestion of suggestions) {
+      if (!suggestion.pattern) continue;
+      const localEntry = locals.find((c) => c.pattern === suggestion.pattern);
+      if (!localEntry) continue;
+
+      if (globalPatterns.has(suggestion.pattern)) {
+        const existing = globals.find((c) => c.pattern === suggestion.pattern)!;
+        if (existing.fix !== suggestion.fix) {
+          existing.fix = suggestion.fix;
+          globalUpdated = true;
+        }
+      } else {
+        globals.push(localEntry);
+        globalPatterns.add(suggestion.pattern);
+        globalUpdated = true;
+      }
+    }
+
+    if (globalUpdated) {
+      saveGlobalCorrections(globals);
+    }
   }
 
   // Also write a summary memory file

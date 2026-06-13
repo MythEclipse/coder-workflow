@@ -86,6 +86,9 @@ import { detectDeadCodeFromGraph } from "./deadcode.js";
 import { formatDoctorReport, generateDoctorReport } from "./doctor.js";
 import { runDreamingCycle } from "./dreaming.js";
 import {
+  recordCompletion as expRecordCompletion,
+  recordDecision as expRecordDecision,
+  recordFailure as expRecordFailure,
   getStats as getExpStats,
   getInsights,
   queryDecisions,
@@ -1529,7 +1532,9 @@ async function main() {
         try {
           const sub = args[0] || "recent";
           if (sub === "recent") {
-            const entries = queryRecent(undefined, parseInt(readFlag(args, "--limit") ?? "10"));
+            const taskType = readFlag(args, "--type") || undefined;
+            const limit = parseInt(readFlag(args, "--limit") ?? "10");
+            const entries = queryRecent(taskType, limit);
             console.log(JSON.stringify(entries, null, 2));
           } else if (sub === "decisions") {
             const entries = queryDecisions(readFlag(args, "--context") || undefined);
@@ -1540,8 +1545,85 @@ async function main() {
           } else if (sub === "stats") {
             const stats = getExpStats();
             console.log(JSON.stringify(stats, null, 2));
+          } else if (sub === "record") {
+            // Write a task completion entry to the experience journal.
+            // Required: --task-type and --desc. --outcome defaults to "success".
+            const taskType = readFlag(args, "--task-type");
+            const taskDesc = readFlag(args, "--desc");
+            if (!taskType || !taskDesc) {
+              console.error(
+                [
+                  "Usage: coder-workflow experience record",
+                  "  --task-type <implement|debug|refactor|test|deploy|review|other>",
+                  "  --desc <short description>",
+                  "  [--outcome <success|failure|partial>]  (default: success)",
+                  "  [--lessons <comma-separated lessons>]",
+                  "  [--patterns <comma-separated patterns>]",
+                  "  [--tags <comma-separated tags>]",
+                  "  [--root-cause <error message>]        (for failure outcome)",
+                ].join("\n"),
+              );
+              process.exitCode = 1;
+              return;
+            }
+            const outcomeRaw = readFlag(args, "--outcome") || "success";
+            const outcome =
+              outcomeRaw === "failure" || outcomeRaw === "partial" ? outcomeRaw : "success";
+            const lessons = (readFlag(args, "--lessons") || "").split(",").filter(Boolean);
+            const patterns = (readFlag(args, "--patterns") || "").split(",").filter(Boolean);
+            const tags = (readFlag(args, "--tags") || "").split(",").filter(Boolean);
+            const rootCause = readFlag(args, "--root-cause") || undefined;
+            const entry = expRecordCompletion({
+              taskType,
+              taskDesc,
+              outcome,
+              lessons,
+              patterns,
+              decisions: [],
+              tags: tags.length ? tags : [taskType],
+              ...(rootCause ? { rootCause } : {}),
+            });
+            console.log(JSON.stringify(entry, null, 2));
+          } else if (sub === "record-failure") {
+            // Quick-log a failure without full completion context.
+            const taskType = readFlag(args, "--task-type");
+            const error = readFlag(args, "--error");
+            const context = readFlag(args, "--context");
+            if (!taskType || !error || !context) {
+              console.error(
+                "Usage: coder-workflow experience record-failure --task-type <type> --error <message> --context <context>",
+              );
+              process.exitCode = 1;
+              return;
+            }
+            const entry = expRecordFailure(taskType, error, context);
+            console.log(JSON.stringify(entry, null, 2));
+          } else if (sub === "record-decision") {
+            // Record an architectural/technical decision for future reference.
+            const context = readFlag(args, "--context");
+            const selected = readFlag(args, "--selected");
+            const rationale = readFlag(args, "--rationale");
+            const optionsRaw = readFlag(args, "--options") || "";
+            if (!context || !selected || !rationale) {
+              console.error(
+                [
+                  "Usage: coder-workflow experience record-decision",
+                  "  --context <description of the decision>",
+                  "  --options <comma-separated alternatives>",
+                  "  --selected <chosen option>",
+                  "  --rationale <why it was chosen>",
+                ].join("\n"),
+              );
+              process.exitCode = 1;
+              return;
+            }
+            const options = optionsRaw.split(",").filter(Boolean);
+            const record = expRecordDecision(context, options, selected, rationale);
+            console.log(JSON.stringify(record, null, 2));
           } else {
-            console.error("Usage: coder-workflow experience <recent|decisions|insights|stats>");
+            console.error(
+              "Usage: coder-workflow experience <recent|decisions|insights|stats|record|record-failure|record-decision>",
+            );
             process.exitCode = 1;
           }
         } catch (error) {

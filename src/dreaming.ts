@@ -266,10 +266,12 @@ export function runLightSleep(): { extracted: number; candidates: MemoryCandidat
       candidate.confidence += 1;
       candidate.lastSeen = new Date().toISOString();
     } else {
+      const errorBody =
+        failure.error.length > 300 ? `${failure.error.substring(0, 300)}\u2026` : failure.error;
       candidate = {
         id: `cand-${Date.now()}-${randomUUID().slice(0, 8)}`,
         topic,
-        context: `Failure observation: ${failure.error.substring(0, 300)}...`, // Truncate huge errors
+        context: `Failure observation: ${errorBody}`,
         confidence: 1,
         firstSeen: new Date().toISOString(),
         lastSeen: new Date().toISOString(),

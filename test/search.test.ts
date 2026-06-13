@@ -375,13 +375,13 @@ test("MCP rejects invalid search_code input", async () => {
 
   await client.connect(transport);
   try {
-    await assert.rejects(
-      client.callTool({
-        name: "search_code",
-        arguments: { pattern: "needle", maxResults: "many" },
-      }),
-      /Search numeric options must be finite numbers\./,
-    );
+    const result = await client.callTool({
+      name: "search_code",
+      arguments: { pattern: "needle", maxResults: "many" },
+    });
+    assert.equal(result.isError, true);
+    const textContent = (result as any).content[0] as { type: "text"; text: string };
+    assert.match(textContent.text, /Search numeric options must be finite numbers\./);
   } finally {
     await client.close();
   }

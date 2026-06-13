@@ -201,17 +201,14 @@ test("quality_gate rejects invalid threshold with clear error", async () => {
   await withClient(root, async (client) => {
     await client.callTool({ name: "scan_codebase", arguments: {} });
 
-    try {
-      await client.callTool({ name: "quality_gate", arguments: { threshold: "severe" } });
-      assert.fail("should have thrown error for invalid threshold");
-    } catch (err) {
-      assert.ok(err instanceof Error);
-      assert.match(
-        err.message,
-        /Invalid threshold\. Use high, medium, or low\./,
-        "error should match expected message",
-      );
-    }
+    const result = await client.callTool({ name: "quality_gate", arguments: { threshold: "severe" } });
+    assert.equal(result.isError, true, "should return isError true for invalid threshold");
+    const textContent = (result as any).content[0] as { type: "text"; text: string };
+    assert.match(
+      textContent.text,
+      /Invalid threshold\. Use high, medium, or low\./,
+      "error should match expected message",
+    );
   });
 });
 

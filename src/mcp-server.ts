@@ -202,6 +202,7 @@ import {
   analyzeFailures,
   applyCorrections,
   getLearnReport,
+  incrementAppliedCount,
   logFailure,
   matchCorrection,
   resolveFailure,
@@ -1457,724 +1458,754 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   _toolCallCount++;
   _lastToolCallTime = Date.now();
 
-  switch (request.params.name) {
-    case "ping":
-      return text({
-        status: "ok",
-        uptimeSeconds: Math.round((Date.now() - _serverStartTime) / 1000),
-        toolCalls: _toolCallCount,
-        lastToolCallSecondsAgo:
-          _lastToolCallTime > 0 ? Math.round((Date.now() - _lastToolCallTime) / 1000) : null,
-        cache: {
-          loaded: graphCache.isLoaded,
-          nodes: graphCache.nodesCount,
-          edges: graphCache.edgesCount,
-          mtime: graphCache.mtime ? new Date(graphCache.mtime).toISOString() : null,
-        },
-      });
-    case "scan_codebase":
-    case "update_codebase": {
-      const graph = await withTimeout(
-        (signal) => scanCodebase(root, settings, signal),
-        SCAN_TIMEOUT_MS,
-        request.params.name,
-      );
-      await writeGraph(root, graph);
-      // Invalidate cache after write so next read gets fresh data
-      graphCache.invalidate();
-      return text({
-        graph: ".codegraph/graph.json",
-        nodes: graph.nodes.length,
-        edges: graph.edges.length,
-        filesScanned: graph.metadata.filesScanned,
-      });
-    }
-    case "query_graph": {
-      const query = stringArg(args?.query, "query");
-      return text(queryGraph(await graphCache.getGraph(root), query, numberArg(args?.maxResults)));
-    }
-    case "search_code": {
-      const pattern = stringArg(args?.pattern, "pattern");
-      const patterns = stringArrayArg(args?.patterns, "patterns");
-      // Default: regex=true. Only set regex:false for literal search.
-      const regex = args?.regex !== false;
-      const caseSensitive = args?.caseSensitive === true;
-      const contextLines = numberArg(args?.contextLines);
-      const maxResults = numberArg(args?.maxResults);
-      const maxFileSizeBytes = numberArg(args?.maxFileSizeBytes);
-      const include = stringArrayArg(args?.include, "include");
-      const exclude = stringArrayArg(args?.exclude, "exclude");
-      const path = args?.path as string | undefined;
+  try {
+    switch (request.params.name) {
+      case "ping":
+        return text({
+          status: "ok",
+          uptimeSeconds: Math.round((Date.now() - _serverStartTime) / 1000),
+          toolCalls: _toolCallCount,
+          lastToolCallSecondsAgo:
+            _lastToolCallTime > 0 ? Math.round((Date.now() - _lastToolCallTime) / 1000) : null,
+          cache: {
+            loaded: graphCache.isLoaded,
+            nodes: graphCache.nodesCount,
+            edges: graphCache.edgesCount,
+            mtime: graphCache.mtime ? new Date(graphCache.mtime).toISOString() : null,
+          },
+        });
+      case "scan_codebase":
+      case "update_codebase": {
+        const graph = await withTimeout(
+          (signal) => scanCodebase(root, settings, signal),
+          SCAN_TIMEOUT_MS,
+          request.params.name,
+        );
+        await writeGraph(root, graph);
+        // Invalidate cache after write so next read gets fresh data
+        graphCache.invalidate();
+        return text({
+          graph: ".codegraph/graph.json",
+          nodes: graph.nodes.length,
+          edges: graph.edges.length,
+          filesScanned: graph.metadata.filesScanned,
+        });
+      }
+      case "query_graph": {
+        const query = stringArg(args?.query, "query");
+        return text(
+          queryGraph(await graphCache.getGraph(root), query, numberArg(args?.maxResults)),
+        );
+      }
+      case "search_code": {
+        const pattern = stringArg(args?.pattern, "pattern");
+        const patterns = stringArrayArg(args?.patterns, "patterns");
+        // Default: regex=true. Only set regex:false for literal search.
+        const regex = args?.regex !== false;
+        const caseSensitive = args?.caseSensitive === true;
+        const contextLines = numberArg(args?.contextLines);
+        const maxResults = numberArg(args?.maxResults);
+        const maxFileSizeBytes = numberArg(args?.maxFileSizeBytes);
+        const include = stringArrayArg(args?.include, "include");
+        const exclude = stringArrayArg(args?.exclude, "exclude");
+        const path = args?.path as string | undefined;
 
-      const result = searchCodebase(root, settings, {
-        pattern,
-        patterns,
-        regex,
-        caseSensitive,
-        contextLines,
-        maxResults,
-        maxFileSizeBytes,
-        include,
-        exclude,
-        path,
-      });
+        const result = searchCodebase(root, settings, {
+          pattern,
+          patterns,
+          regex,
+          caseSensitive,
+          contextLines,
+          maxResults,
+          maxFileSizeBytes,
+          include,
+          exclude,
+          path,
+        });
 
-      return text(result);
-    }
-    case "export_graph":
-      return text({
-        written: exportGraph(
+        return text(result);
+      }
+      case "export_graph":
+        return text({
+          written: exportGraph(
+            root,
+            await graphCache.getGraph(root),
+            (args?.formats as string[] | undefined) ?? settings.exports,
+          ),
+        });
+      case "analyze_impact": {
+        const target = stringArg(args?.target, "target");
+        const directionStr = typeof args?.direction === "string" ? args.direction : "both";
+        const direction = ["upstream", "downstream", "both"].includes(directionStr)
+          ? (directionStr as "upstream" | "downstream" | "both")
+          : "both";
+        return text(
+          analyzeImpact(
+            await graphCache.getGraph(root),
+            target,
+            Number.MAX_SAFE_INTEGER,
+            direction,
+          ),
+        );
+      }
+      case "open_graph_ui":
+        return text({ url: await openGraphUi(root, settings) });
+      case "find_cycles":
+        return text(findCycles(await graphCache.getGraph(root)));
+      case "find_orphans":
+        return text(findOrphans(await graphCache.getGraph(root)));
+      case "summarize_architecture": {
+        const graph = await graphCache.getGraph(root);
+        const maxNodes = numberArg(args?.maxNodes) ?? graph.nodes.length;
+        const maxEdges = numberArg(args?.maxEdges) ?? graph.edges.length;
+        const summary = summarizeGraphForBudget(graph, { maxNodes, maxEdges });
+        const freshness = await getGraphFreshness(root);
+        return text({ ...summary, freshness });
+      }
+      case "analyze_quality": {
+        const report = analyzeGraphQuality(await graphCache.getGraph(root), root);
+        const threshold = readThreshold(args?.failOn);
+        if (!threshold) return text(report);
+        const gate = evaluateQualityGate(report.issues, threshold);
+        return text({
+          ...report,
+          ...gate,
+          failingIssues: failingIssuesForThreshold(report, threshold),
+        });
+      }
+      case "quality_gate": {
+        const threshold = readThreshold(args?.threshold);
+        if (!threshold) throw new Error("Invalid threshold. Use high, medium, or low.");
+        const report = analyzeGraphQuality(await graphCache.getGraph(root), root);
+        const gate = evaluateQualityGate(report.issues, threshold);
+        const result = { ...gate, failingIssues: failingIssuesForThreshold(report, threshold) };
+        if (args?.includeReport === true) return text({ ...report, ...result });
+        return text(result);
+      }
+      case "list_directory_tree":
+        return text(
+          getDirectoryTree(root, String(args?.path ?? "."), {
+            maxDepth: typeof args?.maxDepth === "number" ? args.maxDepth : Number.MAX_SAFE_INTEGER,
+          }),
+        );
+      case "summarize_graph": {
+        const summary = summarizeGraphForBudget(await graphCache.getGraph(root), {
+          maxNodes: numberArg(args?.maxNodes) ?? 50,
+          maxEdges: numberArg(args?.maxEdges) ?? 100,
+        });
+        const freshness = await getGraphFreshness(root);
+        return text({ ...summary, freshness });
+      }
+      case "diff_graphs": {
+        const before = JSON.parse(readFileSync(stringArg(args?.beforePath, "beforePath"), "utf8"));
+        const after = JSON.parse(readFileSync(stringArg(args?.afterPath, "afterPath"), "utf8"));
+        return text({ diff: formatGraphDiff(diffGraphs(before, after)) });
+      }
+      case "check_graph_freshness":
+        return text(await getGraphFreshness(root));
+
+      // ─── Headroom: CCR Compression Handlers ────────────────────────────
+      case "compress_content": {
+        const content = stringArg(args?.content, "content");
+        const result = compress(content, {
+          contentType: (args?.contentType as "auto" | "json" | "code" | "prose") ?? "auto",
+          filePath: args?.filePath as string | undefined,
+        });
+        return text(result);
+      }
+      case "decompress_content": {
+        const ccrId = stringArg(args?.ccrId, "ccrId");
+        const result = decompress(ccrId);
+        if (!result) throw new Error(`CCR ID not found: ${ccrId}`);
+        return text(result);
+      }
+      case "ccr_stats":
+        return text(getCompressionStats());
+      case "clean_ccr": {
+        const maxAge = Number(args?.maxAgeHours) || 24;
+        return text({ purged: cleanCCR(maxAge) });
+      }
+
+      // ─── Headroom: CacheAligner Handlers ───────────────────────────────
+      case "align_cache": {
+        const rawContent = stringArg(args?.content, "content");
+        const result = alignCache(rawContent, {
+          taskType: args?.type as string | undefined,
+          mode: args?.subType as string | undefined,
+          projectName: args?.task as string | undefined,
+        });
+        return text(result);
+      }
+      case "cache_alignment_stats":
+        return text(getCacheAlignment());
+
+      // ─── Headroom: Learn Handlers ──────────────────────────────────────
+      case "analyze_failures": {
+        const analysis = analyzeFailures();
+        const shouldApply = args?.apply === true;
+        if (shouldApply && analysis.suggestions.length > 0) {
+          const applied = applyCorrections(analysis.suggestions);
+          return text({ ...analysis, applied: applied.written, memoryFiles: applied.memoryFiles });
+        }
+        return text(analysis);
+      }
+      case "learn_report":
+        return text(getLearnReport());
+      case "log_failure": {
+        const record = logFailure({
+          type: stringArg(args?.type, "type") as
+            | "tool_failure"
+            | "stop_failure"
+            | "session_failure"
+            | "test_failure",
+          tool: args?.tool as string | undefined,
+          error: stringArg(args?.error, "error"),
+          context: args?.context as string | undefined,
+        });
+        return text(record);
+      }
+      case "resolve_failure": {
+        const id = stringArg(args?.id, "id");
+        const success = resolveFailure(id, args?.resolution as string | undefined);
+        return text({ resolved: success, id });
+      }
+      case "match_correction": {
+        const err = stringArg(args?.error, "error");
+        const match = matchCorrection(err);
+        return text({ matched: match !== undefined, correction: match ?? null });
+      }
+
+      // ─── Swarm Chat Handlers ───────────────────────────────────────────
+      case "send_swarm_message": {
+        const msg = sendSwarmMessage(
           root,
-          await graphCache.getGraph(root),
-          (args?.formats as string[] | undefined) ?? settings.exports,
-        ),
-      });
-    case "analyze_impact": {
-      const target = stringArg(args?.target, "target");
-      const directionStr = typeof args?.direction === "string" ? args.direction : "both";
-      const direction = ["upstream", "downstream", "both"].includes(directionStr)
-        ? (directionStr as "upstream" | "downstream" | "both")
-        : "both";
-      return text(
-        analyzeImpact(await graphCache.getGraph(root), target, Number.MAX_SAFE_INTEGER, direction),
-      );
-    }
-    case "open_graph_ui":
-      return text({ url: await openGraphUi(root, settings) });
-    case "find_cycles":
-      return text(findCycles(await graphCache.getGraph(root)));
-    case "find_orphans":
-      return text(findOrphans(await graphCache.getGraph(root)));
-    case "summarize_architecture": {
-      const graph = await graphCache.getGraph(root);
-      const maxNodes = numberArg(args?.maxNodes) ?? graph.nodes.length;
-      const maxEdges = numberArg(args?.maxEdges) ?? graph.edges.length;
-      const summary = summarizeGraphForBudget(graph, { maxNodes, maxEdges });
-      const freshness = await getGraphFreshness(root);
-      return text({ ...summary, freshness });
-    }
-    case "analyze_quality": {
-      const report = analyzeGraphQuality(await graphCache.getGraph(root), root);
-      const threshold = readThreshold(args?.failOn);
-      if (!threshold) return text(report);
-      const gate = evaluateQualityGate(report.issues, threshold);
-      return text({
-        ...report,
-        ...gate,
-        failingIssues: failingIssuesForThreshold(report, threshold),
-      });
-    }
-    case "quality_gate": {
-      const threshold = readThreshold(args?.threshold);
-      if (!threshold) throw new Error("Invalid threshold. Use high, medium, or low.");
-      const report = analyzeGraphQuality(await graphCache.getGraph(root), root);
-      const gate = evaluateQualityGate(report.issues, threshold);
-      const result = { ...gate, failingIssues: failingIssuesForThreshold(report, threshold) };
-      if (args?.includeReport === true) return text({ ...report, ...result });
-      return text(result);
-    }
-    case "list_directory_tree":
-      return text(
-        getDirectoryTree(root, String(args?.path ?? "."), {
-          maxDepth: typeof args?.maxDepth === "number" ? args.maxDepth : Number.MAX_SAFE_INTEGER,
-        }),
-      );
-    case "summarize_graph": {
-      const summary = summarizeGraphForBudget(await graphCache.getGraph(root), {
-        maxNodes: numberArg(args?.maxNodes) ?? 50,
-        maxEdges: numberArg(args?.maxEdges) ?? 100,
-      });
-      const freshness = await getGraphFreshness(root);
-      return text({ ...summary, freshness });
-    }
-    case "diff_graphs": {
-      const before = JSON.parse(readFileSync(stringArg(args?.beforePath, "beforePath"), "utf8"));
-      const after = JSON.parse(readFileSync(stringArg(args?.afterPath, "afterPath"), "utf8"));
-      return text({ diff: formatGraphDiff(diffGraphs(before, after)) });
-    }
-    case "check_graph_freshness":
-      return text(await getGraphFreshness(root));
-
-    // ─── Headroom: CCR Compression Handlers ────────────────────────────
-    case "compress_content": {
-      const content = stringArg(args?.content, "content");
-      const result = compress(content, {
-        contentType: (args?.contentType as "auto" | "json" | "code" | "prose") ?? "auto",
-        filePath: args?.filePath as string | undefined,
-      });
-      return text(result);
-    }
-    case "decompress_content": {
-      const ccrId = stringArg(args?.ccrId, "ccrId");
-      const result = decompress(ccrId);
-      if (!result) throw new Error(`CCR ID not found: ${ccrId}`);
-      return text(result);
-    }
-    case "ccr_stats":
-      return text(getCompressionStats());
-    case "clean_ccr": {
-      const maxAge = Number(args?.maxAgeHours) || 24;
-      return text({ purged: cleanCCR(maxAge) });
-    }
-
-    // ─── Headroom: CacheAligner Handlers ───────────────────────────────
-    case "align_cache": {
-      const rawContent = stringArg(args?.content, "content");
-      const result = alignCache(rawContent, {
-        taskType: args?.type as string | undefined,
-        mode: args?.subType as string | undefined,
-        projectName: args?.task as string | undefined,
-      });
-      return text(result);
-    }
-    case "cache_alignment_stats":
-      return text(getCacheAlignment());
-
-    // ─── Headroom: Learn Handlers ──────────────────────────────────────
-    case "analyze_failures": {
-      const analysis = analyzeFailures();
-      const shouldApply = args?.apply === true;
-      if (shouldApply && analysis.suggestions.length > 0) {
-        const applied = applyCorrections(analysis.suggestions);
-        return text({ ...analysis, applied: applied.written, memoryFiles: applied.memoryFiles });
+          stringArg(args?.sender, "sender"),
+          stringArg(args?.recipient, "recipient"),
+          stringArg(args?.content, "content"),
+        );
+        return text({ success: true, message: msg });
       }
-      return text(analysis);
-    }
-    case "learn_report":
-      return text(getLearnReport());
-    case "log_failure": {
-      const record = logFailure({
-        type: stringArg(args?.type, "type") as
-          | "tool_failure"
-          | "stop_failure"
-          | "session_failure"
-          | "test_failure",
-        tool: args?.tool as string | undefined,
-        error: stringArg(args?.error, "error"),
-        context: args?.context as string | undefined,
-      });
-      return text(record);
-    }
-    case "resolve_failure": {
-      const id = stringArg(args?.id, "id");
-      const success = resolveFailure(id, args?.resolution as string | undefined);
-      return text({ resolved: success, id });
-    }
-    case "match_correction": {
-      const err = stringArg(args?.error, "error");
-      const match = matchCorrection(err);
-      return text({ matched: match !== undefined, correction: match ?? null });
-    }
 
-    // ─── Swarm Chat Handlers ───────────────────────────────────────────
-    case "send_swarm_message": {
-      const msg = sendSwarmMessage(
-        root,
-        stringArg(args?.sender, "sender"),
-        stringArg(args?.recipient, "recipient"),
-        stringArg(args?.content, "content"),
-      );
-      return text({ success: true, message: msg });
-    }
-
-    case "read_swarm_messages": {
-      const messages = readSwarmMessages(
-        root,
-        args?.recipientFilter ? String(args.recipientFilter) : undefined,
-        args?.sinceTimestamp ? String(args.sinceTimestamp) : undefined,
-      );
-      return text({ messages });
-    }
-
-    // ─── Headroom: Cross-Agent Memory Handlers ─────────────────────────
-    case "store_memory": {
-      const entry = storeMemory({
-        name: stringArg(args?.name, "name"),
-        description: stringArg(args?.description, "description"),
-        content: stringArg(args?.content, "content"),
-        agentName: stringArg(args?.agentName, "agentName"),
-        platform:
-          (args?.platform as "claude" | "codex" | "gemini" | "cursor" | "other") ?? "claude",
-        tags: (args?.tags as string[]) ?? [],
-        memoryType:
-          (args?.memoryType as "lesson" | "decision" | "fact" | "reference" | "feedback") ??
-          "lesson",
-      });
-      return text(entry);
-    }
-    case "query_memory": {
-      const results = queryMemory({
-        searchText: args?.searchText as string | undefined,
-        platforms: args?.platforms as string[] | undefined,
-        agentName: args?.agentName as string | undefined,
-        memoryType: args?.memoryType as string | undefined,
-        tags: args?.tags as string[] | undefined,
-        limit: Number(args?.limit) || undefined,
-      });
-      return text({ results, count: results.length });
-    }
-    case "memory_stats":
-      return text(getMemoryStats());
-    case "export_memory_markdown": {
-      const md = exportMemoryToMarkdown({
-        platforms: args?.platforms as string[] | undefined,
-        memoryType: args?.memoryType as string | undefined,
-      });
-      return text({ markdown: md });
-    }
-    case "sync_memory_platform": {
-      const platform = stringArg(args?.platform, "platform") as
-        | "claude"
-        | "codex"
-        | "gemini"
-        | "cursor"
-        | "other";
-      const result = syncWithPlatform(platform);
-      return text(result);
-    }
-    case "supported_platforms":
-      return text({ platforms: getSupportedPlatforms() });
-
-    // ─── Dead Code Detector ────────────────────────────────────────────
-    case "find_dead_code": {
-      const result = await detectDeadCodeFromGraph(root);
-      return text(result);
-    }
-
-    // ─── Semantic Code Search ──────────────────────────────────────────
-    case "semantic_search": {
-      const result = semanticSearch(root, settings, {
-        query: stringArg(args?.query, "query"),
-        maxResults: numberArg(args?.maxResults),
-        include: stringArrayArg(args?.include, "include"),
-        exclude: stringArrayArg(args?.exclude, "exclude"),
-        threshold: args?.threshold as number | undefined,
-      });
-      return text(result);
-    }
-    case "build_embeddings": {
-      const result = buildEmbeddings(root, settings);
-      return text(result);
-    }
-    case "embedding_stats":
-      return text(getEmbeddingStats(root));
-
-    // ─── PR & Changelog Generator ──────────────────────────────────────
-    case "generate_pr": {
-      const pr = generatePRDescription({
-        targetBranch: args?.targetBranch as string | undefined,
-        includeSummary: args?.includeSummary !== false,
-        includeChecklist: args?.includeChecklist !== false,
-      });
-      return text(pr);
-    }
-    case "generate_changelog": {
-      const entries = generateChangelog(
-        args?.from as string | undefined,
-        args?.to as string | undefined,
-      );
-      return text({ entries, markdown: formatChangelogMarkdown(entries) });
-    }
-    case "create_release": {
-      const bump = (args?.bump as string) || "patch";
-      if (!["patch", "minor", "major"].includes(bump)) {
-        throw new Error("bump must be patch, minor, or major");
+      case "read_swarm_messages": {
+        const messages = readSwarmMessages(
+          root,
+          args?.recipientFilter ? String(args.recipientFilter) : undefined,
+          args?.sinceTimestamp ? String(args.sinceTimestamp) : undefined,
+        );
+        return text({ messages });
       }
-      const release = createRelease(bump as "patch" | "minor" | "major");
-      return text(release);
-    }
 
-    // ─── Secrets Scanner ───────────────────────────────────────────────
-    case "scan_secrets": {
-      const report = scanForSecrets(root, {
-        paths: stringArrayArg(args?.paths, "paths"),
-        severity: args?.severity as "high" | "medium" | "low" | undefined,
-      });
-      return text({ ...report, formatted: formatSecretsReport(report) });
-    }
-
-    // ─── ADR Manager ───────────────────────────────────────────────────
-    case "adr_init": {
-      const result = initADR();
-      return text(result);
-    }
-    case "adr_new": {
-      const adr = createADR({
-        title: stringArg(args?.title, "title"),
-        status:
-          (args?.status as "proposed" | "accepted" | "deprecated" | "superseded") ?? "proposed",
-        supersedes: args?.supersedes as number | undefined,
-      });
-      return text(adr);
-    }
-    case "adr_list": {
-      const adrs = listADRs();
-      return text({ adrs, count: adrs.length, formatted: formatADRList(adrs) });
-    }
-    case "adr_get": {
-      const adr = getADR(Number(args?.id));
-      if (!adr) throw new Error(`ADR ${args?.id} not found`);
-      return text(adr);
-    }
-    case "adr_status": {
-      const id = Number(args?.id);
-      const status = stringArg(args?.status, "status") as
-        | "proposed"
-        | "accepted"
-        | "deprecated"
-        | "superseded";
-      const adr = updateADRStatus(id, status);
-      if (!adr) throw new Error(`ADR ${id} not found`);
-      return text(adr);
-    }
-    case "adr_graph":
-      return text({ mermaid: generateADRGraph() });
-
-    // ─── Vulnerability Scanner & SBOM ──────────────────────────────────
-    case "scan_vulnerabilities": {
-      const report = scanVulnerabilities(root);
-      return text({ ...report, formatted: formatVulnReport(report) });
-    }
-    case "generate_sbom": {
-      const format = (args?.format as string) || "spdx";
-      if (!["spdx", "cyclonedx"].includes(format)) {
-        throw new Error("format must be spdx or cyclonedx");
+      // ─── Headroom: Cross-Agent Memory Handlers ─────────────────────────
+      case "store_memory": {
+        const entry = storeMemory({
+          name: stringArg(args?.name, "name"),
+          description: stringArg(args?.description, "description"),
+          content: stringArg(args?.content, "content"),
+          agentName: stringArg(args?.agentName, "agentName"),
+          platform:
+            (args?.platform as "claude" | "codex" | "gemini" | "cursor" | "other") ?? "claude",
+          tags: (args?.tags as string[]) ?? [],
+          memoryType:
+            (args?.memoryType as "lesson" | "decision" | "fact" | "reference" | "feedback") ??
+            "lesson",
+        });
+        return text(entry);
       }
-      const sbom = generateSBOM(root, format as "spdx" | "cyclonedx");
-      return text(sbom);
-    }
+      case "query_memory": {
+        const results = queryMemory({
+          searchText: args?.searchText as string | undefined,
+          platforms: args?.platforms as string[] | undefined,
+          agentName: args?.agentName as string | undefined,
+          memoryType: args?.memoryType as string | undefined,
+          tags: args?.tags as string[] | undefined,
+          limit: Number(args?.limit) || undefined,
+        });
+        return text({ results, count: results.length });
+      }
+      case "memory_stats":
+        return text(getMemoryStats());
+      case "export_memory_markdown": {
+        const md = exportMemoryToMarkdown({
+          platforms: args?.platforms as string[] | undefined,
+          memoryType: args?.memoryType as string | undefined,
+        });
+        return text({ markdown: md });
+      }
+      case "sync_memory_platform": {
+        const platform = stringArg(args?.platform, "platform") as
+          | "claude"
+          | "codex"
+          | "gemini"
+          | "cursor"
+          | "other";
+        const result = syncWithPlatform(platform);
+        return text(result);
+      }
+      case "supported_platforms":
+        return text({ platforms: getSupportedPlatforms() });
 
-    // ─── Codebase Q&A ──────────────────────────────────────────────────
-    case "answer_question": {
-      const result = await answerQuestion(root, {
-        question: stringArg(args?.question, "question"),
-        maxSources: numberArg(args?.maxSources),
-        includeFiles: stringArrayArg(args?.includeFiles, "includeFiles"),
-      });
-      return text({ ...result, formatted: formatQAResult(result) });
-    }
-    case "generate_onboarding_docs": {
-      const docs = await generateOnboardingDocs(root);
-      return text(docs);
-    }
+      // ─── Dead Code Detector ────────────────────────────────────────────
+      case "find_dead_code": {
+        const result = await detectDeadCodeFromGraph(root);
+        return text(result);
+      }
 
-    // ─── Tier 3: Team / Sprint / Auto-Merge / Benchmark ────────────────
-    case "sprint_report": {
-      const since = (args?.since as string) || "7.days.ago";
-      const report = generateSprintReport(since);
-      return text(report);
-    }
-    case "team_metrics":
-      return text(getTeamMetrics());
-    case "pr_auto_merge": {
-      const prNumber = Number(args?.prNumber);
-      if (!prNumber || Number.isNaN(prNumber)) throw new Error("prNumber must be a valid number");
-      const status = await checkPRAutoMerge(prNumber);
-      return text(status);
-    }
-    case "record_benchmark": {
-      const name = stringArg(args?.name, "name");
-      const duration = Number(args?.duration);
-      if (!duration || Number.isNaN(duration)) throw new Error("duration must be a valid number");
-      const result = recordBenchmark(name, duration);
-      return text(result);
-    }
-    case "benchmark_history": {
-      const name = stringArg(args?.name, "name");
-      const limit = numberArg(args?.limit) ?? 20;
-      return text({ history: getBenchmarkHistory(name, limit) });
-    }
-    case "benchmark_regression": {
-      const name = stringArg(args?.name, "name");
-      return text({ regression: detectBenchmarkRegression(name) });
-    }
+      // ─── Semantic Code Search ──────────────────────────────────────────
+      case "semantic_search": {
+        const result = semanticSearch(root, settings, {
+          query: stringArg(args?.query, "query"),
+          maxResults: numberArg(args?.maxResults),
+          include: stringArrayArg(args?.include, "include"),
+          exclude: stringArrayArg(args?.exclude, "exclude"),
+          threshold: args?.threshold as number | undefined,
+        });
+        return text(result);
+      }
+      case "build_embeddings": {
+        const result = buildEmbeddings(root, settings);
+        return text(result);
+      }
+      case "embedding_stats":
+        return text(getEmbeddingStats(root));
 
-    // ─── API Contract Tester ─────────────────────────────────────────────
-    case "compare_api_specs": {
-      const beforePath = stringArg(args?.beforePath, "beforePath");
-      const afterPath = stringArg(args?.afterPath, "afterPath");
-      const report = compareOpenApiSpecs(beforePath, afterPath);
-      return text({ ...report, formatted: formatContractReport(report) });
-    }
-    case "diff_api_from_git": {
-      const ref1 = args?.ref1 as string | undefined;
-      const ref2 = args?.ref2 as string | undefined;
-      const report = diffOpenApiFromGit(ref1, ref2);
-      return text({ ...report, formatted: formatContractReport(report) });
-    }
+      // ─── PR & Changelog Generator ──────────────────────────────────────
+      case "generate_pr": {
+        const pr = generatePRDescription({
+          targetBranch: args?.targetBranch as string | undefined,
+          includeSummary: args?.includeSummary !== false,
+          includeChecklist: args?.includeChecklist !== false,
+        });
+        return text(pr);
+      }
+      case "generate_changelog": {
+        const entries = generateChangelog(
+          args?.from as string | undefined,
+          args?.to as string | undefined,
+        );
+        return text({ entries, markdown: formatChangelogMarkdown(entries) });
+      }
+      case "create_release": {
+        const bump = (args?.bump as string) || "patch";
+        if (!["patch", "minor", "major"].includes(bump)) {
+          throw new Error("bump must be patch, minor, or major");
+        }
+        const release = createRelease(bump as "patch" | "minor" | "major");
+        return text(release);
+      }
 
-    // ─── Config Validator ─────────────────────────────────────────────────
-    case "validate_env_file": {
-      const envPath = stringArg(args?.envPath, "envPath");
-      const schema = args?.schema as Record<
-        string,
-        { type: "string" | "number" | "boolean" | "url"; required: boolean; pattern?: string }
-      >;
-      const report = validateEnvFile(envPath, schema);
-      return text({ ...report, formatted: formatValidationReport(report) });
-    }
-    case "validate_json_file": {
-      const jsonPath = stringArg(args?.jsonPath, "jsonPath");
-      const schema = args?.schema as Record<string, { type: string; required?: boolean }>;
-      const report = validateJsonFile(jsonPath, schema);
-      return text({ ...report, formatted: formatValidationReport(report) });
-    }
-    case "detect_missing_env_vars": {
-      const requiredVars = args?.requiredVars as string[];
-      const envPath = args?.envPath as string | undefined;
-      if (!requiredVars || !Array.isArray(requiredVars))
-        throw new Error("requiredVars must be an array of strings");
-      const report = detectMissingEnvVars(requiredVars, envPath);
-      return text({ ...report, formatted: formatValidationReport(report) });
-    }
+      // ─── Secrets Scanner ───────────────────────────────────────────────
+      case "scan_secrets": {
+        const report = scanForSecrets(root, {
+          paths: stringArrayArg(args?.paths, "paths"),
+          severity: args?.severity as "high" | "medium" | "low" | undefined,
+        });
+        return text({ ...report, formatted: formatSecretsReport(report) });
+      }
 
-    // ─── License Checker ──────────────────────────────────────────────────
-    case "check_licenses": {
-      const rootPath = (args?.root as string) || root;
-      const report = scanNpmLicenses(rootPath);
-      const categorized = categorizeLicenses(report);
-      return text({ ...categorized, formatted: formatLicenseReport(categorized) });
-    }
+      // ─── ADR Manager ───────────────────────────────────────────────────
+      case "adr_init": {
+        const result = initADR();
+        return text(result);
+      }
+      case "adr_new": {
+        const adr = createADR({
+          title: stringArg(args?.title, "title"),
+          status:
+            (args?.status as "proposed" | "accepted" | "deprecated" | "superseded") ?? "proposed",
+          supersedes: args?.supersedes as number | undefined,
+        });
+        return text(adr);
+      }
+      case "adr_list": {
+        const adrs = listADRs();
+        return text({ adrs, count: adrs.length, formatted: formatADRList(adrs) });
+      }
+      case "adr_get": {
+        const adr = getADR(Number(args?.id));
+        if (!adr) throw new Error(`ADR ${args?.id} not found`);
+        return text(adr);
+      }
+      case "adr_status": {
+        const id = Number(args?.id);
+        const status = stringArg(args?.status, "status") as
+          | "proposed"
+          | "accepted"
+          | "deprecated"
+          | "superseded";
+        const adr = updateADRStatus(id, status);
+        if (!adr) throw new Error(`ADR ${id} not found`);
+        return text(adr);
+      }
+      case "adr_graph":
+        return text({ mermaid: generateADRGraph() });
 
-    // ─── Complexity Tracker ───────────────────────────────────────────────
-    case "analyze_complexity": {
-      const rootPath = (args?.root as string) || root;
-      const glob = args?.glob as string | undefined;
-      const report = analyzeDirectory(rootPath, glob);
-      return text({ ...report, formatted: formatComplexityReport(report) });
-    }
-    case "track_complexity_trend": {
-      const rootPath = (args?.root as string) || root;
-      return text(trackComplexityTrend(rootPath));
-    }
+      // ─── Vulnerability Scanner & SBOM ──────────────────────────────────
+      case "scan_vulnerabilities": {
+        const report = scanVulnerabilities(root);
+        return text({ ...report, formatted: formatVulnReport(report) });
+      }
+      case "generate_sbom": {
+        const format = (args?.format as string) || "spdx";
+        if (!["spdx", "cyclonedx"].includes(format)) {
+          throw new Error("format must be spdx or cyclonedx");
+        }
+        const sbom = generateSBOM(root, format as "spdx" | "cyclonedx");
+        return text(sbom);
+      }
 
-    // ─── Log Analyzer ─────────────────────────────────────────────────────
-    case "analyze_logs": {
-      const filePath = stringArg(args?.filePath, "filePath");
-      const report = analyzeLogFile(filePath);
-      return text({ ...report, formatted: formatLogReport(report) });
-    }
+      // ─── Codebase Q&A ──────────────────────────────────────────────────
+      case "answer_question": {
+        const result = await answerQuestion(root, {
+          question: stringArg(args?.question, "question"),
+          maxSources: numberArg(args?.maxSources),
+          includeFiles: stringArrayArg(args?.includeFiles, "includeFiles"),
+        });
+        return text({ ...result, formatted: formatQAResult(result) });
+      }
+      case "generate_onboarding_docs": {
+        const docs = await generateOnboardingDocs(root);
+        return text(docs);
+      }
 
-    // ─── Coverage Aggregator ──────────────────────────────────────────────
-    case "aggregate_coverage": {
-      const sources = args?.sources as Array<{
-        tool: "jest" | "vitest" | "playwright" | "istanbul" | "nyc";
-        path: string;
-      }>;
-      if (!sources || !Array.isArray(sources)) throw new Error("sources must be an array");
-      const report = aggregateCoverage(sources);
-      return text({ ...report, formatted: formatCoverageReport(report) });
-    }
-    case "check_coverage_threshold": {
-      const sources = args?.sources as Array<{
-        tool: "jest" | "vitest" | "playwright" | "istanbul" | "nyc";
-        path: string;
-      }>;
-      const threshold = Number(args?.threshold);
-      if (!sources || !Array.isArray(sources)) throw new Error("sources must be an array");
-      if (!threshold || Number.isNaN(threshold))
-        throw new Error("threshold must be a valid number");
-      const report = aggregateCoverage(sources);
-      const gate = checkCoverageThreshold(report, threshold);
-      return text({ ...report, ...gate, formatted: formatCoverageReport(report) });
-    }
+      // ─── Tier 3: Team / Sprint / Auto-Merge / Benchmark ────────────────
+      case "sprint_report": {
+        const since = (args?.since as string) || "7.days.ago";
+        const report = generateSprintReport(since);
+        return text(report);
+      }
+      case "team_metrics":
+        return text(getTeamMetrics());
+      case "pr_auto_merge": {
+        const prNumber = Number(args?.prNumber);
+        if (!prNumber || Number.isNaN(prNumber)) throw new Error("prNumber must be a valid number");
+        const status = await checkPRAutoMerge(prNumber);
+        return text(status);
+      }
+      case "record_benchmark": {
+        const name = stringArg(args?.name, "name");
+        const duration = Number(args?.duration);
+        if (!duration || Number.isNaN(duration)) throw new Error("duration must be a valid number");
+        const result = recordBenchmark(name, duration);
+        return text(result);
+      }
+      case "benchmark_history": {
+        const name = stringArg(args?.name, "name");
+        const limit = numberArg(args?.limit) ?? 20;
+        return text({ history: getBenchmarkHistory(name, limit) });
+      }
+      case "benchmark_regression": {
+        const name = stringArg(args?.name, "name");
+        return text({ regression: detectBenchmarkRegression(name) });
+      }
 
-    // ─── Git Hook Scaffolder ──────────────────────────────────────────────
-    case "scaffold_git_hooks": {
-      const targetDir = stringArg(args?.targetDir, "targetDir");
-      const hooks = args?.hooks as Array<
-        "pre-commit" | "commit-msg" | "pre-push" | "post-commit" | "post-merge"
-      >;
-      const linter = args?.linter as string | undefined;
-      const testCommand = args?.testCommand as string | undefined;
-      if (!hooks || !Array.isArray(hooks)) throw new Error("hooks must be an array");
-      const result = scaffoldHooks(targetDir, { hooks, linter, testCommand });
-      return text(result);
-    }
-    case "validate_commit_message": {
-      const message = stringArg(args?.message, "message");
-      const result = validateCommitMessage(message);
-      return text(result);
-    }
+      // ─── API Contract Tester ─────────────────────────────────────────────
+      case "compare_api_specs": {
+        const beforePath = stringArg(args?.beforePath, "beforePath");
+        const afterPath = stringArg(args?.afterPath, "afterPath");
+        const report = compareOpenApiSpecs(beforePath, afterPath);
+        return text({ ...report, formatted: formatContractReport(report) });
+      }
+      case "diff_api_from_git": {
+        const ref1 = args?.ref1 as string | undefined;
+        const ref2 = args?.ref2 as string | undefined;
+        const report = diffOpenApiFromGit(ref1, ref2);
+        return text({ ...report, formatted: formatContractReport(report) });
+      }
 
-    // ─── Todo/Fixme Tracker ───────────────────────────────────────────────
-    case "scan_todos": {
-      const scanRoot = (args?.root as string) || root;
-      const report = scanForTodos(scanRoot, {
-        include: (args?.include as string)?.split(",").filter(Boolean),
-        exclude: (args?.exclude as string)?.split(",").filter(Boolean),
-      });
-      return text({ ...report, formatted: formatTodoReport(report, { showAge: true }) });
-    }
-    case "todo_history": {
-      const scanRoot = (args?.root as string) || root;
-      return text({ history: getTodoHistory(scanRoot) });
-    }
+      // ─── Config Validator ─────────────────────────────────────────────────
+      case "validate_env_file": {
+        const envPath = stringArg(args?.envPath, "envPath");
+        const schema = args?.schema as Record<
+          string,
+          { type: "string" | "number" | "boolean" | "url"; required: boolean; pattern?: string }
+        >;
+        const report = validateEnvFile(envPath, schema);
+        return text({ ...report, formatted: formatValidationReport(report) });
+      }
+      case "validate_json_file": {
+        const jsonPath = stringArg(args?.jsonPath, "jsonPath");
+        const schema = args?.schema as Record<string, { type: string; required?: boolean }>;
+        const report = validateJsonFile(jsonPath, schema);
+        return text({ ...report, formatted: formatValidationReport(report) });
+      }
+      case "detect_missing_env_vars": {
+        const requiredVars = args?.requiredVars as string[];
+        const envPath = args?.envPath as string | undefined;
+        if (!requiredVars || !Array.isArray(requiredVars))
+          throw new Error("requiredVars must be an array of strings");
+        const report = detectMissingEnvVars(requiredVars, envPath);
+        return text({ ...report, formatted: formatValidationReport(report) });
+      }
 
-    // ─── Performance Audit ────────────────────────────────────────────────
-    case "analyze_bundle": {
-      const statsPath = args?.statsPath as string | undefined;
-      if (statsPath) {
-        const report = analyzeBundleStats(statsPath);
+      // ─── License Checker ──────────────────────────────────────────────────
+      case "check_licenses": {
+        const rootPath = (args?.root as string) || root;
+        const report = scanNpmLicenses(rootPath);
+        const categorized = categorizeLicenses(report);
+        return text({ ...categorized, formatted: formatLicenseReport(categorized) });
+      }
+
+      // ─── Complexity Tracker ───────────────────────────────────────────────
+      case "analyze_complexity": {
+        const rootPath = (args?.root as string) || root;
+        const glob = args?.glob as string | undefined;
+        const report = analyzeDirectory(rootPath, glob);
+        return text({ ...report, formatted: formatComplexityReport(report) });
+      }
+      case "track_complexity_trend": {
+        const rootPath = (args?.root as string) || root;
+        return text(trackComplexityTrend(rootPath));
+      }
+
+      // ─── Log Analyzer ─────────────────────────────────────────────────────
+      case "analyze_logs": {
+        const filePath = stringArg(args?.filePath, "filePath");
+        const report = analyzeLogFile(filePath);
+        return text({ ...report, formatted: formatLogReport(report) });
+      }
+
+      // ─── Coverage Aggregator ──────────────────────────────────────────────
+      case "aggregate_coverage": {
+        const sources = args?.sources as Array<{
+          tool: "jest" | "vitest" | "playwright" | "istanbul" | "nyc";
+          path: string;
+        }>;
+        if (!sources || !Array.isArray(sources)) throw new Error("sources must be an array");
+        const report = aggregateCoverage(sources);
+        return text({ ...report, formatted: formatCoverageReport(report) });
+      }
+      case "check_coverage_threshold": {
+        const sources = args?.sources as Array<{
+          tool: "jest" | "vitest" | "playwright" | "istanbul" | "nyc";
+          path: string;
+        }>;
+        const threshold = Number(args?.threshold);
+        if (!sources || !Array.isArray(sources)) throw new Error("sources must be an array");
+        if (!threshold || Number.isNaN(threshold))
+          throw new Error("threshold must be a valid number");
+        const report = aggregateCoverage(sources);
+        const gate = checkCoverageThreshold(report, threshold);
+        return text({ ...report, ...gate, formatted: formatCoverageReport(report) });
+      }
+
+      // ─── Git Hook Scaffolder ──────────────────────────────────────────────
+      case "scaffold_git_hooks": {
+        const targetDir = stringArg(args?.targetDir, "targetDir");
+        const hooks = args?.hooks as Array<
+          "pre-commit" | "commit-msg" | "pre-push" | "post-commit" | "post-merge"
+        >;
+        const linter = args?.linter as string | undefined;
+        const testCommand = args?.testCommand as string | undefined;
+        if (!hooks || !Array.isArray(hooks)) throw new Error("hooks must be an array");
+        const result = scaffoldHooks(targetDir, { hooks, linter, testCommand });
+        return text(result);
+      }
+      case "validate_commit_message": {
+        const message = stringArg(args?.message, "message");
+        const result = validateCommitMessage(message);
+        return text(result);
+      }
+
+      // ─── Todo/Fixme Tracker ───────────────────────────────────────────────
+      case "scan_todos": {
+        const scanRoot = (args?.root as string) || root;
+        const report = scanForTodos(scanRoot, {
+          include: (args?.include as string)?.split(",").filter(Boolean),
+          exclude: (args?.exclude as string)?.split(",").filter(Boolean),
+        });
+        return text({ ...report, formatted: formatTodoReport(report, { showAge: true }) });
+      }
+      case "todo_history": {
+        const scanRoot = (args?.root as string) || root;
+        return text({ history: getTodoHistory(scanRoot) });
+      }
+
+      // ─── Performance Audit ────────────────────────────────────────────────
+      case "analyze_bundle": {
+        const statsPath = args?.statsPath as string | undefined;
+        if (statsPath) {
+          const report = analyzeBundleStats(statsPath);
+          return text({ ...report, formatted: formatBundleReport(report) });
+        }
+        const report = await parseBundlePhobia(root);
         return text({ ...report, formatted: formatBundleReport(report) });
       }
-      const report = await parseBundlePhobia(root);
-      return text({ ...report, formatted: formatBundleReport(report) });
-    }
-    case "compare_bundles": {
-      const beforeStats = stringArg(args?.beforeStats, "beforeStats");
-      const afterStats = stringArg(args?.afterStats, "afterStats");
-      const before = analyzeBundleStats(beforeStats);
-      const after = analyzeBundleStats(afterStats);
-      const diffs = compareBundles(before, after);
-      return text({
-        diffs,
-        before: { ...before, formatted: formatBundleReport(before) },
-        after: { ...after, formatted: formatBundleReport(after) },
-      });
-    }
-    case "generate_perf_report": {
-      const perfRoot = (args?.root as string) || root;
-      return text(createPerfReport(perfRoot));
-    }
-
-    // ─── i18n Helper ──────────────────────────────────────────────────────
-    case "extract_i18n_strings": {
-      const i18nRoot = (args?.root as string) || root;
-      const strings = extractHardcodedStrings(i18nRoot, {
-        excludePatterns: (args?.excludePatterns as string)?.split(",").filter(Boolean),
-      });
-      return text({ total: strings.length, strings });
-    }
-    case "check_missing_translations": {
-      const i18nRoot = stringArg(args?.root, "root");
-      const localesDir = stringArg(args?.localesDir, "localesDir");
-      const report = checkMissingTranslation(i18nRoot, localesDir);
-      return text({ ...report, formatted: formatLocaleReport(report) });
-    }
-
-    // ─── DB Schema Reporter ───────────────────────────────────────────────
-    case "parse_prisma_schema": {
-      const schemaPath = stringArg(args?.schemaPath, "schemaPath");
-      const schemaReport = parsePrismaSchema(schemaPath);
-      return text({ ...schemaReport, formatted: formatSchemaReport(schemaReport) });
-    }
-    case "diff_db_schemas": {
-      const beforeSchema = stringArg(args?.beforeSchema, "beforeSchema");
-      const afterSchema = stringArg(args?.afterSchema, "afterSchema");
-      const before = parsePrismaSchema(beforeSchema);
-      const after = parsePrismaSchema(afterSchema);
-      const diff = compareSchemas(before, after);
-      return text({ ...diff, formatted: formatSchemaDiff(diff) });
-    }
-
-    // ─── Doctor (Environment) ─────────────────────────────────────────────
-    case "doctor": {
-      const docRoot = (args?.root as string) || root;
-      const report = generateDoctorReport(docRoot);
-      return text({ ...report, formatted: formatDoctorReport(report) });
-    }
-
-    // ─── Codebase Stats ───────────────────────────────────────────────────
-    case "codebase_stats": {
-      const statsRoot = (args?.root as string) || root;
-      const stats = generateStats(statsRoot);
-      return text({ ...stats, formatted: formatStats(stats) });
-    }
-    case "codebase_stats_history": {
-      const statsRoot = (args?.root as string) || root;
-      return text(getStatsHistory(statsRoot));
-    }
-    case "compare_codebase_stats": {
-      const statsRoot = (args?.root as string) || root;
-      const current = generateStats(statsRoot);
-      const history = getStatsHistory(statsRoot);
-      let comparison = null;
-      if (history.reports.length > 0) {
-        comparison = compareStats(history.reports[history.reports.length - 1], current);
+      case "compare_bundles": {
+        const beforeStats = stringArg(args?.beforeStats, "beforeStats");
+        const afterStats = stringArg(args?.afterStats, "afterStats");
+        const before = analyzeBundleStats(beforeStats);
+        const after = analyzeBundleStats(afterStats);
+        const diffs = compareBundles(before, after);
+        return text({
+          diffs,
+          before: { ...before, formatted: formatBundleReport(before) },
+          after: { ...after, formatted: formatBundleReport(after) },
+        });
       }
-      return text({
-        current: { ...current, formatted: formatStats(current) },
-        history,
-        comparison,
-      });
+      case "generate_perf_report": {
+        const perfRoot = (args?.root as string) || root;
+        return text(createPerfReport(perfRoot));
+      }
+
+      // ─── i18n Helper ──────────────────────────────────────────────────────
+      case "extract_i18n_strings": {
+        const i18nRoot = (args?.root as string) || root;
+        const strings = extractHardcodedStrings(i18nRoot, {
+          excludePatterns: (args?.excludePatterns as string)?.split(",").filter(Boolean),
+        });
+        return text({ total: strings.length, strings });
+      }
+      case "check_missing_translations": {
+        const i18nRoot = stringArg(args?.root, "root");
+        const localesDir = stringArg(args?.localesDir, "localesDir");
+        const report = checkMissingTranslation(i18nRoot, localesDir);
+        return text({ ...report, formatted: formatLocaleReport(report) });
+      }
+
+      // ─── DB Schema Reporter ───────────────────────────────────────────────
+      case "parse_prisma_schema": {
+        const schemaPath = stringArg(args?.schemaPath, "schemaPath");
+        const schemaReport = parsePrismaSchema(schemaPath);
+        return text({ ...schemaReport, formatted: formatSchemaReport(schemaReport) });
+      }
+      case "diff_db_schemas": {
+        const beforeSchema = stringArg(args?.beforeSchema, "beforeSchema");
+        const afterSchema = stringArg(args?.afterSchema, "afterSchema");
+        const before = parsePrismaSchema(beforeSchema);
+        const after = parsePrismaSchema(afterSchema);
+        const diff = compareSchemas(before, after);
+        return text({ ...diff, formatted: formatSchemaDiff(diff) });
+      }
+
+      // ─── Doctor (Environment) ─────────────────────────────────────────────
+      case "doctor": {
+        const docRoot = (args?.root as string) || root;
+        const report = generateDoctorReport(docRoot);
+        return text({ ...report, formatted: formatDoctorReport(report) });
+      }
+
+      // ─── Codebase Stats ───────────────────────────────────────────────────
+      case "codebase_stats": {
+        const statsRoot = (args?.root as string) || root;
+        const stats = generateStats(statsRoot);
+        return text({ ...stats, formatted: formatStats(stats) });
+      }
+      case "codebase_stats_history": {
+        const statsRoot = (args?.root as string) || root;
+        return text(getStatsHistory(statsRoot));
+      }
+      case "compare_codebase_stats": {
+        const statsRoot = (args?.root as string) || root;
+        const current = generateStats(statsRoot);
+        const history = getStatsHistory(statsRoot);
+        let comparison = null;
+        if (history.reports.length > 0) {
+          comparison = compareStats(history.reports[history.reports.length - 1], current);
+        }
+        return text({
+          current: { ...current, formatted: formatStats(current) },
+          history,
+          comparison,
+        });
+      }
+
+      // ─── Sequential Thinking Handlers ─────────────────────────────────────
+      case "sequential_thinking": {
+        const thought = stringArg(args?.thought, "thought");
+        const nextThoughtNeeded = args?.nextThoughtNeeded === true;
+        const thoughtNumber = Number(args?.thoughtNumber) || 1;
+        const totalThoughts = Number(args?.totalThoughts) || 1;
+        const sessionId = args?.sessionId as string | undefined;
+
+        const engine = getThinkingEngine(sessionId);
+        const result = engine.processThought({
+          thought,
+          nextThoughtNeeded,
+          thoughtNumber,
+          totalThoughts,
+          isRevision: args?.isRevision === true || undefined,
+          revisesThought: args?.revisesThought ? Number(args.revisesThought) : undefined,
+          branchFromThought: args?.branchFromThought ? Number(args.branchFromThought) : undefined,
+          branchId: args?.branchId as string | undefined,
+          needsMoreThoughts: args?.needsMoreThoughts === true || undefined,
+        });
+
+        if (result.isError) return result;
+
+        return {
+          content: result.content,
+        };
+      }
+      case "sequential_thinking_export": {
+        const format = (args?.format as string) ?? "markdown";
+        const sessionId = args?.sessionId as string | undefined;
+        const engine = getThinkingEngine(sessionId);
+
+        if (format === "summary") {
+          return text({ summary: engine.getSummary() });
+        }
+
+        // If sessionId is provided, load that session's thoughts via the engine
+        if (sessionId && sessionId !== engine.getSessionId()) {
+          const loaded = SequentialThinkingEngine.loadSession(sessionId);
+          if (!loaded) throw new Error(`Session not found: ${sessionId}`);
+          // Create a temporary engine for the loaded session
+          const tempEngine = new SequentialThinkingEngine({ disableLogging: true });
+          for (const t of loaded.thoughtHistory) {
+            tempEngine.processThought(t);
+          }
+          return text(exportFromEngine(tempEngine, format));
+        }
+
+        return text(exportFromEngine(engine, format));
+      }
+      case "sequential_thinking_list": {
+        const sessions = SequentialThinkingEngine.listSessions(
+          join(cwd(), ".claude", "sequential-thinking"),
+        );
+        return text({ sessions, count: sessions.length });
+      }
+      case "sequential_thinking_reset": {
+        const sessionId = args?.sessionId as string | undefined;
+        const engine = getThinkingEngine(sessionId);
+        const result = engine.reset();
+        return text({
+          reset: true,
+          previousThoughts: result.previousThoughtCount,
+          message: "Reset complete. New sequential_thinking calls start fresh.",
+        });
+      }
+
+      default: {
+        // Try delegation router before throwing
+        const handler = router.getHandler(request.params.name);
+        if (handler) {
+          return handler(args, routerCtx());
+        }
+        throw new Error(`Unknown tool: ${request.params.name}`);
+      }
     }
-
-    // ─── Sequential Thinking Handlers ─────────────────────────────────────
-    case "sequential_thinking": {
-      const thought = stringArg(args?.thought, "thought");
-      const nextThoughtNeeded = args?.nextThoughtNeeded === true;
-      const thoughtNumber = Number(args?.thoughtNumber) || 1;
-      const totalThoughts = Number(args?.totalThoughts) || 1;
-      const sessionId = args?.sessionId as string | undefined;
-
-      const engine = getThinkingEngine(sessionId);
-      const result = engine.processThought({
-        thought,
-        nextThoughtNeeded,
-        thoughtNumber,
-        totalThoughts,
-        isRevision: args?.isRevision === true || undefined,
-        revisesThought: args?.revisesThought ? Number(args.revisesThought) : undefined,
-        branchFromThought: args?.branchFromThought ? Number(args.branchFromThought) : undefined,
-        branchId: args?.branchId as string | undefined,
-        needsMoreThoughts: args?.needsMoreThoughts === true || undefined,
-      });
-
-      if (result.isError) return result;
-
+  } catch (err: any) {
+    const errorString = String(err?.message || err);
+    const match = matchCorrection(errorString);
+    if (match) {
+      incrementAppliedCount(match.id);
       return {
-        content: result.content,
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text:
+              errorString +
+              `\n\n[SYSTEM MEMORY INSIGHT] You have encountered this error before. Known fix:\n${match.fix}`,
+          },
+        ],
       };
     }
-    case "sequential_thinking_export": {
-      const format = (args?.format as string) ?? "markdown";
-      const sessionId = args?.sessionId as string | undefined;
-      const engine = getThinkingEngine(sessionId);
-
-      if (format === "summary") {
-        return text({ summary: engine.getSummary() });
-      }
-
-      // If sessionId is provided, load that session's thoughts via the engine
-      if (sessionId && sessionId !== engine.getSessionId()) {
-        const loaded = SequentialThinkingEngine.loadSession(sessionId);
-        if (!loaded) throw new Error(`Session not found: ${sessionId}`);
-        // Create a temporary engine for the loaded session
-        const tempEngine = new SequentialThinkingEngine({ disableLogging: true });
-        for (const t of loaded.thoughtHistory) {
-          tempEngine.processThought(t);
-        }
-        return text(exportFromEngine(tempEngine, format));
-      }
-
-      return text(exportFromEngine(engine, format));
-    }
-    case "sequential_thinking_list": {
-      const sessions = SequentialThinkingEngine.listSessions(
-        join(cwd(), ".claude", "sequential-thinking"),
-      );
-      return text({ sessions, count: sessions.length });
-    }
-    case "sequential_thinking_reset": {
-      const sessionId = args?.sessionId as string | undefined;
-      const engine = getThinkingEngine(sessionId);
-      const result = engine.reset();
-      return text({
-        reset: true,
-        previousThoughts: result.previousThoughtCount,
-        message: "Reset complete. New sequential_thinking calls start fresh.",
-      });
-    }
-
-    default: {
-      // Try delegation router before throwing
-      const handler = router.getHandler(request.params.name);
-      if (handler) {
-        return handler(args, routerCtx());
-      }
-      throw new Error(`Unknown tool: ${request.params.name}`);
-    }
+    return {
+      isError: true,
+      content: [{ type: "text", text: errorString }],
+    };
   }
 });
 

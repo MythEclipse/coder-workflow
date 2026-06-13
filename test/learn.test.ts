@@ -9,6 +9,7 @@ import {
   applyCorrections,
   getFailures,
   getLearnReport,
+  incrementAppliedCount,
   logFailure,
   matchCorrection,
   resolveFailure,
@@ -20,12 +21,14 @@ function tempCwd(): string {
   const dir = mkdtempSync(join(tmpdir(), "learn-test-"));
   const orig = process.cwd();
   process.chdir(dir);
+  process.env.TEST_GLOBAL_CORRECTIONS_PATH = join(dir, "global-corrections.json");
   return orig;
 }
 
 function restoreCwd(orig: string, tmp: string): void {
   process.chdir(orig);
   rmSync(tmp, { recursive: true, force: true });
+  delete process.env.TEST_GLOBAL_CORRECTIONS_PATH;
 }
 
 // ─── Failure Logging ──────────────────────────────────────────────────────────
@@ -287,17 +290,23 @@ test("matchCorrection returns undefined with empty corrections list", () => {
   }
 });
 
-test("matchCorrection increments appliedCount on match", () => {
+test("matchCorrection increments appliedCount via incrementAppliedCount", () => {
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
-    addCorrection("timeout_error", "timeout", "Increase timeout");
+    const entry = addCorrection("timeout_error", "timeout", "Increase timeout");
 
+    // matchCorrection is now a pure lookup — no side-effect on appliedCount.
+    // Call incrementAppliedCount() explicitly to record usage.
     matchCorrection("timeout happened");
+    incrementAppliedCount(entry.id);
     matchCorrection("timeout again");
+    incrementAppliedCount(entry.id);
+    matchCorrection("timeout yet again");
+    incrementAppliedCount(entry.id);
 
-    // Reload by matching again
-    const match = matchCorrection("timeout yet again");
+    // Reload to confirm persistence
+    const match = matchCorrection("timeout final");
     assert.equal(match!.appliedCount, 3);
   } finally {
     restoreCwd(origCwd, tmpDir);
@@ -349,6 +358,11 @@ test("analyzeFailures groups by error prefix and suggests fix for different erro
   const origCwd = tempCwd();
   const tmpDir = process.cwd();
   try {
+    // Log 4 failures (below the auto-dream threshold of 5) to prevent dreaming
+    // from running and marking them as dreamed before analyzeFailures() reads them.
+    // analyzeFailures uses getUnprocessedFailures() — failures with dreamedAt set
+    // will not appear.
+
     // Timeout errors — must have same first 80 chars after digit normalization
     await logFailure({
       type: "tool_failure",
@@ -377,16 +391,9 @@ test("analyzeFailures groups by error prefix and suggests fix for different erro
         "Error: file not found while trying to read the requested document from the remote server (path /tmp/test_2)",
     });
 
-    // Single unique error (should not produce a suggestion)
-    await logFailure({
-      type: "tool_failure",
-      tool: "Write",
-      error: "Error: permission denied accessing system resource without valid credentials",
-    });
-
     const result = analyzeFailures();
 
-    assert.equal(result.analyzed, 5);
+    assert.equal(result.analyzed, 4);
     assert.equal(result.suggestions.length, 2);
     assert.ok(result.suggestions.some((s) => s.fix.toLowerCase().includes("timeout")));
     assert.ok(result.suggestions.some((s) => s.fix.toLowerCase().includes("path")));

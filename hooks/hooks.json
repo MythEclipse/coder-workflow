@@ -278,8 +278,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '=== coder-workflow turn complete ===\n\nCRITICAL DIRECTIVE: Resolve the following \"Failure breakdown\":\n- 7 Python parser\n- 2 compress\n- 2 MCP\n- 1 skill-triggers\n\nDo not dismiss them as pre-existing or unrelated. If you find an error, you MUST fix it. Ignoring existing errors is strictly prohibited.'",
-            "timeout": 5
+            "command": "bash -c 'mkdir -p .claude 2>/dev/null || true; printf \"[%s] STOP\\n\" \"$(date -u +%T)\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null || true; if command -v coder-workflow >/dev/null 2>&1; then REPORT=$(coder-workflow learn-report 2>/dev/null); TOTAL=$(printf \"%s\" \"$REPORT\" | jq -r \".totalFailures // 0\" 2>/dev/null || echo 0); UNRES=$(printf \"%s\" \"$REPORT\" | jq -r \".unresolvedFailures // 0\" 2>/dev/null || echo 0); CORR=$(printf \"%s\" \"$REPORT\" | jq -r \".correctionsWritten // 0\" 2>/dev/null || echo 0); if [ \"$UNRES\" -gt 0 ]; then printf \"coder-workflow: %s unresolved failure(s) of %s total. Run: coder-workflow learn-analyze --apply\\n\" \"$UNRES\" \"$TOTAL\"; fi; fi; exit 0'",
+            "timeout": 8,
+            "async": true
           }
         ]
       }
@@ -296,6 +297,22 @@
           {
             "type": "command",
             "command": "bash -c 'INPUT=$(cat); ERR=$(jq -r \".reason // .error // \\\"rate_limit\\\"\" <<< \"$INPUT\" 2>/dev/null | head -c 200); command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --tool rate_limit --error \"$ERR\" 2>/dev/null || true; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "context_window_exceeded|context_length_exceeded",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Context window exceeded. Summarize previous memory, compress logs, and start a new session.'",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --error \"Context window exceeded\" --tool \"$1\" 2>/dev/null || true; exit 0' stop-logger",
             "timeout": 5,
             "async": true
           }
@@ -328,6 +345,17 @@
           {
             "type": "command",
             "command": "bash -c 'INPUT=$(cat); ERR=$(jq -r \".reason // .error // \\\"server_error\\\"\" <<< \"$INPUT\" 2>/dev/null | head -c 200); command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --tool server --error \"$ERR\" 2>/dev/null || true; exit 0'",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat 2>/dev/null || echo \"{}\"); REASON=$(jq -r \".reason // .error // \\\"unknown\\\"\" <<< \"$INPUT\" 2>/dev/null | head -c 200); echo \"Stop failure: $REASON. Check logs and retry or open a new session.\"; command -v coder-workflow >/dev/null 2>&1 && coder-workflow learn-log --type stop_failure --tool \"stop_unknown\" --error \"$REASON\" 2>/dev/null || true; exit 0'",
             "timeout": 5,
             "async": true
           }
@@ -484,7 +512,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // \\\"unknown\\\"\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; echo \"Task complete. Verify: over-engineered? No dummy code? See _shared/OVERPOWERED.md.\"; exit 0'",
+            "command": "bash -c 'INPUT=$(cat); TITLE=$(jq -r \".task.title // .title // \\\"unknown\\\"\" <<< \"$INPUT\" 2>/dev/null); OUTCOME=$(jq -r \".task.outcome // .outcome // \\\"success\\\"\" <<< \"$INPUT\" 2>/dev/null); mkdir -p .claude 2>/dev/null || true; printf \"[%s] TASK done: %s\\n\" \"$(date -u +%T)\" \"$TITLE\" >> .claude/session-$(date +%Y%m%d).log 2>/dev/null; echo \"Task complete. Verify: over-engineered? No dummy code? See _shared/OVERPOWERED.md.\"; exit 0'",
             "timeout": 5
           },
           {
@@ -500,6 +528,13 @@
             "timeout": 15,
             "async": true,
             "statusMessage": "Dreaming and curating memory..."
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat 2>/dev/null || echo \"{}\"); DESC=$(jq -r \".task.summary // .task.description // .task.title // .summary // .title // \\\"unknown\\\"\" <<< \"$INPUT\" 2>/dev/null); OUTCOME=$(jq -r \".status // .task.status // .task.outcome // .outcome // \\\"success\\\"\" <<< \"$INPUT\" 2>/dev/null); if [ -z \"$DESC\" ] || [ \"$DESC\" = \"unknown\" ]; then DESC=$(git log -1 --pretty=%B 2>/dev/null | head -n 1 || echo \"Auto-completed task\"); fi; command -v coder-workflow >/dev/null 2>&1 && coder-workflow experience record --task-type \"task\" --desc \"$DESC\" --outcome \"$OUTCOME\" 2>/dev/null || true; exit 0'",
+            "timeout": 8,
+            "async": true,
+            "statusMessage": "Recording task experience..."
           }
         ]
       }

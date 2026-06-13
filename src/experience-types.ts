@@ -108,6 +108,8 @@ export interface CorrectionEntry {
   source: "learn" | "manual";
   createdAt: string;
   appliedCount: number;
+  failureCount?: number;
+  lastAppliedAt?: string;
 }
 
 export interface LearnReport {
